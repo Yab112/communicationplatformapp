@@ -1,4 +1,4 @@
-    "use client"
+"use client"
 
 import { useState } from "react"
 import { formatDistanceToNow } from "date-fns"
@@ -81,10 +81,10 @@ export function CommentSection({ postId, comments: initialComments }: CommentSec
               <AvatarFallback>{comment.author.name.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex-1">
-              <div className="rounded-lg bg-muted p-3">
+              <div className="rounded-lg bg-[var(--color-muted)]/10 p-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium">{comment.author.name}</p>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-[var(--color-muted-fg)]">
                     {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
                   </p>
                 </div>
@@ -98,8 +98,8 @@ export function CommentSection({ postId, comments: initialComments }: CommentSec
                       whileHover={{ scale: 1.2 }}
                       className={`text-sm px-1.5 py-0.5 rounded-full ${
                         commentReactions[comment.id]?.includes(emoji)
-                          ? "bg-primary/10 text-primary"
-                          : "text-muted-foreground hover:bg-muted"
+                          ? "bg-[var(--color-primary)]/10 text-[var(--color-primary)]"
+                          : "text-[var(--color-muted-fg)] hover:bg-[var(--color-muted)]/10"
                       }`}
                       onClick={() => toggleReaction(comment.id, emoji)}
                     >
@@ -108,7 +108,7 @@ export function CommentSection({ postId, comments: initialComments }: CommentSec
                   ))}
                 </div>
                 {commentReactions[comment.id]?.length > 0 && (
-                  <span className="text-xs text-muted-foreground">{commentReactions[comment.id].length}</span>
+                  <span className="text-xs text-[var(--color-muted-fg)]">{commentReactions[comment.id].length}</span>
                 )}
               </div>
             </div>

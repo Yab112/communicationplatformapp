@@ -6,10 +6,9 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Download, Eye } from "lucide-react"
-import { motion } from "framer-motion"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import type { Resource } from "@/types/resource"
 import { getFileIcon } from "@/lib/file-utils"
-import { Resource } from "@/types/resource"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface ResourceCardProps {
   resource: Resource
@@ -19,45 +18,39 @@ export function ResourceCard({ resource }: ResourceCardProps) {
   const [showPreview, setShowPreview] = useState(false)
   const FileIcon = getFileIcon(resource.fileType)
 
-  const item = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0 },
-  }
-
   const handleDownload = () => {
-    // In a real app, this would trigger a download
-    alert(`Downloading ${resource.title}`)
+    // Handle download here
   }
 
   return (
     <>
-      <motion.div variants={item}>
-        <Card className="h-full flex flex-col overflow-hidden hover:shadow-md transition-shadow">
-          <CardHeader className="p-4 pb-0 flex-row gap-2 items-start">
-            <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center text-primary">
-              <FileIcon className="h-5 w-5" />
+      <div className="transition-all duration-200 hover:scale-[1.01] hover:shadow-md">
+        <Card className="h-full flex flex-col overflow-hidden border border-muted rounded-xl bg-white dark:bg-zinc-900 transition-colors duration-200 hover:bg-muted/50">
+          <CardHeader className="p-4 pb-0 flex-row gap-3 items-start">
+            <div className="h-10 w-10 rounded-lg  flex items-center justify-center text-primary">
+              <FileIcon className="h-8 w-8" />
             </div>
             <div className="flex-1 space-y-1">
-              <div className="flex items-start justify-between">
-                <h3 className="font-medium leading-none line-clamp-1">{resource.title}</h3>
-              </div>
-              <p className="text-sm text-muted-foreground">{resource.subject}</p>
+              <h3 className="font-semibold text-base leading-snug line-clamp-1">{resource.title}</h3>
+              <p className="text-xs text-muted-foreground">{resource.subject}</p>
             </div>
           </CardHeader>
+
           <CardContent className="p-4 pt-2 flex-1">
-            <p className="text-sm line-clamp-2 mb-3">{resource.description}</p>
-            <div className="flex flex-wrap gap-1 mt-2">
+            <p className="text-sm text-muted-foreground line-clamp-2">{resource.description}</p>
+            <div className="flex flex-wrap gap-1 mt-3">
               {resource.tags.map((tag) => (
-                <Badge key={tag} variant="secondary" className="text-xs">
+                <Badge key={tag} variant="outline" className="text-xs">
                   {tag}
                 </Badge>
               ))}
             </div>
           </CardContent>
+
           <CardFooter className="p-4 pt-0 flex justify-between items-center">
-            <p className="text-xs text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {formatDistanceToNow(new Date(resource.uploadDate), { addSuffix: true })}
-            </p>
+            </span>
             <div className="flex gap-2">
               <Button variant="ghost" size="sm" onClick={() => setShowPreview(true)}>
                 <Eye className="h-4 w-4 mr-1" />
@@ -70,7 +63,7 @@ export function ResourceCard({ resource }: ResourceCardProps) {
             </div>
           </CardFooter>
         </Card>
-      </motion.div>
+      </div>
 
       <Dialog open={showPreview} onOpenChange={setShowPreview}>
         <DialogContent className="max-w-4xl">

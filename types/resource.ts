@@ -14,5 +14,6 @@ export interface ResourceUploader {
     uploadDate: string
     tags: string[]
     uploadedBy: ResourceUploader
+    // fileUrl: string
   }
   

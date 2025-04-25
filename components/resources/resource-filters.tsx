@@ -1,81 +1,64 @@
-"use client";
+"use client"
 
-import type React from "react";
+import type React from "react"
 
-import { useState } from "react";
-import { Search, X, Filter, CalendarIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { subjects, years, fileTypes } from "@/data/mock/resources";
-import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { useState } from "react"
+import { Search, X, Filter, CalendarIcon } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Calendar } from "@/components/ui/calendar"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+import { subjects, years, fileTypes } from "@/data/mock/resources"
+import { cn } from "@/lib/utils"
+import { format } from "date-fns"
 
 interface ResourceFiltersProps {
   filters: {
-    search: string;
-    subject: string;
-    year: string;
-    fileType: string;
+    search: string
+    subject: string
+    year: string
+    fileType: string
     dateRange: {
-      from: Date | undefined;
-      to: Date | undefined;
-    };
-  };
-  onFilterChange: (filters: ResourceFiltersProps["filters"]) => void;
-  onClearFilters: () => void;
+      from: Date | undefined
+      to: Date | undefined
+    }
+  }
+  onFilterChange: (filters: ResourceFiltersProps["filters"]) => void
+  onClearFilters: () => void
 }
 
-export function ResourceFilters({
-  filters,
-  onFilterChange,
-  onClearFilters,
-}: ResourceFiltersProps) {
-  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+export function ResourceFilters({ filters, onFilterChange, onClearFilters }: ResourceFiltersProps) {
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false)
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onFilterChange({ ...filters, search: e.target.value });
-  };
+    onFilterChange({ ...filters, search: e.target.value })
+  }
 
   const handleSubjectChange = (subject: string) => {
-    onFilterChange({
-      ...filters,
-      subject: filters.subject === subject ? "" : subject,
-    });
-  };
+    onFilterChange({ ...filters, subject: filters.subject === subject ? "" : subject })
+  }
 
   const handleYearChange = (year: string) => {
-    onFilterChange({ ...filters, year: filters.year === year ? "" : year });
-  };
+    onFilterChange({ ...filters, year: filters.year === year ? "" : year })
+  }
 
   const handleFileTypeChange = (fileType: string) => {
-    onFilterChange({
-      ...filters,
-      fileType: filters.fileType === fileType ? "" : fileType,
-    });
-  };
+    onFilterChange({ ...filters, fileType: filters.fileType === fileType ? "" : fileType })
+  }
 
-  const handleDateRangeChange = (range: {
-    from: Date | undefined;
-    to: Date | undefined;
-  }) => {
-    onFilterChange({ ...filters, dateRange: range });
-  };
+  const handleDateRangeChange = (range: { from: Date | undefined; to: Date | undefined }) => {
+    onFilterChange({ ...filters, dateRange: range })
+  }
 
   // Count active filters (excluding search)
   const activeFilterCount =
     (filters.subject ? 1 : 0) +
     (filters.year ? 1 : 0) +
     (filters.fileType ? 1 : 0) +
-    (filters.dateRange.from || filters.dateRange.to ? 1 : 0);
+    (filters.dateRange.from || filters.dateRange.to ? 1 : 0)
 
   return (
     <div className="space-y-4">
@@ -107,10 +90,7 @@ export function ResourceFilters({
               <Filter className="h-4 w-4" />
               Filters
               {activeFilterCount > 0 && (
-                <Badge
-                  variant="secondary"
-                  className="ml-1 rounded-full px-1 py-0 text-xs"
-                >
+                <Badge variant="outline" className="ml-1 rounded-full px-1 py-0 text-xs bg-blue-500/90 border-none text-white">
                   {activeFilterCount}
                 </Badge>
               )}
@@ -124,9 +104,7 @@ export function ResourceFilters({
                   {subjects.map((subject) => (
                     <Badge
                       key={subject}
-                      variant={
-                        filters.subject === subject ? "default" : "outline"
-                      }
+                      variant={filters.subject === subject ? "default" : "outline"}
                       className="cursor-pointer"
                       onClick={() => handleSubjectChange(subject)}
                     >
@@ -158,9 +136,7 @@ export function ResourceFilters({
                   {fileTypes.map((fileType) => (
                     <Badge
                       key={fileType}
-                      variant={
-                        filters.fileType === fileType ? "default" : "outline"
-                      }
+                      variant={filters.fileType === fileType ? "default" : "outline"}
                       className="cursor-pointer uppercase"
                       onClick={() => handleFileTypeChange(fileType)}
                     >
@@ -186,27 +162,18 @@ export function ResourceFilters({
                             size="sm"
                             className={cn(
                               "justify-start text-left font-normal",
-                              !filters.dateRange.from && "text-muted-foreground"
+                              !filters.dateRange.from && "text-muted-foreground",
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {filters.dateRange.from ? (
-                              format(filters.dateRange.from, "PPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
+                            {filters.dateRange.from ? format(filters.dateRange.from, "PPP") : <span>Pick a date</span>}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
                           <Calendar
                             mode="single"
                             selected={filters.dateRange.from}
-                            onSelect={(date: Date | undefined) =>
-                              handleDateRangeChange({
-                                ...filters.dateRange,
-                                from: date,
-                              })
-                            }
+                            onSelect={(date) => handleDateRangeChange({ ...filters.dateRange, from: date })}
                             initialFocus
                           />
                         </PopoverContent>
@@ -224,27 +191,18 @@ export function ResourceFilters({
                             size="sm"
                             className={cn(
                               "justify-start text-left font-normal",
-                              !filters.dateRange.to && "text-muted-foreground"
+                              !filters.dateRange.to && "text-muted-foreground",
                             )}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {filters.dateRange.to ? (
-                              format(filters.dateRange.to, "PPP")
-                            ) : (
-                              <span>Pick a date</span>
-                            )}
+                            {filters.dateRange.to ? format(filters.dateRange.to, "PPP") : <span>Pick a date</span>}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
                           <Calendar
                             mode="single"
                             selected={filters.dateRange.to}
-                            onSelect={(date:Date | undefined) =>
-                              handleDateRangeChange({
-                                ...filters.dateRange,
-                                to: date,
-                              })
-                            }
+                            onSelect={(date) => handleDateRangeChange({ ...filters.dateRange, to: date })}
                             initialFocus
                           />
                         </PopoverContent>
@@ -256,12 +214,7 @@ export function ResourceFilters({
                       variant="ghost"
                       size="sm"
                       className="mt-1"
-                      onClick={() =>
-                        handleDateRangeChange({
-                          from: undefined,
-                          to: undefined,
-                        })
-                      }
+                      onClick={() => handleDateRangeChange({ from: undefined, to: undefined })}
                     >
                       Clear dates
                     </Button>
@@ -286,7 +239,7 @@ export function ResourceFilters({
         <div className="flex flex-wrap gap-2 items-center">
           <span className="text-sm text-muted-foreground">Active filters:</span>
           {filters.subject && (
-            <Badge variant="secondary" className="flex items-center gap-1">
+            <Badge variant="outline" className="flex items-center gap-1 bg-blue-600 border-blue-600 text-white">
               Subject: {filters.subject}
               <Button
                 variant="ghost"
@@ -300,7 +253,7 @@ export function ResourceFilters({
             </Badge>
           )}
           {filters.year && (
-            <Badge variant="secondary" className="flex items-center gap-1">
+            <Badge variant="secondary" className="flex items-center gap-1 bg-blue-600 border-blue-600 text-white">
               Year: {filters.year}
               <Button
                 variant="ghost"
@@ -314,10 +267,7 @@ export function ResourceFilters({
             </Badge>
           )}
           {filters.fileType && (
-            <Badge
-              variant="secondary"
-              className="flex items-center gap-1 uppercase"
-            >
+            <Badge variant="secondary" className="flex items-center gap-1 uppercase bg-blue-600 border-blue-600 text-white">
               Type: {filters.fileType}
               <Button
                 variant="ghost"
@@ -331,36 +281,26 @@ export function ResourceFilters({
             </Badge>
           )}
           {(filters.dateRange.from || filters.dateRange.to) && (
-            <Badge variant="secondary" className="flex items-center gap-1">
-              Date:{" "}
-              {filters.dateRange.from &&
-                format(filters.dateRange.from, "MMM d, yyyy")}
+            <Badge variant="secondary" className="flex items-center gap-1 bg-blue-600 border-blue-600 text-white">
+              Date: {filters.dateRange.from && format(filters.dateRange.from, "MMM d, yyyy")}
               {filters.dateRange.from && filters.dateRange.to && " - "}
-              {filters.dateRange.to &&
-                format(filters.dateRange.to, "MMM d, yyyy")}
+              {filters.dateRange.to && format(filters.dateRange.to, "MMM d, yyyy")}
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-4 w-4 p-0 ml-1"
-                onClick={() =>
-                  handleDateRangeChange({ from: undefined, to: undefined })
-                }
+                onClick={() => handleDateRangeChange({ from: undefined, to: undefined })}
               >
                 <X className="h-3 w-3" />
                 <span className="sr-only">Remove date filter</span>
               </Button>
             </Badge>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs"
-            onClick={onClearFilters}
-          >
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={onClearFilters}>
             Clear all
           </Button>
         </div>
       )}
     </div>
-  );
+  )
 }

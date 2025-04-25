@@ -1,57 +1,35 @@
-"use client";
+"use client"
 
-import type React from "react";
+import type React from "react"
 
-import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { UploadIcon as FileUpload, X, Upload } from "lucide-react";
-import type { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
-import { subjects, years, fileTypes } from "@/data/mock/resources";
-import { resourceSchema } from "@/lib/validator/resource";
-import { Resource } from "@/types/resource";
+import { useState } from "react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { UploadIcon as FileUpload, X, Upload } from "lucide-react"
+import type { z } from "zod"
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import type { Resource } from "@/types/resource"
+import { subjects, years, fileTypes } from "@/data/mock/resources"
+import { resourceSchema } from "@/lib/validator/resource"
 
-type ResourceFormValues = z.infer<typeof resourceSchema>;
+type ResourceFormValues = z.infer<typeof resourceSchema>
 
 interface CreateResourceModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (resource: Resource) => void;
+  isOpen: boolean
+  onClose: () => void
+  onSubmit: (resource: Resource) => void
 }
 
-export function CreateResourceModal({
-  isOpen,
-  onClose,
-  onSubmit,
-}: CreateResourceModalProps) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourceModalProps) {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
 
   const form = useForm<ResourceFormValues>({
     resolver: zodResolver(resourceSchema),
@@ -61,15 +39,15 @@ export function CreateResourceModal({
       description: "",
       fileType: "",
     },
-  });
+  })
 
   const handleSubmit = (values: ResourceFormValues) => {
     if (!selectedFile) {
       form.setError("fileUpload", {
         type: "manual",
         message: "Please upload a file",
-      });
-      return;
+      })
+      return
     }
 
     // In a real app, you would upload the file to a server here
@@ -87,32 +65,30 @@ export function CreateResourceModal({
         name: "Dr. Alan Turing",
         avatar: "/placeholder.svg?height=40&width=40",
       },
-    };
+    }
 
-    onSubmit(newResource);
-    form.reset();
-    setSelectedFile(null);
-    setSelectedTags([]);
-  };
+    onSubmit(newResource)
+    form.reset()
+    setSelectedFile(null)
+    setSelectedTags([])
+  }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const file = e.target.files?.[0]
     if (file) {
-      setSelectedFile(file);
+      setSelectedFile(file)
 
       // Auto-detect file type
-      const extension = file.name.split(".").pop()?.toLowerCase() || "";
+      const extension = file.name.split(".").pop()?.toLowerCase() || ""
       if (extension && fileTypes.includes(extension)) {
-        form.setValue("fileType", extension);
+        form.setValue("fileType", extension)
       }
     }
-  };
+  }
 
   const toggleTag = (tag: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
-    );
-  };
+    setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -122,10 +98,7 @@ export function CreateResourceModal({
         </DialogHeader>
 
         <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(handleSubmit)}
-            className="space-y-4"
-          >
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="title"
@@ -146,10 +119,7 @@ export function CreateResourceModal({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Subject</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select subject" />
@@ -175,11 +145,7 @@ export function CreateResourceModal({
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea
-                      placeholder="Describe the resource..."
-                      className="min-h-[100px] resize-none"
-                      {...field}
-                    />
+                    <Textarea placeholder="Describe the resource..." className="min-h-[100px] resize-none" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -192,9 +158,7 @@ export function CreateResourceModal({
                 {years.map((year) => (
                   <Badge
                     key={year}
-                    variant={
-                      selectedTags.includes(year) ? "default" : "outline"
-                    }
+                    variant={selectedTags.includes(year) ? "default" : "outline"}
                     className="cursor-pointer"
                     onClick={() => toggleTag(year)}
                   >
@@ -202,27 +166,21 @@ export function CreateResourceModal({
                   </Badge>
                 ))}
                 <Badge
-                  variant={
-                    selectedTags.includes("Exam") ? "default" : "outline"
-                  }
+                  variant={selectedTags.includes("Exam") ? "default" : "outline"}
                   className="cursor-pointer"
                   onClick={() => toggleTag("Exam")}
                 >
                   Exam
                 </Badge>
                 <Badge
-                  variant={
-                    selectedTags.includes("Assignment") ? "default" : "outline"
-                  }
+                  variant={selectedTags.includes("Assignment") ? "default" : "outline"}
                   className="cursor-pointer"
                   onClick={() => toggleTag("Assignment")}
                 >
                   Assignment
                 </Badge>
                 <Badge
-                  variant={
-                    selectedTags.includes("Lecture") ? "default" : "outline"
-                  }
+                  variant={selectedTags.includes("Lecture") ? "default" : "outline"}
                   className="cursor-pointer"
                   onClick={() => toggleTag("Lecture")}
                 >
@@ -245,9 +203,7 @@ export function CreateResourceModal({
                   <div className="flex flex-col items-center">
                     <FileUpload className="h-10 w-10 text-primary mb-2" />
                     <p className="text-sm font-medium">{selectedFile.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {Math.round(selectedFile.size / 1024)} KB
-                    </p>
+                    <p className="text-xs text-muted-foreground">{Math.round(selectedFile.size / 1024)} KB</p>
                     <Button
                       type="button"
                       variant="ghost"
@@ -260,17 +216,10 @@ export function CreateResourceModal({
                     </Button>
                   </div>
                 ) : (
-                  <label
-                    htmlFor="file-upload"
-                    className="flex flex-col items-center cursor-pointer"
-                  >
+                  <label htmlFor="file-upload" className="flex flex-col items-center cursor-pointer">
                     <Upload className="h-10 w-10 text-muted-foreground mb-2" />
-                    <p className="text-sm font-medium">
-                      Click to upload or drag and drop
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      PDF, DOCX, PPTX, XLSX, ZIP (max 10MB)
-                    </p>
+                    <p className="text-sm font-medium">Click to upload or drag and drop</p>
+                    <p className="text-xs text-muted-foreground">PDF, DOCX, PPTX, XLSX, ZIP (max 10MB)</p>
                     <Input
                       id="file-upload"
                       type="file"
@@ -283,9 +232,7 @@ export function CreateResourceModal({
               </div>
               {form.formState.errors.fileUpload && (
                 <p className="text-sm font-medium text-destructive">
-                  {typeof form.formState.errors.fileUpload?.message === "string"
-                    ? form.formState.errors.fileUpload.message
-                    : ""}
+                  {typeof form.formState.errors.fileUpload?.message === "string" ? form.formState.errors.fileUpload.message : ""}
                 </p>
               )}
             </div>
@@ -325,5 +272,5 @@ export function CreateResourceModal({
         </Form>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

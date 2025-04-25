@@ -30,8 +30,8 @@ export function ResourceRow({ resource }: ResourceRowProps) {
 
   return (
     <>
-      <motion.div variants={item}>
-        <div className="flex items-center p-3 rounded-lg border hover:bg-muted/50 transition-colors">
+      <motion.div  variants={item}>
+        <div className="flex items-center p-3 rounded-lg  hover:bg-blue-300/50 transition-colors border-b border-muted/50">
           <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center text-primary mr-4">
             <FileIcon className="h-5 w-5" />
           </div>
@@ -40,7 +40,7 @@ export function ResourceRow({ resource }: ResourceRowProps) {
               <h3 className="font-medium truncate">{resource.title}</h3>
               <div className="flex flex-wrap gap-1">
                 {resource.tags.slice(0, 3).map((tag) => (
-                  <Badge key={tag} variant="secondary" className="text-xs">
+                  <Badge key={tag} variant="outline" className="text-xs">
                     {tag}
                   </Badge>
                 ))}
