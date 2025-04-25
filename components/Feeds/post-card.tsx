@@ -2,8 +2,8 @@
 
 import { useState } from "react"
 import { formatDistanceToNow } from "date-fns"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { AvatarFallback, AvatarImage, Avatar } from "@/components/ui/avatar"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
@@ -11,7 +11,7 @@ import { MessageSquare, MoreHorizontal } from "lucide-react"
 import type { Post } from "@/types/post"
 import { motion } from "framer-motion"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { CommentSection } from "./comment-section"
+import { CommentSection } from "@/components/Feeds/comment-section"
 
 interface PostCardProps {
   post: Post
@@ -68,7 +68,7 @@ export function PostCard({ post }: PostCardProps) {
   ]
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden bg-[var(--color-card)] shadow-sm border border-[var(--color-border)]">
       <CardHeader className="flex flex-row items-start gap-4 space-y-0 p-4">
         <Avatar className="h-10 w-10">
           <AvatarImage src={post.author.avatar || "/placeholder.svg?height=40&width=40"} alt={post.author.name} />
@@ -78,7 +78,7 @@ export function PostCard({ post }: PostCardProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium leading-none">{post.author.name}</p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-[var(--color-muted-fg)]">
                 {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
               </p>
             </div>
@@ -110,8 +110,8 @@ export function PostCard({ post }: PostCardProps) {
               className="absolute inset-0 flex items-end cursor-pointer group"
               onClick={() => setShowFullContent(true)}
             >
-              <div className="w-full h-8 bg-gradient-to-t from-card to-transparent"></div>
-              <span className="absolute bottom-0 right-0 text-sm font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="w-full h-8 bg-gradient-to-t from-[var(--color-card)] to-transparent"></div>
+              <span className="absolute bottom-0 right-0 text-sm font-medium text-[var(--color-primary)] opacity-0 group-hover:opacity-100 transition-opacity">
                 Read more
               </span>
             </div>
@@ -136,19 +136,19 @@ export function PostCard({ post }: PostCardProps) {
                   count > 0 && (
                     <div
                       key={emoji}
-                      className="flex items-center justify-center h-5 w-5 rounded-full bg-primary/10 text-xs"
+                      className="flex items-center justify-center h-5 w-5 rounded-full bg-[var(--color-primary)]/10 text-xs"
                     >
                       {emoji}
                     </div>
                   ),
               )}
             </div>
-            <span className="text-sm text-muted-foreground ml-1">{totalReactions}</span>
+            <span className="text-sm text-[var(--color-muted-fg)] ml-1">{totalReactions}</span>
           </div>
           <Button
             variant="ghost"
             size="sm"
-            className="text-sm text-muted-foreground"
+            className="text-sm text-[var(--color-muted-fg)]"
             onClick={() => setShowComments(!showComments)}
           >
             {post.comments.length} comments
@@ -174,7 +174,7 @@ export function PostCard({ post }: PostCardProps) {
                     >
                       {reaction.emoji}
                       {reactions[reaction.emoji as keyof typeof reactions] > 0 && (
-                        <span className="absolute -bottom-2 -right-1 text-xs font-medium bg-primary text-primary-foreground rounded-full px-1 min-w-5 text-center">
+                        <span className="absolute -bottom-2 -right-1 text-xs font-medium bg-[var(--color-primary)] text-white rounded-full px-1 min-w-5 text-center">
                           {reactions[reaction.emoji as keyof typeof reactions]}
                         </span>
                       )}

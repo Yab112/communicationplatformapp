@@ -1,12 +1,17 @@
-"use client";
-
-import { SidebarProvider } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
-import { TopBar } from "@/components/Feeds/top-bar"; // Import the TopBar component
+import type React from "react";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { ThemeProvider } from "next-themes";
+import { Metadata } from "next";
+import { AppLayout } from "@/components/layouts/app-layout";
+import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"] });
+
+export const metadata: Metadata = {
+  title: "University Communication Platform",
+  description: "A modern platform for university communication",
+};
 
 export default function RootLayout({
   children,
@@ -15,22 +20,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <SidebarProvider>
-          <div className="flex h-screen">
-            {/* Sidebar */}
-            <AppSidebar />
-
-            {/* Main Content */}
-            <div className="flex-1 flex flex-col">
-              {/* Header */}
-              <TopBar />
-
-              {/* Page Content */}
-              <main className="flex-1 p-4">{children}</main>
-            </div>
-          </div>
-        </SidebarProvider>
+      <body className={inter.className} suppressHydrationWarning>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="light"
+          enableSystem
+          disableTransitionOnChange
+        >
+          <AppLayout>{children}</AppLayout>
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

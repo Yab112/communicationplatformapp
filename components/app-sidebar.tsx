@@ -1,7 +1,6 @@
 "use client"
 
-
-import { navigationItems } from "@/app/constants"
+import { BookOpen, Home, MessageSquare, Settings, User } from "lucide-react"
 import {
   Sidebar,
   SidebarContent,
@@ -13,33 +12,50 @@ import {
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
-
+const navigationItems = [
+  {
+    name: "Feed",
+    href: "/feeds",
+    icon: Home,
+  },
+  {
+    name: "Resources",
+    href: "/resources",
+    icon: BookOpen,
+  },
+  {
+    name: "Chat",
+    href: "/chat",
+    icon: MessageSquare,
+  },
+  {
+    name: "Profile",
+    href: "/profile",
+    icon: User,
+  },
+  {
+    name: "Settings",
+    href: "/settings",
+    icon: Settings,
+  },
+]
 
 export function AppSidebar() {
   const pathname = usePathname()
 
   return (
-    <Sidebar className="w-80"> 
+    <Sidebar>
       <SidebarContent>
-        <div className="flex h-16 items-center px-6 font-semibold"> {/* Increased height */}
-          <span className="text-2xl text-primary">UniConnect</span> {/* Increased font size */}
+        <div className="flex h-14 items-center px-4 font-semibold">
+          <span className="text-xl text-primary">UniConnect</span>
         </div>
         <SidebarMenu>
           {navigationItems.map((item) => (
             <SidebarMenuItem key={item.name}>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname === item.href}
-                tooltip={item.name}
-                className={`flex items-center gap-3 px-4 py-3 rounded-md ${
-                  pathname === item.href
-                    ? "bg-primary text-white" 
-                    : "hover:bg-gray-100 text-gray-700" 
-                }`}
-              >
-                <Link href={item.href} className="flex items-center gap-3">
-                  <item.icon className="h-6 w-6" /> {/* Increased icon size */}
-                  <span className="text-sm">{item.name}</span> {/* Increased text size */}
+              <SidebarMenuButton asChild isActive={pathname === item.href} tooltip={item.name}>
+                <Link href={item.href}>
+                  <item.icon className="h-5 w-5" />
+                  <span>{item.name}</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

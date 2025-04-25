@@ -140,7 +140,7 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="absolute right-2 top-2 h-6 w-6 rounded-full bg-background"
+                  className="absolute right-2 top-2 h-6 w-6 rounded-full bg-[var(--color-bg)]"
                   onClick={() => setImagePreview(null)}
                 >
                   <X className="h-4 w-4" />
