@@ -5,6 +5,8 @@ export interface ResourceUploader {
   }
   
   export interface Resource {
+    dueDate: Date | null
+    type: string
     id: string
     title: string
     subject: string

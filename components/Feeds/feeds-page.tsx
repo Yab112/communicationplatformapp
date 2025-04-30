@@ -40,11 +40,9 @@ export function FeedsPage() {
   const isAdmin = true
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full ">
       {/* Main content area with proper spacing */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Left spacer for balance on larger screens */}
-        <div className="hidden lg:block w-0 xl:w-24 2xl:w-48" />
 
         {/* Center feed section */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6">

@@ -41,7 +41,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <Header />
 
         {/* Page Content */}
-        <main className="flex-1 overflow-auto">{children}</main>
+        <main className="overflow-auto ">{children}</main>
       </div>
     </div>
   )

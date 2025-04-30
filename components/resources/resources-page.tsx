@@ -126,8 +126,6 @@ export function ResourcesPage() {
   return (
     <div className="flex flex-col h-screen">
       <div className="flex flex-1 overflow-hidden">
-        {/* Left spacer for balance on larger screens */}
-        <div className="hidden lg:block w-0 xl:w-24 2xl:w-48 flex-shrink-0" />
 
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="mx-auto max-w-6xl w-full">

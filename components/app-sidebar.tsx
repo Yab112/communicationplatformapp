@@ -45,7 +45,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarContent>
+      <SidebarContent >
         <div className="flex h-14 items-center px-4 font-semibold">
           <span className="text-xl text-primary">UniConnect</span>
         </div>
