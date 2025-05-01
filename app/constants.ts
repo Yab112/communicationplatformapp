@@ -1,5 +1,5 @@
-import { BookOpen, Home, MessageSquare, Settings, User } from "lucide-react"
-export const navigationItems = [
+import { BookOpen, Home, MessageSquare, Settings } from "lucide-react"
+const navigationItems = [
     {
       name: "Feed",
       href: "/feeds",
@@ -16,13 +16,39 @@ export const navigationItems = [
       icon: MessageSquare,
     },
     {
-      name: "Profile",
-      href: "/profile",
-      icon: User,
-    },
-    {
       name: "Settings",
       href: "/settings",
       icon: Settings,
     },
   ]
+
+
+
+const departments = [
+  "Computer Science",
+  "Information Technology",
+  "Software Engineering",
+  "Business",
+  "Arts",
+  "Mathematics",
+  "Physics",
+  "Chemistry",
+  "Biology",
+  "History",
+  "Literature",
+]
+
+const years = ["1st Year", "2nd Year", "3rd Year", "4th Year"]
+
+const statuses = ["online", "offline", "busy", "away"]
+const roles = ["Student", "Teacher", "Admin"]
+const avatars = [
+  "/placeholder.svg?height=96&width=96",
+  "/placeholder.svg?height=96&width=96",
+  "/placeholder.svg?height=96&width=96",
+  "/placeholder.svg?height=96&width=96",
+]
+
+
+
+export { departments, years, statuses, roles, avatars ,navigationItems}

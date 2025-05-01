@@ -29,7 +29,7 @@ export default function SettingsPage() {
   return (
     <div className="flex h-full">
       <SettingsSidebar activeTab={activeTab} onTabChange={setActiveTab} />
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto p-8 m-4">
         <AnimatePresence mode="wait">
           <motion.div
             key={activeTab}

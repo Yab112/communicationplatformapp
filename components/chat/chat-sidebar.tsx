@@ -102,7 +102,7 @@ export function ChatSidebar({ rooms, activeRoomId, onRoomChange, onClose }: Chat
       </div>
 
       <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-4 px-4">
+        <TabsList className="grid grid-cols-4 px-4 bg-transparent border-b">
           <TabsTrigger value="all" className="relative">
             All
             {totalUnreadCount > 0 && (

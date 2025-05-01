@@ -34,7 +34,7 @@ export function Header() {
   // Current user profile data
   const currentUserProfile: ProfileType = {
     id: "current-user",
-    name: "John Doe",
+    name: "Yabibal Yabib",
     avatar: "/placeholder.svg?height=96&width=96",
     role: "Student",
     department: "Computer Science",

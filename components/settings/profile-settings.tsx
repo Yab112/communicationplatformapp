@@ -14,30 +14,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Upload, X } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { profileFormSchema } from "@/lib/validator/profile"
+import { departments, years } from "@/app/constants"
 
-const profileFormSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  department: z.string().min(1, "Please select a department"),
-  year: z.string().optional(),
-  bio: z.string().max(500, "Bio must be less than 500 characters").optional(),
-})
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>
-
-const departments = [
-  "Computer Science",
-  "Engineering",
-  "Business",
-  "Arts",
-  "Mathematics",
-  "Physics",
-  "Chemistry",
-  "Biology",
-  "History",
-  "Literature",
-]
-
-const years = ["1st Year", "2nd Year", "3rd Year", "4th Year"]
 
 export function ProfileSettings() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
@@ -46,7 +27,7 @@ export function ProfileSettings() {
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      name: "John Doe",
+      name: "Yabibal Eshetie",
       department: "Computer Science",
       year: "2nd Year",
       bio: "Computer Science student interested in AI and machine learning.",
@@ -77,7 +58,7 @@ export function ProfileSettings() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-6 no-scrollbar space-y-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">Profile Settings</h1>
         <p className="text-muted-foreground">Update your personal information and profile picture.</p>

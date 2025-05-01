@@ -1,6 +1,6 @@
 "use client"
 
-import { BookOpen, Home, MessageSquare, Settings, User } from "lucide-react"
+
 import {
   Sidebar,
   SidebarContent,
@@ -11,34 +11,9 @@ import {
 } from "@/components/ui/sidebar"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { navigationItems } from "@/app/constants"
 
-const navigationItems = [
-  {
-    name: "Feed",
-    href: "/feeds",
-    icon: Home,
-  },
-  {
-    name: "Resources",
-    href: "/resources",
-    icon: BookOpen,
-  },
-  {
-    name: "Chat",
-    href: "/chat",
-    icon: MessageSquare,
-  },
-  {
-    name: "Profile",
-    href: "/profile",
-    icon: User,
-  },
-  {
-    name: "Settings",
-    href: "/settings",
-    icon: Settings,
-  },
-]
+
 
 export function AppSidebar() {
   const pathname = usePathname()
@@ -47,7 +22,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarContent >
         <div className="flex h-14 items-center px-4 font-semibold">
-          <span className="text-xl text-primary">UniConnect</span>
+          <span className="text-xl text-primary">AAU</span>
         </div>
         <SidebarMenu>
           {navigationItems.map((item) => (

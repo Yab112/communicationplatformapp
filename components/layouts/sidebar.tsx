@@ -4,20 +4,16 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
-import { Home, BookOpen, MessageSquare, Settings, Menu, X } from "lucide-react"
+import { Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { navigationItems } from "@/app/constants"
 
 interface SidebarProps {
   isMobile: boolean
 }
 
-const navigationItems = [
-  { name: "Feed", href: "/feeds", icon: Home },
-  { name: "Resources", href: "/resources", icon: BookOpen },
-  { name: "Chat", href: "/chat", icon: MessageSquare },
-  { name: "Settings", href: "/settings", icon: Settings },
-]
+
 
 export function Sidebar({ isMobile }: SidebarProps) {
   const pathname = usePathname()

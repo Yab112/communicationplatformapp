@@ -4,20 +4,17 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { Button } from "@/components/ui/button"
-import { Form } from "@/components/ui/form"
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
 import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Switch } from "@/components/ui/switch"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Separator } from "@/components/ui/separator"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const privacyFormSchema = z.object({
-  profileVisibility: z.enum(["public", "students", "none"]),
-  allowDirectMessages: z.enum(["everyone", "connections", "none"]),
-  showOnlineStatus: z.boolean(),
-  showReadReceipts: z.boolean(),
-  allowTagging: z.boolean(),
+  profileVisibility: z.enum(["public", "private", "connections-only"]),
+  dataCollection: z.boolean(),
+  personalizedAds: z.boolean(),
+  searchVisibility: z.boolean(),
 })
 
 type PrivacyFormValues = z.infer<typeof privacyFormSchema>
@@ -28,11 +25,10 @@ export function PrivacySettings() {
   const form = useForm<PrivacyFormValues>({
     resolver: zodResolver(privacyFormSchema),
     defaultValues: {
-      profileVisibility: "public",
-      allowDirectMessages: "everyone",
-      showOnlineStatus: true,
-      showReadReceipts: true,
-      allowTagging: true,
+      profileVisibility: "connections-only",
+      dataCollection: true,
+      personalizedAds: false,
+      searchVisibility: true,
     },
   })
 
@@ -40,7 +36,7 @@ export function PrivacySettings() {
   const onSubmit = (data: PrivacyFormValues) => {
     toast({
       title: "Privacy settings updated",
-      description: "Your privacy preferences have been saved.",
+      description: "Your privacy preferences have been saved successfully.",
     })
   }
 
@@ -48,134 +44,124 @@ export function PrivacySettings() {
     <div className="p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-bold mb-2">Privacy Settings</h1>
-        <p className="text-muted-foreground">Control who can see your information and contact you.</p>
+        <p className="text-muted-foreground">Control your privacy and data sharing preferences.</p>
       </div>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Profile Visibility</CardTitle>
-              <CardDescription>Control who can see your profile information</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <div className="mb-4">
-                  <Label className="font-medium">Who can see your profile?</Label>
-                  <p className="text-sm text-muted-foreground">Choose who can view your profile information</p>
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Profile Privacy</CardTitle>
+            <CardDescription>Control who can see your profile and information</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <div className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="profileVisibility"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Profile Visibility</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select visibility level" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="public">Public (Anyone can view)</SelectItem>
+                            <SelectItem value="connections-only">Connections Only</SelectItem>
+                            <SelectItem value="private">Private (Only you)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          Choose who can see your profile and activity
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="searchVisibility"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Search Visibility</FormLabel>
+                          <FormDescription>
+                            Allow your profile to appear in search results
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
                 </div>
-                <RadioGroup
-                  value={form.watch("profileVisibility")}
-                  onValueChange={(value: "public" | "students" | "none") => form.setValue("profileVisibility", value)}
-                  className="space-y-2"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="public" id="public" />
-                    <Label htmlFor="public">Everyone (Public)</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="students" id="students" />
-                    <Label htmlFor="students">Students and Faculty Only</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="none" id="none" />
-                    <Label htmlFor="none">No One (Private)</Label>
-                  </div>
-                </RadioGroup>
-              </div>
 
-              <Separator />
+                <div className="pt-4">
+                  <h3 className="text-lg font-medium mb-4">Data & Privacy</h3>
+                  <div className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="dataCollection"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Data Collection</FormLabel>
+                            <FormDescription>
+                              Allow us to collect anonymous usage data to improve our services
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
 
-              <div>
-                <div className="mb-4">
-                  <Label className="font-medium">Direct Messages</Label>
-                  <p className="text-sm text-muted-foreground">Control who can send you direct messages</p>
+                    <FormField
+                      control={form.control}
+                      name="personalizedAds"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Personalized Ads</FormLabel>
+                            <FormDescription>
+                              Show personalized advertisements based on your activity
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
-                <RadioGroup
-                  value={form.watch("allowDirectMessages")}
-                  onValueChange={(value: "everyone" | "connections" | "none") =>
-                    form.setValue("allowDirectMessages", value)
-                  }
-                  className="space-y-2"
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="everyone" id="dm-everyone" />
-                    <Label htmlFor="dm-everyone">Everyone</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="connections" id="dm-connections" />
-                    <Label htmlFor="dm-connections">Connections Only</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="none" id="dm-none" />
-                    <Label htmlFor="dm-none">No One</Label>
-                  </div>
-                </RadioGroup>
-              </div>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Chat Privacy</CardTitle>
-              <CardDescription>Control your visibility and interaction in chats</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="showOnlineStatus" className="font-medium">
-                    Show Online Status
-                  </Label>
-                  <p className="text-sm text-muted-foreground">Allow others to see when you&apos;re online</p>
+                <div className="flex justify-end">
+                  <Button type="submit" className="bg-primary hover:bg-primary/90">
+                    Save Privacy Settings
+                  </Button>
                 </div>
-                <Switch
-                  id="showOnlineStatus"
-                  checked={form.watch("showOnlineStatus")}
-                  onCheckedChange={(checked) => form.setValue("showOnlineStatus", checked)}
-                />
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="showReadReceipts" className="font-medium">
-                    Show Read Receipts
-                  </Label>
-                  <p className="text-sm text-muted-foreground">Let others know when you&apos;ve read their messages</p>
-                </div>
-                <Switch
-                  id="showReadReceipts"
-                  checked={form.watch("showReadReceipts")}
-                  onCheckedChange={(checked) => form.setValue("showReadReceipts", checked)}
-                />
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="allowTagging" className="font-medium">
-                    Allow Tagging
-                  </Label>
-                  <p className="text-sm text-muted-foreground">Allow others to tag you in posts and comments</p>
-                </div>
-                <Switch
-                  id="allowTagging"
-                  checked={form.watch("allowTagging")}
-                  onCheckedChange={(checked) => form.setValue("allowTagging", checked)}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="flex justify-end">
-            <Button type="submit" className="bg-primary hover:bg-primary/90">
-              Save Privacy Settings
-            </Button>
-          </div>
-        </form>
-      </Form>
+              </form>
+            </Form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

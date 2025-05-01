@@ -10,21 +10,9 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { useToast } from "@/hooks/use-toast"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { emailFormSchema, passwordFormSchema } from "@/lib/validator/profile"
 
-const emailFormSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-})
 
-const passwordFormSchema = z
-  .object({
-    currentPassword: z.string().min(1, "Please enter your current password"),
-    newPassword: z.string().min(8, "Password must be at least 8 characters"),
-    confirmPassword: z.string().min(8, "Password must be at least 8 characters"),
-  })
-  .refine((data) => data.newPassword === data.confirmPassword, {
-    message: "Passwords do not match",
-    path: ["confirmPassword"],
-  })
 
 type EmailFormValues = z.infer<typeof emailFormSchema>
 type PasswordFormValues = z.infer<typeof passwordFormSchema>
