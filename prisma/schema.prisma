@@ -1,0 +1,207 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified DateTime?
+  password      String?
+  image         String?
+  role          Role      @default(STUDENT)
+  department    String?
+  year          String?
+  bio           String?
+  status        Status    @default(OFFLINE)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  posts             Post[]
+  comments          Comment[]
+  resources         Resource[]
+  sentMessages      Message[]        @relation("SentMessages")
+  receivedMessages  Message[]        @relation("ReceivedMessages")
+  participantRooms  ChatRoomUser[]
+  settings          UserSettings?
+  notifications     Notification[]
+}
+
+enum Role {
+  STUDENT
+  TEACHER
+  ADMIN
+}
+
+enum Status {
+  ONLINE
+  OFFLINE
+}
+
+// Feed models
+model Post {
+  id          String    @id @default(cuid())
+  content     String
+  department  String?
+  image       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId    String
+  comments    Comment[]
+  likes       Like[]
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId  String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
+}
+
+model Like {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    String
+
+  @@unique([userId, postId])
+}
+
+// Resource models
+model Resource {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  fileType    String
+  fileUrl     String
+  fileSize    String
+  subject     String
+  uploadDate  DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  tags        String[]
+  type        ResourceType @default(MATERIAL)
+  dueDate     DateTime?
+  
+  // Relations
+  uploader    User      @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  uploaderId  String
+}
+
+enum ResourceType {
+  ASSIGNMENT
+  QUIZ
+  MATERIAL
+}
+
+// Chat models
+model ChatRoom {
+  id          String    @id @default(cuid())
+  name        String
+  isGroup     Boolean   @default(false)
+  avatar      String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  messages    Message[]
+  participants ChatRoomUser[]
+}
+
+model ChatRoomUser {
+  id          String    @id @default(cuid())
+  joinedAt    DateTime  @default(now())
+  unreadCount Int       @default(0)
+  
+  // Relations
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  chatRoom    ChatRoom  @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  chatRoomId  String
+
+  @@unique([userId, chatRoomId])
+}
+
+model Message {
+  id          String    @id @default(cuid())
+  content     String
+  timestamp   DateTime  @default(now())
+  readAt      DateTime?
+  
+  // Relations
+  sender      User      @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  senderId    String
+  receiver    User?     @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  receiverId  String?
+  chatRoom    ChatRoom  @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
+  chatRoomId  String
+}
+
+// Settings models
+model UserSettings {
+  id                  String    @id @default(cuid())
+  emailNotifications  Boolean   @default(true)
+  pushNotifications   Boolean   @default(true)
+  newsletter          Boolean   @default(false)
+  securityAlerts      Boolean   @default(true)
+  profileVisibility   Visibility @default(CONNECTIONS_ONLY)
+  dataCollection      Boolean   @default(true)
+  personalizedAds     Boolean   @default(false)
+  searchVisibility    Boolean   @default(true)
+  showOnlineStatus    Boolean   @default(true)
+  showReadReceipts    Boolean   @default(true)
+  allowTagging        Boolean   @default(true)
+  allowDirectMessages DirectMessagePermission @default(EVERYONE)
+  
+  // Relations
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId              String    @unique
+}
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
+  CONNECTIONS_ONLY
+}
+
+enum DirectMessagePermission {
+  EVERYONE
+  CONNECTIONS
+  NONE
+}
+
+// Notification model
+model Notification {
+  id          String    @id @default(cuid())
+  type        String
+  title       String
+  message     String
+  isRead      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  
+  // Relations
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+}
