@@ -3,8 +3,8 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
-import { Sidebar } from "@/components/layouts/sidebar"
-import { Header } from "@/components/layouts/header"
+import { Sidebar } from "./sidebar"
+import { Header } from "./header"
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -30,6 +30,8 @@ export function AppLayout({ children }: AppLayoutProps) {
     }
   }, [])
 
+  // Make sure the AppLayout component is properly structured for authenticated routes only
+  // No need to check authentication here as middleware handles that
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Left Sidebar */}
@@ -41,7 +43,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <Header />
 
         {/* Page Content */}
-        <main className="overflow-auto ">{children}</main>
+        <main className="flex-1 overflow-auto">{children}</main>
       </div>
     </div>
   )

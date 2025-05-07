@@ -1,32 +1,53 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { MessageSquare, User, Search } from "lucide-react"
+import { MessageSquare, User as UserIcon, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { motion } from "framer-motion"
-import { mockStudents } from "@/data/mock/users"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
+import { getStudents } from "@/lib/actions/users"
+import type { User } from "@/types/user"
 
 interface StudentsListProps {
   roomId: string
   onOpenProfile?: (userId: string) => void
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function StudentsList({ roomId, onOpenProfile }: StudentsListProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const [students, setStudents] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
   const { toast } = useToast()
 
-  const filteredStudents = mockStudents.filter(
+  useEffect(() => {
+    fetchStudents()
+  }, [])
+
+  const fetchStudents = async () => {
+    try {
+      const data = await getStudents()
+      setStudents(data)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch students",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredStudents = students.filter(
     (student) =>
-      student.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      student.department.toLowerCase().includes(searchQuery.toLowerCase()),
+      (student.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (student.department?.toLowerCase() || '').includes(searchQuery.toLowerCase()),
   )
 
   const container = {
@@ -56,7 +77,7 @@ export function StudentsList({ roomId, onOpenProfile }: StudentsListProps) {
   }
 
   const confirmStartDM = () => {
-    const student = mockStudents.find((s) => s.id === selectedStudent)
+    const student = students.find((s) => s.id === selectedStudent)
     if (student) {
       toast({
         title: "Direct message created",
@@ -66,42 +87,58 @@ export function StudentsList({ roomId, onOpenProfile }: StudentsListProps) {
     }
   }
 
-  return (
-    <>
-      <div className="py-4">
-        <h2 className="text-xl font-semibold mb-4">Students</h2>
-
-        <div className="mb-4">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-            <Input
-              type="search"
-              placeholder="Search students..."
-              className="pl-8"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="flex items-center gap-3 rounded-lg border border-primary/20 p-3">
+            <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />
+            <div className="space-y-2">
+              <div className="h-4 w-32 bg-muted animate-pulse rounded" />
+              <div className="h-3 w-24 bg-muted animate-pulse rounded" />
+            </div>
           </div>
-        </div>
+        ))}
+      </div>
+    )
+  }
 
-        <ScrollArea className="h-[50vh]">
-          <motion.div className="space-y-3 pr-4" variants={container} initial="hidden" animate="show">
-            {filteredStudents.length === 0 ? (
-              <div className="text-center p-4 text-muted-foreground">No students found</div>
-            ) : (
-              filteredStudents.map((student) => (
-                <motion.div
-                  key={student.id}
-                  className="flex items-center gap-3 rounded-lg border border-primary/20 p-3"
-                  variants={item}
-                  whileHover={{ scale: 1.01 }}
-                >
+  return (
+    <div className="py-4">
+      <h2 className="text-xl font-semibold mb-4">Students</h2>
+
+      <div className="mb-4">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            type="search"
+            placeholder="Search students..."
+            className="pl-8"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <ScrollArea className="h-[50vh]">
+        <motion.div className="space-y-3 pr-4" variants={container} initial="hidden" animate="show">
+          {filteredStudents.length === 0 ? (
+            <div className="text-center p-4 text-muted-foreground">No students found</div>
+          ) : (
+            filteredStudents.map((student) => (
+              <motion.div
+                key={student.id}
+                className="flex items-center gap-3 rounded-lg border border-primary/20 p-3"
+                variants={item}
+                whileHover={{ scale: 1.01 }}
+              >
+                <div className="flex items-center gap-3">
                   <Avatar
                     className="h-10 w-10 cursor-pointer hover:opacity-80"
                     onClick={() => handleViewProfile(student.id)}
                   >
-                    <AvatarImage src={student.avatar || "/placeholder.svg?height=40&width=40"} alt={student.name} />
-                    <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
+                    <AvatarImage src={student.profileImage || "/placeholder.svg?height=40&width=40"} alt={student.name || "User"} />
+                    <AvatarFallback>{(student.name || "U").charAt(0)}</AvatarFallback>
                   </Avatar>
 
                   <div className="flex-1">
@@ -114,10 +151,10 @@ export function StudentsList({ roomId, onOpenProfile }: StudentsListProps) {
                     <p className="text-xs text-muted-foreground">{student.department}</p>
                     <div className="flex items-center mt-1">
                       <span
-                        className={`h-2 w-2 rounded-full mr-1 ${student.status === "online" ? "bg-green-500" : "bg-gray-400"}`}
-                      ></span>
+                        className={`h-2 w-2 rounded-full mr-1 ${student.status === "ONLINE" ? "bg-green-500" : "bg-gray-400"}`}
+                      />
                       <span className="text-xs text-muted-foreground">
-                        {student.status === "online" ? "Online" : "Offline"}
+                        {student.status === "ONLINE" ? "Online" : "Offline"}
                       </span>
                     </div>
                   </div>
@@ -129,7 +166,7 @@ export function StudentsList({ roomId, onOpenProfile }: StudentsListProps) {
                       className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
                       onClick={() => handleViewProfile(student.id)}
                     >
-                      <User className="h-4 w-4" />
+                      <UserIcon className="h-4 w-4" />
                       <span className="sr-only">View profile</span>
                     </Button>
                     <Button
@@ -142,14 +179,13 @@ export function StudentsList({ roomId, onOpenProfile }: StudentsListProps) {
                       <span className="sr-only">Send message</span>
                     </Button>
                   </div>
-                </motion.div>
-              ))
-            )}
-          </motion.div>
-        </ScrollArea>
-      </div>
+                </div>
+              </motion.div>
+            ))
+          )}
+        </motion.div>
+      </ScrollArea>
 
-      {/* Confirmation Dialog */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -158,7 +194,7 @@ export function StudentsList({ roomId, onOpenProfile }: StudentsListProps) {
           <div className="py-4">
             <p>
               {selectedStudent &&
-                `Start a direct message with ${mockStudents.find((s) => s.id === selectedStudent)?.name}?`}
+                `Start a direct message with ${students.find((s) => s.id === selectedStudent)?.name}?`}
             </p>
           </div>
           <div className="flex justify-end gap-2">
@@ -171,6 +207,6 @@ export function StudentsList({ roomId, onOpenProfile }: StudentsListProps) {
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   )
 }

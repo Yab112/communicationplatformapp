@@ -124,7 +124,7 @@ export function useChat(roomId: string) {
         // Create form data
         const formData = new FormData()
         formData.append("content", content)
-        formData.append("chatRoomId", roomId)
+        formData.append("roomId", roomId)
 
         // Send to server
         const result = await sendMessage(formData)
@@ -138,12 +138,15 @@ export function useChat(roomId: string) {
           return
         }
 
+        // Add the message to the local state
+        setMessages((prev) => [...prev, result])
+
         // Emit to socket for real-time updates
-        if (socket && isConnected && result.success) {
-          socket.emit("send-message", result.message)
+        if (socket && isConnected) {
+          socket.emit("send-message", result)
         }
 
-        return result.message
+        return result
       } catch (error) {
         toast({
           title: "Error",

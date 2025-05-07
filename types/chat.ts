@@ -6,6 +6,10 @@ export interface Message {
     senderName: string
     senderAvatar?: string
     timestamp: string
+    fileUrl?: string
+    fileName?: string
+    fileType?: string
+    fileSize?: number
   }
   
   export interface ChatRoom {

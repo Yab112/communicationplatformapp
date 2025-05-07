@@ -1,9 +1,17 @@
+export type UserRole = "ADMIN" | "STUDENT" | "TEACHER"
+export type UserStatus = "ONLINE" | "OFFLINE" | "AWAY"
+
 export interface User {
     id: string
     name: string
-    avatar: string
-    role: "Student" | "Teacher" | "Admin"
-    department: string
-    status: "online" | "offline"
-  }
+    email: string
+    emailVerified: Date | null
+    image: string | null
+    password: string | null
+    role: string
+    department: string | null
+    status: string
+    createdAt: Date
+    updatedAt: Date
+}
   

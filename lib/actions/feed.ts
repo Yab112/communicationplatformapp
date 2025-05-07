@@ -1,37 +1,13 @@
 "use server"
 
-import { z } from "zod"
-import prisma from "@/lib/db"
-import { getCurrentUser } from "./auth"
 import { revalidatePath } from "next/cache"
+import { db } from "@/lib/db"
+import { getCurrentUser } from "@/lib/get-session"
+import { postSchema, type PostFormValues } from "@/lib/validator/post"
 
-// Validation schemas
-const postSchema = z.object({
-  content: z.string().min(1, "Post content is required").max(1000, "Post content is too long"),
-  department: z.string().min(1, "Department is required"),
-  image: z.string().optional().nullable(),
-})
-
-const commentSchema = z.object({
-  content: z.string().min(1, "Comment cannot be empty").max(500, "Comment is too long"),
-  postId: z.string().min(1, "Post ID is required"),
-})
-
-// Get all posts with filtering and sorting
-export async function getPosts(options?: {
-  department?: string
-  sortOrder?: "newest" | "oldest"
-}) {
+export async function getPosts() {
   try {
-    const { department, sortOrder = "newest" } = options || {}
-
-    const where = department ? { department } : {}
-
-    const posts = await prisma.post.findMany({
-      where,
-      orderBy: {
-        createdAt: sortOrder === "newest" ? "desc" : "asc",
-      },
+    const posts = await db.post.findMany({
       include: {
         author: {
           select: {
@@ -51,208 +27,102 @@ export async function getPosts(options?: {
                 role: true,
               },
             },
+            CommentReaction: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    image: true,
+                  },
+                },
+              },
+            },
           },
           orderBy: {
-            createdAt: "asc",
+            createdAt: "desc",
           },
         },
-        _count: {
+        likes: {
           select: {
-            likes: true,
+            userId: true,
           },
         },
+      },
+      orderBy: {
+        createdAt: "desc",
       },
     })
 
-    // Transform the data to match the frontend structure
-    return posts.map((post) => ({
-      id: post.id,
-      content: post.content,
-      department: post.department || "",
-      author: {
-        id: post.author.id,
-        name: post.author.name,
-        avatar: post.author.image || "/placeholder.svg?height=40&width=40",
-        role: post.author.role,
-      },
-      createdAt: post.createdAt.toISOString(),
-      image: post.image,
-      likes: post._count.likes,
-      comments: post.comments.map((comment) => ({
-        id: comment.id,
-        content: comment.content,
-        author: {
-          id: comment.author.id,
-          name: comment.author.name,
-          avatar: comment.author.image || "/placeholder.svg?height=32&width=32",
-          role: comment.author.role,
-        },
-        createdAt: comment.createdAt.toISOString(),
+    // Transform the data to match the expected format
+    const transformedPosts = posts.map(post => ({
+      ...post,
+      comments: post.comments.map(comment => ({
+        ...comment,
+        reactions: comment.CommentReaction.map(reaction => ({
+          id: reaction.id,
+          type: reaction.type,
+          author: {
+            id: reaction.user.id,
+            name: reaction.user.name,
+            avatar: reaction.user.image || "",
+            role: "Student",
+          },
+          createdAt: reaction.createdAt.toISOString(),
+        })),
       })),
     }))
+
+    return { posts: transformedPosts }
   } catch (error) {
-    console.error("Error fetching posts:", error)
-    throw new Error("Failed to fetch posts")
+    return { error: "Failed to fetch posts" }
   }
 }
 
-// Create a new post
-export async function createPost(formData: FormData) {
+export async function createPost(data: PostFormValues) {
   try {
-    const currentUser = await getCurrentUser()
+    // Validate input
+    const validatedData = postSchema.parse(data)
 
-    if (!currentUser) {
-      return { error: "You must be logged in to create a post" }
+    // Get current user
+    const user = await getCurrentUser()
+    if (!user) {
+      return { error: "Unauthorized" }
     }
 
-    const parsed = postSchema.parse({
-      content: formData.get("content"),
-      department: formData.get("department"),
-      image: formData.get("image"),
-    })
-
-    const post = await prisma.post.create({
+    // Create post
+    const post = await db.post.create({
       data: {
-        content: parsed.content,
-        department: parsed.department,
-        image: parsed.image || null,
-        author: {
-          connect: { id: currentUser.id },
-        },
-      },
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            role: true,
-          },
-        },
+        content: validatedData.content,
+        authorId: user.id,
+        ...(validatedData.imageUrl && { image: validatedData.imageUrl }),
       },
     })
 
+    // Revalidate feeds page
     revalidatePath("/feeds")
 
-    return {
-      success: true,
-      post: {
-        id: post.id,
-        content: post.content,
-        department: post.department || "",
-        author: {
-          id: post.author.id,
-          name: post.author.name,
-          avatar: post.author.image || "/placeholder.svg?height=40&width=40",
-          role: post.author.role,
-        },
-        createdAt: post.createdAt.toISOString(),
-        image: post.image,
-        likes: 0,
-        comments: [],
-      },
-    }
+    return { success: true, post }
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { error: error.errors[0].message }
+    if (error instanceof Error) {
+      return { error: error.message }
     }
-    return { error: "Something went wrong. Please try again." }
+    return { error: "Failed to create post" }
   }
 }
 
-// Add a comment to a post
-export async function addComment(formData: FormData) {
+export async function likePost(postId: string) {
   try {
-    const currentUser = await getCurrentUser()
-
-    if (!currentUser) {
-      return { error: "You must be logged in to comment" }
+    const user = await getCurrentUser()
+    if (!user) {
+      return { error: "Unauthorized" }
     }
 
-    const parsed = commentSchema.parse({
-      content: formData.get("content"),
-      postId: formData.get("postId"),
-    })
-
-    const comment = await prisma.comment.create({
-      data: {
-        content: parsed.content,
-        author: {
-          connect: { id: currentUser.id },
-        },
-        post: {
-          connect: { id: parsed.postId },
-        },
-      },
-      include: {
-        author: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            role: true,
-          },
-        },
-      },
-    })
-
-    // Create notification for post author
-    const post = await prisma.post.findUnique({
-      where: { id: parsed.postId },
-      select: { authorId: true },
-    })
-
-    if (post && post.authorId !== currentUser.id) {
-      await prisma.notification.create({
-        data: {
-          type: "COMMENT",
-          title: "New comment",
-          message: `${currentUser.name} commented on your post`,
-          user: {
-            connect: { id: post.authorId },
-          },
-        },
-      })
-    }
-
-    revalidatePath("/feeds")
-
-    return {
-      success: true,
-      comment: {
-        id: comment.id,
-        content: comment.content,
-        author: {
-          id: comment.author.id,
-          name: comment.author.name,
-          avatar: comment.author.image || "/placeholder.svg?height=32&width=32",
-          role: comment.author.role,
-        },
-        createdAt: comment.createdAt.toISOString(),
-      },
-    }
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      return { error: error.errors[0].message }
-    }
-    return { error: "Something went wrong. Please try again." }
-  }
-}
-
-// Like or unlike a post
-export async function toggleLike(postId: string) {
-  try {
-    const currentUser = await getCurrentUser()
-
-    if (!currentUser) {
-      return { error: "You must be logged in to like a post" }
-    }
-
-    // Check if the user has already liked the post
-    const existingLike = await prisma.like.findUnique({
+    // Check if user already liked the post
+    const existingLike = await db.like.findUnique({
       where: {
-        userId_postId: {
-          userId: currentUser.id,
+        postId_userId: {
+          userId: user.id,
           postId,
         },
       },
@@ -260,69 +130,65 @@ export async function toggleLike(postId: string) {
 
     if (existingLike) {
       // Unlike the post
-      await prisma.like.delete({
+      await db.like.delete({
         where: {
-          userId_postId: {
-            userId: currentUser.id,
+          postId_userId: {
+            userId: user.id,
             postId,
           },
         },
       })
     } else {
       // Like the post
-      await prisma.like.create({
+      await db.like.create({
         data: {
-          user: {
-            connect: { id: currentUser.id },
-          },
-          post: {
-            connect: { id: postId },
-          },
+          userId: user.id,
+          postId,
         },
       })
-
-      // Create notification for post author
-      const post = await prisma.post.findUnique({
-        where: { id: postId },
-        select: { authorId: true },
-      })
-
-      if (post && post.authorId !== currentUser.id) {
-        await prisma.notification.create({
-          data: {
-            type: "LIKE",
-            title: "New like",
-            message: `${currentUser.name} liked your post`,
-            user: {
-              connect: { id: post.authorId },
-            },
-          },
-        })
-      }
     }
 
     revalidatePath("/feeds")
-
-    return {
-      success: true,
-      liked: !existingLike,
-    }
+    return { success: true }
   } catch (error) {
-    return { error: "Something went wrong. Please try again." }
+    return { error: "Failed to like post" }
   }
 }
 
-// Delete a post
-export async function deletePost(postId: string) {
+export async function addComment(postId: string, content: string) {
   try {
-    const currentUser = await getCurrentUser()
-
-    if (!currentUser) {
-      return { error: "You must be logged in to delete a post" }
+    const user = await getCurrentUser()
+    if (!user) {
+      return { error: "Unauthorized" }
     }
 
-    // Check if the user is the author of the post or an admin
-    const post = await prisma.post.findUnique({
+    if (!content.trim()) {
+      return { error: "Comment cannot be empty" }
+    }
+
+    const comment = await db.comment.create({
+      data: {
+        content,
+        authorId: user.id,
+        postId,
+      },
+    })
+
+    revalidatePath("/feeds")
+    return { success: true, comment }
+  } catch (error) {
+    return { error: "Failed to add comment" }
+  }
+}
+
+export async function deletePost(postId: string) {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return { error: "Unauthorized" }
+    }
+
+    const post = await db.post.findUnique({
       where: { id: postId },
       select: { authorId: true },
     })
@@ -331,18 +197,88 @@ export async function deletePost(postId: string) {
       return { error: "Post not found" }
     }
 
-    if (post.authorId !== currentUser.id && currentUser.role !== "ADMIN") {
-      return { error: "You do not have permission to delete this post" }
+    if (post.authorId !== user.id && user.role !== "ADMIN") {
+      return { error: "Not authorized to delete this post" }
     }
 
-    await prisma.post.delete({
-      where: { id: postId },
-    })
+    // Delete associated likes and comments first
+    await db.like.deleteMany({ where: { postId } })
+    await db.comment.deleteMany({ where: { postId } })
+
+    // Delete the post
+    await db.post.delete({ where: { id: postId } })
 
     revalidatePath("/feeds")
-
     return { success: true }
   } catch (error) {
-    return { error: "Something went wrong. Please try again." }
+    return { error: "Failed to delete post" }
+  }
+}
+
+export async function addCommentReaction(commentId: string, type: string) {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return { error: "Unauthorized" }
+    }
+
+    // Check if user already reacted to the comment with this type
+    const existingReaction = await db.commentReaction.findUnique({
+      where: {
+        commentId_userId_type: {
+          userId: user.id,
+          commentId,
+          type,
+        },
+      },
+    })
+
+    if (existingReaction) {
+      // Remove the reaction
+      await db.commentReaction.delete({
+        where: {
+          commentId_userId_type: {
+            userId: user.id,
+            commentId,
+            type,
+          },
+        },
+      })
+    } else {
+      // Add the reaction
+      await db.commentReaction.create({
+        data: {
+          type,
+          userId: user.id,
+          commentId,
+        },
+      })
+    }
+
+    revalidatePath("/feeds")
+    return { success: true }
+  } catch (error) {
+    return { error: "Failed to react to comment" }
+  }
+}
+
+export async function getCommentReactions(commentId: string) {
+  try {
+    const reactions = await db.commentReaction.findMany({
+      where: { commentId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+          },
+        },
+      },
+    })
+
+    return { reactions }
+  } catch (error) {
+    return { error: "Failed to fetch comment reactions" }
   }
 }

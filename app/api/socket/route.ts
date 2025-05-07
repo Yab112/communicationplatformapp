@@ -1,83 +1,153 @@
-import type { Server as NetServer } from "http"
-import { Server as ServerIO } from "socket.io"
-import { NextResponse } from "next/server"
+import { Server as NetServer } from 'http'
+import { Server as SocketIOServer } from 'socket.io'
+import { NextResponse } from 'next/server'
+import { getToken } from "next-auth/jwt"
+import { db } from "@/lib/db"
 
-export const dynamic = "force-dynamic"
-export const fetchCache = "force-no-store"
+export const dynamic = 'force-dynamic'
 
-// Global variable to maintain socket instance
-let io: ServerIO
+let io: SocketIOServer | null = null
 
 export async function GET(req: Request) {
-  // Get the raw Node.js request and response objects
-  const res = new NextResponse()
-  const requestHeaders = new Headers(req.headers)
-  const socketUrl = new URL(req.url)
-
-  // Check if Socket.IO server is already initialized
   if (!io) {
-    // Get the raw Node.js server
-    const httpServer: NetServer = (res as any).socket?.server
-
-    if (!httpServer) {
-      return NextResponse.json({ error: "Socket server cannot be initialized" }, { status: 500 })
-    }
-
-    // Initialize Socket.IO server
-    io = new ServerIO(httpServer, {
-      path: "/api/socket/io",
+    const httpServer = new NetServer()
+    io = new SocketIOServer(httpServer, {
+      path: '/api/socket/io',
       addTrailingSlash: false,
       cors: {
-        origin: "*",
-        methods: ["GET", "POST"],
-      },
+        origin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+        methods: ['GET', 'POST'],
+        credentials: true
+      }
     })
 
-    // Socket.IO event handlers
-    io.on("connection", (socket) => {
-      console.log(`Socket connected: ${socket.id}`)
+    io.on('connection', async (socket) => {
+      console.log('Client connected:', socket.id)
+      
+      // Handle new post creation
+      socket.on('create-post', async (data) => {
+        try {
+          const token = await getToken({ req })
+          if (!token) {
+            socket.emit('error', 'Unauthorized')
+            return
+          }
 
-      // User joins a chat room
-      socket.on("join-room", (roomId: string) => {
-        socket.join(roomId)
-        console.log(`User joined room: ${roomId}`)
+          const post = await db.post.create({
+            data: {
+              content: data.content,
+              department: data.department,
+              authorId: token.sub as string,
+              image: data.image || null,
+            },
+            include: {
+              author: true,
+              comments: {
+                include: {
+                  author: true,
+                },
+              },
+            },
+          })
+
+          io?.emit('new-post', post)
+        } catch (error) {
+          console.error('Error creating post:', error)
+          socket.emit('error', 'Failed to create post')
+        }
       })
 
-      // User leaves a chat room
-      socket.on("leave-room", (roomId: string) => {
-        socket.leave(roomId)
-        console.log(`User left room: ${roomId}`)
+      // Handle post likes
+      socket.on('like-post', async (data) => {
+        try {
+          const token = await getToken({ req })
+          if (!token) {
+            socket.emit('error', 'Unauthorized')
+            return
+          }
+
+          const existingLike = await db.like.findUnique({
+            where: {
+              postId_userId: {
+                postId: data.postId,
+                userId: token.sub as string,
+              },
+            },
+          })
+
+          if (existingLike) {
+            await db.like.delete({
+              where: {
+                id: existingLike.id,
+              },
+            })
+          } else {
+            await db.like.create({
+              data: {
+                postId: data.postId,
+                userId: token.sub as string,
+              },
+            })
+          }
+
+          const likes = await db.like.count({
+            where: {
+              postId: data.postId,
+            },
+          })
+
+          io?.emit('post-liked', {
+            postId: data.postId,
+            likes,
+          })
+        } catch (error) {
+          console.error('Error liking post:', error)
+          socket.emit('error', 'Failed to like post')
+        }
       })
 
-      // User sends a message
-      socket.on("send-message", (message) => {
-        io.to(message.roomId).emit("new-message", message)
+      // Handle comments
+      socket.on('add-comment', async (data) => {
+        try {
+          const token = await getToken({ req })
+          if (!token) {
+            socket.emit('error', 'Unauthorized')
+            return
+          }
+
+          const comment = await db.comment.create({
+            data: {
+              content: data.content,
+              postId: data.postId,
+              authorId: token.sub as string,
+            },
+            include: {
+              author: true,
+            },
+          })
+
+          io?.emit('new-comment', {
+            postId: data.postId,
+            comment,
+          })
+        } catch (error) {
+          console.error('Error adding comment:', error)
+          socket.emit('error', 'Failed to add comment')
+        }
       })
 
-      // User is typing
-      socket.on("typing", ({ roomId, user }) => {
-        socket.to(roomId).emit("user-typing", user)
-      })
-
-      // User stops typing
-      socket.on("stop-typing", ({ roomId, user }) => {
-        socket.to(roomId).emit("user-stop-typing", user)
-      })
-
-      // User comes online
-      socket.on("user-online", (userId: string) => {
-        socket.broadcast.emit("user-status-change", { userId, status: "online" })
-      })
-
-      // User goes offline (disconnect)
-      socket.on("disconnect", () => {
-        console.log(`Socket disconnected: ${socket.id}`)
+      socket.on('disconnect', () => {
+        console.log('Client disconnected:', socket.id)
       })
     })
 
-    // Attach Socket.IO server to the Node.js server
-    ;(res as any).socket.server.io = io
+    httpServer.listen(3001)
   }
 
   return NextResponse.json({ success: true })
+}
+
+// Add this to make TypeScript happy
+declare global {
+  var io: SocketIOServer | null
 }

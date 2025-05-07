@@ -11,6 +11,8 @@ import { z } from "zod"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form"
 import { motion } from "framer-motion"
+import { addComment, addCommentReaction } from "@/lib/actions/feed"
+import { useToast } from "@/hooks/use-toast"
 
 const commentSchema = z.object({
   content: z.string().min(1, "Comment cannot be empty").max(500, "Comment is too long"),
@@ -23,10 +25,9 @@ interface CommentSectionProps {
   comments: Comment[]
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function CommentSection({ postId, comments: initialComments }: CommentSectionProps) {
   const [comments, setComments] = useState<Comment[]>(initialComments)
-  const [commentReactions, setCommentReactions] = useState<Record<string, string[]>>({})
+  const { toast } = useToast()
 
   const form = useForm<CommentFormValues>({
     resolver: zodResolver(commentSchema),
@@ -35,38 +36,96 @@ export function CommentSection({ postId, comments: initialComments }: CommentSec
     },
   })
 
-  const onSubmit = (values: CommentFormValues) => {
-    const newComment: Comment = {
-      id: `comment-${Date.now()}`,
-      content: values.content,
-      author: {
-        id: "current-user",
-        name: "Current User",
-        avatar: "/placeholder.svg?height=32&width=32",
-        role: "Student",
-      },
-      createdAt: new Date().toISOString(),
-    }
+  const onSubmit = async (values: CommentFormValues) => {
+    try {
+      const { success, error, comment } = await addComment(postId, values.content)
 
-    setComments([...comments, newComment])
-    form.reset()
+      if (error) {
+        toast({
+          title: "Error",
+          description: error,
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (success && comment) {
+        setComments([...comments, comment])
+        form.reset()
+        toast({
+          title: "Success",
+          description: "Comment added successfully",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add comment",
+        variant: "destructive",
+      })
+    }
   }
 
-  const toggleReaction = (commentId: string, emoji: string) => {
-    setCommentReactions((prev) => {
-      const currentReactions = prev[commentId] || []
-      const userIndex = currentReactions.indexOf(emoji)
+  const handleReaction = async (commentId: string, type: string) => {
+    try {
+      const { success, error } = await addCommentReaction(commentId, type)
 
-      if (userIndex >= 0) {
-        // Remove reaction if already exists
-        const newReactions = [...currentReactions]
-        newReactions.splice(userIndex, 1)
-        return { ...prev, [commentId]: newReactions }
-      } else {
-        // Add reaction
-        return { ...prev, [commentId]: [...currentReactions, emoji] }
+      if (error) {
+        toast({
+          title: "Error",
+          description: error,
+          variant: "destructive",
+        })
+        return
       }
-    })
+
+      if (success) {
+        // Update the local state to reflect the new reaction
+        setComments((prevComments) =>
+          prevComments.map((comment) => {
+            if (comment.id === commentId) {
+              const existingReactionIndex = comment.reactions.findIndex(
+                (r) => r.type === type && r.author.id === "current-user"
+              )
+
+              if (existingReactionIndex >= 0) {
+                // Remove the reaction
+                return {
+                  ...comment,
+                  reactions: comment.reactions.filter((_, i) => i !== existingReactionIndex),
+                }
+              } else {
+                // Add the reaction
+                return {
+                  ...comment,
+                  reactions: [
+                    ...comment.reactions,
+                    {
+                      id: `temp-${Date.now()}`,
+                      type,
+                      author: {
+                        id: "current-user",
+                        name: "Current User",
+                        avatar: "/placeholder.svg",
+                        role: "Student",
+                      },
+                      createdAt: new Date().toISOString(),
+                    },
+                  ],
+                }
+              }
+            }
+            return comment
+          })
+        )
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add reaction",
+        variant: "destructive",
+      })
+    }
   }
 
   const reactionEmojis = ["👍", "❤️", "😂"]
@@ -92,24 +151,31 @@ export function CommentSection({ postId, comments: initialComments }: CommentSec
               </div>
               <div className="mt-1 flex items-center gap-1">
                 <div className="flex gap-1">
-                  {reactionEmojis.map((emoji) => (
-                    <motion.button
-                      key={emoji}
-                      whileHover={{ scale: 1.2 }}
-                      className={`text-sm px-1.5 py-0.5 rounded-full ${
-                        commentReactions[comment.id]?.includes(emoji)
-                          ? "bg-[var(--color-primary)]/10 text-[var(--color-primary)]"
-                          : "text-[var(--color-muted-fg)] hover:bg-[var(--color-muted)]/10"
-                      }`}
-                      onClick={() => toggleReaction(comment.id, emoji)}
-                    >
-                      {emoji}
-                    </motion.button>
-                  ))}
+                  {reactionEmojis.map((emoji) => {
+                    const hasReacted = comment.reactions.some(
+                      (r) => r.type === emoji && r.author.id === "current-user"
+                    )
+                    const reactionCount = comment.reactions.filter((r) => r.type === emoji).length
+
+                    return (
+                      <motion.button
+                        key={emoji}
+                        whileHover={{ scale: 1.2 }}
+                        className={`text-sm px-1.5 py-0.5 rounded-full ${
+                          hasReacted
+                            ? "bg-[var(--color-primary)]/10 text-[var(--color-primary)]"
+                            : "text-[var(--color-muted-fg)] hover:bg-[var(--color-muted)]/10"
+                        }`}
+                        onClick={() => handleReaction(comment.id, emoji)}
+                      >
+                        <span>{emoji}</span>
+                        {reactionCount > 0 && (
+                          <span className="ml-1 text-xs font-medium">{reactionCount}</span>
+                        )}
+                      </motion.button>
+                    )
+                  })}
                 </div>
-                {commentReactions[comment.id]?.length > 0 && (
-                  <span className="text-xs text-[var(--color-muted-fg)]">{commentReactions[comment.id].length}</span>
-                )}
               </div>
             </div>
           </div>

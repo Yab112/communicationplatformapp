@@ -12,6 +12,8 @@ import type { Post } from "@/types/post"
 import { motion } from "framer-motion"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { CommentSection } from "@/components/Feeds/comment-section"
+import { likePost } from "@/lib/actions/feed"
+import { useToast } from "@/hooks/use-toast"
 
 interface PostCardProps {
   post: Post
@@ -20,52 +22,35 @@ interface PostCardProps {
 export function PostCard({ post }: PostCardProps) {
   const [showComments, setShowComments] = useState(false)
   const [showFullContent, setShowFullContent] = useState(false)
-  const [reactions, setReactions] = useState({
-    "👍": post.likes > 0 ? Math.floor(post.likes * 0.6) : 0,
-    "❤️": post.likes > 0 ? Math.floor(post.likes * 0.3) : 0,
-    "😂": post.likes > 0 ? Math.floor(post.likes * 0.1) : 0,
-    "😮": 0,
-    "😢": 0,
-  })
-  const [userReaction, setUserReaction] = useState<string | null>(null)
+  const [isLiked, setIsLiked] = useState(false)
+  const [likesCount, setLikesCount] = useState(post.likes)
+  const { toast } = useToast()
 
-  const totalReactions = Object.values(reactions).reduce((sum, count) => sum + count, 0)
+  const handleLike = async () => {
+    try {
+      const { success, error } = await likePost(post.id)
 
-  const handleReaction = (emoji: string) => {
-    // If user already reacted with this emoji, remove it
-    if (userReaction === emoji) {
-      setReactions({
-        ...reactions,
-        [emoji]: Math.max(0, reactions[emoji as keyof typeof reactions] - 1),
+      if (error) {
+        toast({
+          title: "Error",
+          description: error,
+          variant: "destructive",
+        })
+        return
+      }
+
+      if (success) {
+        setIsLiked(!isLiked)
+        setLikesCount((prev) => (isLiked ? prev - 1 : prev + 1))
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to like post",
+        variant: "destructive",
       })
-      setUserReaction(null)
-    }
-    // If user reacted with a different emoji, remove old one and add new one
-    else if (userReaction) {
-      setReactions({
-        ...reactions,
-        [userReaction]: Math.max(0, reactions[userReaction as keyof typeof reactions] - 1),
-        [emoji]: reactions[emoji as keyof typeof reactions] + 1,
-      })
-      setUserReaction(emoji)
-    }
-    // If user hasn't reacted yet, add new reaction
-    else {
-      setReactions({
-        ...reactions,
-        [emoji]: reactions[emoji as keyof typeof reactions] + 1,
-      })
-      setUserReaction(emoji)
     }
   }
-
-  const reactionEmojis = [
-    { emoji: "👍", label: "Like" },
-    { emoji: "❤️", label: "Love" },
-    { emoji: "😂", label: "Haha" },
-    { emoji: "😮", label: "Wow" },
-    { emoji: "😢", label: "Sad" },
-  ]
 
   return (
     <Card className="overflow-hidden bg-[var(--color-card)] shadow-sm border border-[var(--color-border)]">
@@ -130,20 +115,14 @@ export function PostCard({ post }: PostCardProps) {
       <CardFooter className="flex flex-col p-0">
         <div className="flex items-center justify-between px-4 py-2">
           <div className="flex items-center gap-1">
-            <div className="flex -space-x-1">
-              {Object.entries(reactions).map(
-                ([emoji, count]) =>
-                  count > 0 && (
-                    <div
-                      key={emoji}
-                      className="flex items-center justify-center h-5 w-5 rounded-full bg-[var(--color-primary)]/10 text-xs"
-                    >
-                      {emoji}
-                    </div>
-                  ),
-              )}
-            </div>
-            <span className="text-sm text-[var(--color-muted-fg)] ml-1">{totalReactions}</span>
+            {likesCount > 0 && (
+              <div className="flex items-center gap-1">
+                <div className="flex items-center justify-center h-5 w-5 rounded-full bg-[var(--color-primary)]/10 text-xs">
+                  👍
+                </div>
+                <span className="text-sm text-[var(--color-muted-fg)]">{likesCount}</span>
+              </div>
+            )}
           </div>
           <Button
             variant="ghost"
@@ -156,35 +135,15 @@ export function PostCard({ post }: PostCardProps) {
         </div>
         <Separator />
         <div className="flex p-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="flex-1 gap-2">
-                <span>{userReaction || "👍"}</span>
-                <span>React</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <div className="flex gap-2 p-2">
-                {reactionEmojis.map((reaction) => (
-                  <div key={reaction.emoji} className="text-center">
-                    <motion.button
-                      whileHover={{ scale: 1.2 }}
-                      className="text-2xl relative"
-                      onClick={() => handleReaction(reaction.emoji)}
-                    >
-                      {reaction.emoji}
-                      {reactions[reaction.emoji as keyof typeof reactions] > 0 && (
-                        <span className="absolute -bottom-2 -right-1 text-xs font-medium bg-[var(--color-primary)] text-white rounded-full px-1 min-w-5 text-center">
-                          {reactions[reaction.emoji as keyof typeof reactions]}
-                        </span>
-                      )}
-                    </motion.button>
-                    <div className="text-xs mt-1">{reaction.label}</div>
-                  </div>
-                ))}
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="sm"
+            className={`flex-1 gap-2 ${isLiked ? "text-[var(--color-primary)]" : ""}`}
+            onClick={handleLike}
+          >
+            <span>👍</span>
+            <span>{isLiked ? "Liked" : "Like"}</span>
+          </Button>
           <Button variant="ghost" size="sm" className="flex-1 gap-2" onClick={() => setShowComments(!showComments)}>
             <MessageSquare className="h-4 w-4" />
             <span>Comment</span>

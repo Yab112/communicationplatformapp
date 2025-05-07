@@ -1,36 +1,39 @@
-import type React from "react";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import { ThemeProvider } from "next-themes";
-import { Metadata } from "next";
-import { AppLayout } from "@/components/layouts/app-layout";
-import { Toaster } from "sonner";
+import type React from "react"
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
+import { AuthProvider } from "@/providers/auth-provider"
+import { SocketProvider } from "@/providers/socket-provider"
+import { Toaster } from "sonner"
+import { ThemeProvider } from "next-themes"
+import Provider from "./provider"
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "University Communication Platform",
-  description: "A modern platform for university communication",
-};
+  title: "UniConnect",
+  description: "University social platform for students and faculty",
+}
 
 export default function RootLayout({
   children,
-}: {
-  children: React.ReactNode;
-}) {
+}: Readonly<{
+  children: React.ReactNode
+}>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="light"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <AppLayout>{children}</AppLayout>
-          <Toaster />
-        </ThemeProvider>
+      <body className={inter.className}>
+        <Provider>
+          <AuthProvider>
+            <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+              <SocketProvider>
+                {children}
+                <Toaster />
+              </SocketProvider>
+            </ThemeProvider>
+          </AuthProvider>
+        </Provider>
       </body>
     </html>
-  );
+  )
 }

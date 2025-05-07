@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  output   = "../node_modules/.prisma/client"
 }
 
 datasource db {
@@ -10,7 +11,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// User model
 model User {
   id            String    @id @default(cuid())
   name          String
@@ -18,50 +18,72 @@ model User {
   emailVerified DateTime?
   password      String?
   image         String?
-  role          Role      @default(STUDENT)
+  role          String    @default("student") // student, teacher, admin
   department    String?
-  year          String?
-  bio           String?
-  status        Status    @default(OFFLINE)
+  status        String    @default("offline") // online, offline
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   // Relations
-  posts             Post[]
-  comments          Comment[]
-  resources         Resource[]
-  sentMessages      Message[]        @relation("SentMessages")
-  receivedMessages  Message[]        @relation("ReceivedMessages")
-  participantRooms  ChatRoomUser[]
-  settings          UserSettings?
-  notifications     Notification[]
+  posts                Post[]
+  comments             Comment[]
+  sentMessages         Message[]             @relation("SentMessages")
+  receivedMessages     Message[]             @relation("ReceivedMessages")
+  chatRoomUsers        ChatRoomUser[]
+  notifications        Notification[]
+  accounts             Account[]
+  sessions             Session[]
+  resources            Resource[]
+  notificationSettings NotificationSettings?
+  commentReactions     CommentReaction[]
 }
 
-enum Role {
-  STUDENT
-  TEACHER
-  ADMIN
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
 }
 
-enum Status {
-  ONLINE
-  OFFLINE
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
-// Feed models
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
 model Post {
-  id          String    @id @default(cuid())
-  content     String
-  department  String?
-  image       String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
-  // Relations
-  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  authorId    String
-  comments    Comment[]
-  likes       Like[]
+  id         String    @id @default(cuid())
+  content    String    @db.Text
+  department String?
+  image      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  authorId   String
+  author     User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments   Comment[]
+  likes      Like[]
 }
 
 model Comment {
@@ -69,139 +91,139 @@ model Comment {
   content   String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  // Relations
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
   authorId  String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   postId    String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  CommentReaction CommentReaction[]
+}
+
+model CommentReaction {
+  id        String   @id @default(cuid())
+  type      String // like, love, laugh, etc.
+  createdAt DateTime @default(now())
+  commentId String
+  userId    String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId, type])
 }
 
 model Like {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
-  
-  // Relations
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
   userId    String
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  postId    String
 
-  @@unique([userId, postId])
+  @@unique([postId, userId])
 }
 
-// Resource models
-model Resource {
-  id          String    @id @default(cuid())
-  title       String
-  description String
-  fileType    String
-  fileUrl     String
-  fileSize    String
-  subject     String
-  uploadDate  DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  tags        String[]
-  type        ResourceType @default(MATERIAL)
-  dueDate     DateTime?
-  
-  // Relations
-  uploader    User      @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
-  uploaderId  String
-}
-
-enum ResourceType {
-  ASSIGNMENT
-  QUIZ
-  MATERIAL
-}
-
-// Chat models
+// Chat Models
 model ChatRoom {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   name        String
-  isGroup     Boolean   @default(false)
+  description String?  @db.Text
+  isGroup     Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   avatar      String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  
+  lastActive  DateTime @default(now())
+
   // Relations
-  messages    Message[]
-  participants ChatRoomUser[]
+  users    ChatRoomUser[]
+  messages Message[]
 }
 
 model ChatRoomUser {
-  id          String    @id @default(cuid())
-  joinedAt    DateTime  @default(now())
-  unreadCount Int       @default(0)
-  
-  // Relations
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
   userId      String
-  chatRoom    ChatRoom  @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
   chatRoomId  String
+  isAdmin     Boolean  @default(false)
+  joinedAt    DateTime @default(now())
+  unreadCount Int      @default(0)
+
+  // Relations
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
 
   @@unique([userId, chatRoomId])
 }
 
 model Message {
-  id          String    @id @default(cuid())
-  content     String
-  timestamp   DateTime  @default(now())
-  readAt      DateTime?
-  
+  id         String   @id @default(cuid())
+  content    String   @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  senderId   String
+  chatRoomId String
+
+  // For direct messages
+  receiverId String?
+
+  // File attachment
+  fileUrl  String?
+  fileName String?
+  fileType String?
+  fileSize Int?
+
   // Relations
-  sender      User      @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  senderId    String
-  receiver    User?     @relation("ReceivedMessages", fields: [receiverId], references: [id])
-  receiverId  String?
-  chatRoom    ChatRoom  @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
-  chatRoomId  String
+  sender   User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User?    @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: SetNull)
+  chatRoom ChatRoom @relation(fields: [chatRoomId], references: [id], onDelete: Cascade)
 }
 
-// Settings models
-model UserSettings {
-  id                  String    @id @default(cuid())
-  emailNotifications  Boolean   @default(true)
-  pushNotifications   Boolean   @default(true)
-  newsletter          Boolean   @default(false)
-  securityAlerts      Boolean   @default(true)
-  profileVisibility   Visibility @default(CONNECTIONS_ONLY)
-  dataCollection      Boolean   @default(true)
-  personalizedAds     Boolean   @default(false)
-  searchVisibility    Boolean   @default(true)
-  showOnlineStatus    Boolean   @default(true)
-  showReadReceipts    Boolean   @default(true)
-  allowTagging        Boolean   @default(true)
-  allowDirectMessages DirectMessagePermission @default(EVERYONE)
-  
-  // Relations
-  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId              String    @unique
-}
-
-enum Visibility {
-  PUBLIC
-  PRIVATE
-  CONNECTIONS_ONLY
-}
-
-enum DirectMessagePermission {
-  EVERYONE
-  CONNECTIONS
-  NONE
-}
-
-// Notification model
 model Notification {
-  id          String    @id @default(cuid())
-  type        String
-  title       String
-  message     String
-  isRead      Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  
+  id        String   @id @default(cuid())
+  type      String // message, mention, post, etc.
+  content   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  userId    String
+  relatedId String? // ID of related entity (message, post, etc.)
+
   // Relations
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId      String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Resource {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @db.Text
+  type        String
+  url         String?
+  fileSize    Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  authorId    String
+  courseId    String?
+
+  // Relations
+  author User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  course Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+}
+
+model Course {
+  id          String     @id @default(cuid())
+  name        String
+  description String?    @db.Text
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  resources   Resource[]
+}
+
+model NotificationSettings {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  emailNotifications    Boolean  @default(true)
+  pushNotifications     Boolean  @default(true)
+  chatNotifications     Boolean  @default(true)
+  postNotifications     Boolean  @default(true)
+  resourceNotifications Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

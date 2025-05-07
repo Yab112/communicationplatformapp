@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Bell, User } from "lucide-react"
+import { Bell, User, LogOut } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
 import {
@@ -13,16 +13,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
-import { useRouter } from "next/navigation"
-import { useToast } from "@/hooks/use-toast"
 import { mockChatRooms } from "@/data/mock/chat-rooms"
-import { ProfileModal, ProfileType } from "../profile/profile-modal"
+import { useRouter } from "next/navigation"
+import { ProfileModal, type ProfileType } from "@/components/profile/profile-modal"
+import { useToast } from "@/hooks/use-toast"
+import { signOut } from "next-auth/react"
 import ThemeToggle from "../theme-toggle"
 
 export function Header() {
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false)
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false) 
   const router = useRouter()
   const { toast } = useToast()
 
@@ -34,7 +33,7 @@ export function Header() {
   // Current user profile data
   const currentUserProfile: ProfileType = {
     id: "current-user",
-    name: "Yabibal Yabib",
+    name: "John Doe",
     avatar: "/placeholder.svg?height=96&width=96",
     role: "Student",
     department: "Computer Science",
@@ -46,15 +45,19 @@ export function Header() {
 
   const handleNavigateToSettings = () => {
     router.push("/settings")
-    setIsAccountModalOpen(false)
   }
 
-  const handleLogout = () => {
-    toast({
-      title: "Logged out",
-      description: "You have been successfully logged out.",
-    })
-    setIsAccountModalOpen(false)
+  const handleLogout = async () => {
+    try {
+      await signOut()
+      // The logout function will redirect to the home page
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to log out. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -81,9 +84,6 @@ export function Header() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Notifications</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>New comment on your post</DropdownMenuItem>
-              <DropdownMenuItem>Your post was featured</DropdownMenuItem>
-              <DropdownMenuItem>New course materials available</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -111,6 +111,7 @@ export function Header() {
               <DropdownMenuItem onClick={handleNavigateToSettings}>Settings</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+                <LogOut className="mr-2 h-4 w-4" />
                 Log out
               </DropdownMenuItem>
             </DropdownMenuContent>

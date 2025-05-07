@@ -1,19 +1,20 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ImageIcon, X } from "lucide-react"
+import { ImageIcon, Loader2, X } from "lucide-react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Post } from "@/types/post"
+import { uploadFile } from "@/lib/file-upload"
+import { useToast } from "@/hooks/use-toast"
 
 const postSchema = z.object({
   content: z.string().min(1, "Post content is required").max(1000, "Post content is too long"),
@@ -30,6 +31,9 @@ interface CreatePostModalProps {
 
 export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const { toast } = useToast()
 
   const form = useForm<PostFormValues>({
     resolver: zodResolver(postSchema),
@@ -51,7 +55,7 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
         role: "Admin",
       },
       createdAt: new Date().toISOString(),
-      image: imagePreview,
+      image: imageUrl, 
       likes: 0,
       comments: [],
     }
@@ -59,16 +63,44 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
     onSubmit(newPost)
     form.reset()
     setImagePreview(null)
+    setImageUrl(null)
   }
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) {
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        setImagePreview(event.target?.result as string)
+    if (!file) return
+
+    setIsUploading(true)
+
+    try {
+      // Create FormData for the file upload
+      const formData = new FormData()
+      formData.append("file", file)
+
+      // Upload the file using the server action
+      const result = await uploadFile(formData)
+
+      if (result.error) {
+        toast({
+          title: "Upload failed",
+          description: result.error,
+          variant: "destructive",
+        })
+        return
       }
-      reader.readAsDataURL(file)
+
+      // Store the URL returned from the server
+      setImageUrl(result.url)
+      setImagePreview(result.url)
+    } catch (error) {
+      toast({
+        title: "Upload failed",
+        description: "An error occurred while uploading the image.",
+        variant: "destructive",
+      })
+      console.error("Upload error:", error)
+    } finally {
+      setIsUploading(false)
     }
   }
 
@@ -141,7 +173,10 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
                   variant="ghost"
                   size="icon"
                   className="absolute right-2 top-2 h-6 w-6 rounded-full bg-[var(--color-bg)]"
-                  onClick={() => setImagePreview(null)}
+                  onClick={() => {
+                    setImagePreview(null)
+                    setImageUrl(null)
+                  }}
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -149,11 +184,26 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
             )}
 
             <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" size="sm" className="gap-2" asChild>
+              <Button type="button" variant="outline" size="sm" className="gap-2" disabled={isUploading} asChild>
                 <label>
-                  <ImageIcon className="h-4 w-4" />
-                  <span>Add Image</span>
-                  <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ImageIcon className="h-4 w-4" />
+                      <span>Add Image</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageUpload}
+                    disabled={isUploading}
+                  />
                 </label>
               </Button>
             </div>

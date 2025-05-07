@@ -4,6 +4,7 @@ import type React from "react"
 
 import { createContext, useContext, useEffect, useState } from "react"
 import { io as createSocketIOClient, type Socket } from "socket.io-client"
+import { useSession } from "next-auth/react"
 
 type SocketContextType = {
   socket: Socket | null
@@ -20,6 +21,7 @@ export const useSocket = () => useContext(SocketContext)
 export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null)
   const [isConnected, setIsConnected] = useState(false)
+  const { data: session } = useSession()
 
   useEffect(() => {
     // Initialize Socket.IO connection
@@ -37,6 +39,11 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         socketIo.on("connect", () => {
           console.log("Socket connected")
           setIsConnected(true)
+
+          // Authenticate with user ID if logged in
+          if (session?.user?.id) {
+            socketIo.emit("authenticate", session.user.id)
+          }
         })
 
         socketIo.on("disconnect", () => {
@@ -55,7 +62,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    socketInitializer()
+    if (session?.user) {
+      socketInitializer()
+    }
 
     // Cleanup on component unmount
     return () => {
@@ -63,7 +72,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         socket.disconnect()
       }
     }
-  }, [])
+  }, [session])
 
   return <SocketContext.Provider value={{ socket, isConnected }}>{children}</SocketContext.Provider>
 }

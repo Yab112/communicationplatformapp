@@ -4,18 +4,20 @@ import type React from "react"
 
 import { createContext, useContext, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { getCurrentUser } from "@/lib/actions/auth"
+import { getCurrentUser } from "@/lib/get-session"
 
 type User = {
   id: string
   name: string
   email: string
-  image?: string
+  emailVerified: Date | null
+  image: string | null
+  password: string | null
   role: string
-  department?: string
-  year?: string
-  bio?: string
+  department: string | null
   status: string
+  createdAt: Date
+  updatedAt: Date
 } | null
 
 type AuthContextType = {
