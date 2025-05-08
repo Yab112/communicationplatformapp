@@ -95,7 +95,7 @@ export async function createPost(data: PostFormValues) {
       data: {
         content: validatedData.content,
         authorId: user.id,
-        ...(validatedData.imageUrl && { image: validatedData.imageUrl }),
+        ...(validatedData.image && { image: validatedData.image }),
       },
     })
 
