@@ -50,7 +50,18 @@ export function CommentSection({ postId, comments: initialComments }: CommentSec
       }
 
       if (success && comment) {
-        setComments([...comments, comment])
+        const completeComment: Comment = {
+          ...comment,
+          author: {
+            id: "default-author-id",
+            name: "Default Author",
+            avatar: "/default-avatar.svg",
+            role: "Student",
+          },
+          reactions: [],
+          createdAt: new Date(comment.createdAt).toISOString(),
+        }
+        setComments([...comments, completeComment])
         form.reset()
         toast({
           title: "Success",
@@ -109,7 +120,7 @@ export function CommentSection({ postId, comments: initialComments }: CommentSec
                         avatar: "/placeholder.svg",
                         role: "Student",
                       },
-                      createdAt: new Date().toISOString(),
+                      createdAt: new Date(comment.createdAt).toISOString(),
                     },
                   ],
                 }

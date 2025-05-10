@@ -90,8 +90,8 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
       }
 
       // Store the URL returned from the server
-      setImageUrl(result.url)
-      setImagePreview(result.url)
+      setImageUrl(result.url || null)
+      setImagePreview(result.url || null)
     } catch (error) {
       toast({
         title: "Upload failed",

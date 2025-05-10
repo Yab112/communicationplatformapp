@@ -99,7 +99,7 @@ export function FeedsPage() {
       const { success, error } = await createPost({
         content: newPost.content,
         department: newPost.department,
-        imageUrl: newPost.image || undefined,
+        image: newPost.image || undefined,
       })
 
       if (error) {
