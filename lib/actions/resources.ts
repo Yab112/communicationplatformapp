@@ -5,9 +5,55 @@ import { db } from "@/lib/db"
 import { getCurrentUser } from "@/lib/get-session"
 import { resourceSchema, type ResourceFormValues } from "@/lib/validator/resource"
 
-export async function getResources() {
+import type { Resource } from "@/types/resource"
+import { prisma } from "../prisma"
+
+export async function getResources(filters?: {
+  teacherName?: string;
+  department?: string;
+  courseId?: string;
+  fileType?: string;
+  search?: string;
+}) {
   try {
+    console.log("Fetching resources with filters:", filters);
+    
     const resources = await db.resource.findMany({
+      where: {
+        ...(filters?.teacherName && {
+          author: {
+            name: {
+              contains: filters.teacherName,
+              mode: 'insensitive',
+            },
+          },
+        }),
+        ...(filters?.department && {
+          department: filters.department,
+        }),
+        ...(filters?.courseId && {
+          courseId: filters.courseId,
+        }),
+        ...(filters?.fileType && {
+          fileType: filters.fileType,
+        }),
+        ...(filters?.search && {
+          OR: [
+            {
+              title: {
+                contains: filters.search,
+                mode: 'insensitive',
+              },
+            },
+            {
+              description: {
+                contains: filters.search,
+                mode: 'insensitive',
+              },
+            },
+          ],
+        }),
+      },
       include: {
         author: {
           select: {
@@ -22,11 +68,23 @@ export async function getResources() {
       orderBy: {
         createdAt: "desc",
       },
-    })
+    });
 
-    return { resources }
+    console.log(`Found ${resources.length} resources`);
+    
+    if (resources.length === 0) {
+      console.log("No resources found in database");
+    } else {
+      console.log("First resource:", resources[0]);
+    }
+
+    return { resources, error: null };
   } catch (error) {
-    return { error: "Failed to fetch resources" }
+    console.error("Error fetching resources:", error);
+    if (error instanceof Error) {
+      return { resources: [], error: `Failed to fetch resources: ${error.message}` };
+    }
+    return { resources: [], error: "Failed to fetch resources" };
   }
 }
 
@@ -44,39 +102,123 @@ export async function getCourses() {
   }
 }
 
-export async function createResource(data: ResourceFormValues) {
+export async function createResource(formData: FormData) {
   try {
-    // Validate input
-    const validatedData = resourceSchema.parse(data)
-
-    // Get current user
     const user = await getCurrentUser()
     if (!user) {
-      return { error: "Unauthorized" }
+      console.error("No authenticated user found")
+      return { resource: null, error: "Unauthorized" }
     }
 
-    // Create resource
+    const title = formData.get("title") as string
+    const description = formData.get("description") as string
+    const type = formData.get("type") as string
+    const department = formData.get("department") as string
+    const fileType = formData.get("fileType") as string
+    const courseName = formData.get("courseId") as string
+    const tags = JSON.parse(formData.get("tags") as string) as string[]
+    const file = formData.get("file") as File
+
+    if (!file) {
+      console.error("No file provided")
+      return { resource: null, error: "File is required" }
+    }
+
+    // Validate required fields
+    if (!title || !description || !type || !department || !fileType) {
+      console.error("Missing required fields:", { title, description, type, department, fileType })
+      return { resource: null, error: "All required fields must be filled" }
+    }
+
+    // Create a unique filename using a stable format
+    const filename = `${user.id}-${file.name}`
+    const fileUrl = `/uploads/${filename}`
+
+    let courseId = null
+    if (courseName) {
+      // Find or create the course
+      const existingCourse = await db.course.findFirst({
+        where: { name: courseName }
+      })
+
+      if (existingCourse) {
+        courseId = existingCourse.id
+      } else {
+        const newCourse = await db.course.create({
+          data: {
+            name: courseName,
+            description: `${courseName} course in ${department} department`
+          }
+        })
+        courseId = newCourse.id
+      }
+    }
+
+    console.log("Creating resource with data:", {
+      title,
+      type,
+      department,
+      fileType,
+      courseId,
+      fileSize: file.size,
+      authorId: user.id
+    })
+
     const resource = await db.resource.create({
       data: {
-        title: validatedData.title,
-        description: validatedData.description,
-        type: validatedData.type,
-        url: validatedData.url,
-        fileSize: validatedData.fileSize,
+        title,
+        description,
+        type,
+        department,
+        fileType,
+        courseId,
+        tags,
+        url: fileUrl,
+        fileSize: file.size,
         authorId: user.id,
-        courseId: validatedData.courseId,
+        uploadDate: new Date(),
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+          },
+        },
       },
     })
 
-    // Revalidate resources page
-    revalidatePath("/resources")
+    console.log("Resource created successfully:", resource)
 
-    return { success: true, resource }
-  } catch (error) {
-    if (error instanceof Error) {
-      return { error: error.message }
+    const transformedResource: Resource = {
+      id: resource.id,
+      title: resource.title,
+      description: resource.description,
+      type: resource.type,
+      url: resource.url || "",
+      fileSize: resource.fileSize?.toString() || "",
+      department: resource.department || "",
+      courseId: resource.courseId || "",
+      fileType: resource.fileType || "",
+      uploadDate: resource.createdAt.toISOString(),
+      tags: resource.tags || [],
+      uploadedBy: {
+        id: resource.author.id,
+        name: resource.author.name,
+        avatar: resource.author.image || "",
+      },
+      dueDate: null,
     }
-    return { error: "Failed to create resource" }
+
+    revalidatePath("/resources")
+    return { resource: transformedResource, error: null }
+  } catch (error) {
+    console.error("Error creating resource:", error)
+    if (error instanceof Error) {
+      return { resource: null, error: error.message }
+    }
+    return { resource: null, error: "Failed to create resource" }
   }
 }
 

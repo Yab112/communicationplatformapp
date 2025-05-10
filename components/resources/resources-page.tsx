@@ -1,18 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ResourceList } from "@/components/resources/resource-list";
 import { ResourceFilters } from "@/components/resources/resource-filters";
 import { CreateResourceModal } from "@/components/resources/create-resource-modal";
 import { Button } from "@/components/ui/button";
 import { Plus, Grid, List } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { mockResources } from "@/data/mock/resources";
 import type { Resource } from "@/types/resource";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getResources } from "@/lib/actions/resources";
+import { Loader2 } from "lucide-react";
 
 export function ResourcesPage() {
-  const [resources, setResources] = useState<Resource[]>(mockResources);
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const { toast } = useToast();
@@ -23,6 +25,9 @@ export function ResourcesPage() {
     subject: "",
     year: "",
     fileType: "",
+    department: "",
+    courseId: "",
+    teacherName: "",
     dateRange: {
       from: undefined as Date | undefined,
       to: undefined as Date | undefined,
@@ -32,74 +37,148 @@ export function ResourcesPage() {
   // Sort state
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "a-z">("newest");
 
-  // Apply filters and sorting
-  const filteredResources = resources
-    .filter((resource) => {
-      // Search filter
-      if (
-        filters.search &&
-        !resource.title.toLowerCase().includes(filters.search.toLowerCase()) &&
-        !resource.description
-          .toLowerCase()
-          .includes(filters.search.toLowerCase())
-      ) {
-        return false;
-      }
+  // Initialize resources on client-side only
+  useEffect(() => {
+    let isMounted = true;
+    const controller = new AbortController();
 
-      // Subject filter
-      if (filters.subject && resource.subject !== filters.subject) {
-        return false;
-      }
+    const fetchResources = async () => {
+      if (!isMounted) return;
 
-      // Year filter
-      if (filters.year && !resource.tags.includes(filters.year)) {
-        return false;
-      }
+      try {
+        console.log("Fetching resources with filters:", filters);
+        
+        const { resources: fetchedResources, error } = await getResources({
+          teacherName: filters.teacherName,
+          department: filters.department,
+          courseId: filters.courseId,
+          fileType: filters.fileType,
+          search: filters.search,
+        });
 
-      // File type filter
-      if (filters.fileType && resource.fileType !== filters.fileType) {
-        return false;
-      }
+        if (!isMounted) return;
 
-      // Date range filter
-      if (
-        filters.dateRange.from &&
-        new Date(resource.uploadDate) < filters.dateRange.from
-      ) {
-        return false;
-      }
+        if (error) {
+          console.error("Error fetching resources:", error);
+          toast({
+            title: "Error",
+            description: error,
+            variant: "destructive",
+          });
+          if (isInitialLoad) {
+            setResources([]);
+          }
+          return;
+        }
 
-      if (
-        filters.dateRange.to &&
-        new Date(resource.uploadDate) > filters.dateRange.to
-      ) {
-        return false;
-      }
+        console.log(`Received ${fetchedResources.length} resources from API`);
+        
+        // Transform the resources to match the Resource type
+        const transformedResources: Resource[] = fetchedResources.map(resource => {
+          console.log("Transforming resource:", resource);
+          return {
+            id: resource.id,
+            title: resource.title,
+            description: resource.description,
+            type: resource.type,
+            url: resource.url || "",
+            fileSize: resource.fileSize?.toString() || "",
+            subject: resource.subject || "",
+            department: resource.department || "",
+            courseId: resource.courseId || "",
+            fileType: resource.fileType || "",
+            uploadDate: resource.createdAt.toISOString(),
+            tags: resource.tags || [],
+            uploadedBy: {
+              id: resource.author.id,
+              name: resource.author.name,
+              avatar: resource.author.image || "",
+            },
+            dueDate: null,
+          };
+        });
 
-      return true;
-    })
-    .sort((a, b) => {
-      // Sort by date or alphabetically
-      if (sortBy === "newest") {
-        return (
-          new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
-        );
-      } else if (sortBy === "oldest") {
-        return (
-          new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime()
-        );
-      } else {
-        // a-z
-        return a.title.localeCompare(b.title);
+        console.log("Transformed resources:", transformedResources);
+        setResources(transformedResources);
+      } catch (error) {
+        if (!isMounted) return;
+        console.error("Error in fetchResources:", error);
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to fetch resources",
+          variant: "destructive",
+        });
+        if (isInitialLoad) {
+          setResources([]);
+        }
+      } finally {
+        if (isMounted && isInitialLoad) {
+          setIsInitialLoad(false);
+        }
       }
-    });
+    };
+
+    // Debounce the fetch call
+    const timeoutId = setTimeout(() => {
+      fetchResources();
+    }, 300); // 300ms debounce
+
+    return () => {
+      isMounted = false;
+      controller.abort();
+      clearTimeout(timeoutId);
+    };
+  }, [filters, toast, isInitialLoad]);
+
+  // Apply date range filter and sorting
+  const filteredResources = useMemo(() => {
+    return resources
+      .filter((resource) => {
+        // Date range filter
+        if (
+          filters.dateRange.from &&
+          new Date(resource.uploadDate) < filters.dateRange.from
+        ) {
+          return false;
+        }
+
+        if (
+          filters.dateRange.to &&
+          new Date(resource.uploadDate) > filters.dateRange.to
+        ) {
+          return false;
+        }
+
+        // Year filter
+        if (filters.year && !resource.tags.includes(filters.year)) {
+          return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        // Sort by date or alphabetically
+        if (sortBy === "newest") {
+          return (
+            new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
+          );
+        } else if (sortBy === "oldest") {
+          return (
+            new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime()
+          );
+        } else {
+          // a-z
+          return a.title.localeCompare(b.title);
+        }
+      });
+  }, [resources, filters.dateRange, filters.year, sortBy]);
 
   const handleCreateResource = (newResource: Resource) => {
     setResources([newResource, ...resources]);
     setIsCreateModalOpen(false);
     toast({
-      title: "Resource created",
-      description: "Your resource has been published successfully.",
+      title: "Success",
+      description: "Resource has been created successfully.",
     });
   };
 
@@ -113,6 +192,9 @@ export function ResourcesPage() {
       subject: "",
       year: "",
       fileType: "",
+      department: "",
+      courseId: "",
+      teacherName: "",
       dateRange: {
         from: undefined,
         to: undefined,
@@ -126,14 +208,13 @@ export function ResourcesPage() {
   return (
     <div className="flex flex-col h-screen">
       <div className="flex flex-1 overflow-hidden">
-
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="mx-auto max-w-6xl w-full">
             <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <h1 className="text-2xl font-bold">Resources</h1>
 
               <div className="flex flex-wrap items-center gap-2 md:gap-4">
-              <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "grid" | "list")}>
+                <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "grid" | "list")}>
                   <TabsList className="grid w-[160px] grid-cols-2 bg-transparent rounded-md p-1 border border-blue-100/50 mb-1">
                     <TabsTrigger
                       value="grid"  
@@ -173,7 +254,13 @@ export function ResourcesPage() {
             />
 
             <div className="mt-6">
-              <ResourceList resources={filteredResources} viewMode={viewMode} />
+              {isInitialLoad && resources.length === 0 ? (
+                <div className="flex items-center justify-center h-64">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+                </div>
+              ) : (
+                <ResourceList resources={filteredResources} viewMode={viewMode} />
+              )}
             </div>
           </div>
         </div>

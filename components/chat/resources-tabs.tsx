@@ -1,52 +1,126 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Download, FileText, FileSpreadsheet, FilePlus2, Search } from "lucide-react"
 import { motion } from "framer-motion"
-import { mockResources } from "@/data/mock/resources"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
+import { useToast } from "@/hooks/use-toast"
+import { getResources } from "@/lib/actions/resources"
+import type { Resource } from "@/types/resource"
 
 interface ResourcesTabsProps {
   roomId: string
+  initialResources?: Resource[]
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function ResourcesTabs({ roomId }: ResourcesTabsProps) {
+export function ResourcesTabs({ roomId, initialResources = [] }: ResourcesTabsProps) {
   const [searchQuery, setSearchQuery] = useState("")
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [activeTab, setActiveTab] = useState("assignment")
+  const [resources, setResources] = useState<Resource[]>(initialResources)
+  const { toast } = useToast()
 
-  // Filter resources by type and search query
-  const filterResources = (type: string) => {
-    return mockResources
-      .filter((resource) => {
-        // Filter by type
-        if (type === "assignment") return resource.type === "assignment"
-        if (type === "homeexam") return resource.type === "quiz" // Using quiz data for home exams
-        if (type === "resource") return resource.type === "material" // Using material data for resources
-        return false
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchResources = async () => {
+      try {
+        const { resources: fetchedResources, error } = await getResources({
+          type: activeTab === "assignment" ? "assignment" : activeTab === "homeexam" ? "quiz" : "material",
+          search: searchQuery,
+        })
+
+        if (!isMounted) return
+
+        if (error) {
+          toast({
+            title: "Error",
+            description: error,
+            variant: "destructive",
+          })
+          return
+        }
+
+        if (fetchedResources) {
+          const transformedResources: Resource[] = fetchedResources.map(resource => ({
+            id: resource.id,
+            title: resource.title,
+            description: resource.description,
+            type: resource.type,
+            url: resource.url || "",
+            fileSize: resource.fileSize?.toString() || "",
+            department: resource.department || "",
+            courseId: resource.courseId || "",
+            fileType: resource.fileType || "",
+            uploadDate: resource.createdAt.toISOString(),
+            tags: resource.tags || [],
+            uploadedBy: {
+              id: resource.author.id,
+              name: resource.author.name,
+              avatar: resource.author.image || "",
+            },
+            dueDate: null,
+          }))
+
+          setResources(transformedResources)
+        }
+      } catch (error) {
+        if (!isMounted) return
+        toast({
+          title: "Error",
+          description: "Failed to fetch resources",
+          variant: "destructive",
+        })
+      }
+    }
+
+    fetchResources()
+
+    return () => {
+      isMounted = false
+    }
+  }, [activeTab, searchQuery, toast])
+
+  const handleDownload = async (resource: Resource) => {
+    if (!resource.url) {
+      toast({
+        title: "Error",
+        description: "No file URL available for download",
+        variant: "destructive",
       })
-      .filter((resource) => {
-        // Filter by search query (title, description, or uploader name)
-        if (!searchQuery) return true
-        const query = searchQuery.toLowerCase()
-        return (
-          resource.title.toLowerCase().includes(query) ||
-          resource.description.toLowerCase().includes(query) ||
-          resource.uploadedBy.name.toLowerCase().includes(query) ||
-          (resource.tags && resource.tags.some((tag) => tag.toLowerCase().includes(query)))
-        )
+      return
+    }
+
+    try {
+      const response = await fetch(resource.url)
+      if (!response.ok) throw new Error("Failed to download file")
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = resource.title
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      toast({
+        title: "Success",
+        description: "File downloaded successfully",
       })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download file",
+        variant: "destructive",
+      })
+    }
   }
-
-  const assignments = filterResources("assignment")
-  const homeExams = filterResources("homeexam")
-  const resources = filterResources("resource")
 
   const container = {
     hidden: { opacity: 0 },
@@ -63,7 +137,7 @@ export function ResourcesTabs({ roomId }: ResourcesTabsProps) {
     show: { opacity: 1, y: 0 },
   }
 
-  const renderResourceList = (resources: typeof mockResources) => (
+  const renderResourceList = (resources: Resource[]) => (
     <ScrollArea className="h-[50vh]">
       <motion.div className="space-y-4 pr-4" variants={container} initial="hidden" animate="show">
         {resources.length === 0 ? (
@@ -86,7 +160,7 @@ export function ResourcesTabs({ roomId }: ResourcesTabsProps) {
                     </div>
                     {resource.type === "assignment" && resource.dueDate && (
                       <Badge variant="outline" className="bg-primary/10 text-primary">
-                        Due {resource.dueDate ? new Date(resource.dueDate).toLocaleDateString() : "Invalid date"}
+                        Due {new Date(resource.dueDate).toLocaleDateString()}
                       </Badge>
                     )}
                   </div>
@@ -118,7 +192,12 @@ export function ResourcesTabs({ roomId }: ResourcesTabsProps) {
                   <div className="mt-2 text-xs text-muted-foreground">Uploaded by: {resource.uploadedBy.name}</div>
                 </CardContent>
                 <CardFooter>
-                  <Button variant="outline" size="sm" className="ml-auto hover:bg-primary/10 hover:text-primary">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="ml-auto hover:bg-primary/10 hover:text-primary"
+                    onClick={() => handleDownload(resource)}
+                  >
                     <Download className="mr-2 h-4 w-4" />
                     Download
                   </Button>
@@ -135,7 +214,6 @@ export function ResourcesTabs({ roomId }: ResourcesTabsProps) {
     <div className="py-4">
       <h2 className="text-xl font-semibold mb-4">Section Resources</h2>
 
-      {/* Search input */}
       <div className="relative mb-4">
         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
         <Input
@@ -155,11 +233,11 @@ export function ResourcesTabs({ roomId }: ResourcesTabsProps) {
         </TabsList>
 
         <TabsContent value="assignment" className="mt-4">
-          {renderResourceList(assignments)}
+          {renderResourceList(resources)}
         </TabsContent>
 
         <TabsContent value="homeexam" className="mt-4">
-          {renderResourceList(homeExams)}
+          {renderResourceList(resources)}
         </TabsContent>
 
         <TabsContent value="resource" className="mt-4">

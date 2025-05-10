@@ -7,6 +7,11 @@ export const resourceSchema = z.object({
   url: z.string().optional(),
   fileSize: z.number().optional(),
   courseId: z.string().optional(),
+  department: z.string().min(1, "Department is required"),
+  fileType: z.string().min(1, "File type is required"),
+  fileUpload: z.any().optional(),
+  uploadDate: z.date().optional(),
+  tags: z.array(z.string()).optional(),
 })
 
 export type ResourceFormValues = z.infer<typeof resourceSchema>

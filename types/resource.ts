@@ -5,17 +5,22 @@ export interface ResourceUploader {
   }
   
   export interface Resource {
-    dueDate: Date | null
-    type: string
     id: string
     title: string
-    subject: string
     description: string
+    type: string
+    url?: string
+    fileSize?: string
+    department: string
+    courseId: string
     fileType: string
-    fileSize: string
     uploadDate: string
     tags: string[]
-    uploadedBy: ResourceUploader
-    // fileUrl: string
+    uploadedBy: {
+      id: string
+      name: string
+      avatar: string
+    }
+    dueDate: string | null
   }
   

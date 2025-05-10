@@ -200,9 +200,9 @@ model Resource {
   courseId    String?
   tags        String[]
   subject     String?
+  department  String?
   fileType    String?
   uploadDate  DateTime?
-  uploadedBy  String?
 
   // Relations
   author User    @relation(fields: [authorId], references: [id], onDelete: Cascade)

@@ -8,140 +8,173 @@ export const dynamic = 'force-dynamic'
 
 let io: SocketIOServer | null = null
 
+interface ServerError extends Error {
+  code?: string;
+}
+
 export async function GET(req: Request) {
   if (!io) {
-    const httpServer = new NetServer()
-    io = new SocketIOServer(httpServer, {
-      path: '/api/socket/io',
-      addTrailingSlash: false,
-      cors: {
-        origin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-        methods: ['GET', 'POST'],
-        credentials: true
-      }
-    })
+    try {
+      const httpServer = new NetServer()
+      io = new SocketIOServer(httpServer, {
+        path: '/api/socket/io',
+        addTrailingSlash: false,
+        cors: {
+          origin: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+          methods: ['GET', 'POST'],
+          credentials: true
+        }
+      })
 
-    io.on('connection', async (socket) => {
-      console.log('Client connected:', socket.id)
-      
-      // Handle new post creation
-      socket.on('create-post', async (data) => {
-        try {
-          const token = await getToken({ req })
-          if (!token) {
-            socket.emit('error', 'Unauthorized')
-            return
-          }
+      io.on('connection', async (socket) => {
+        console.log('Client connected:', socket.id)
+        
+        // Handle new post creation
+        socket.on('create-post', async (data) => {
+          try {
+            const token = await getToken({ req: socket.handshake.headers as any })
+            if (!token) {
+              socket.emit('error', 'Unauthorized')
+              return
+            }
 
-          const post = await db.post.create({
-            data: {
-              content: data.content,
-              department: data.department,
-              authorId: token.sub as string,
-              image: data.image || null,
-            },
-            include: {
-              author: true,
-              comments: {
-                include: {
-                  author: true,
+            const post = await db.post.create({
+              data: {
+                content: data.content,
+                department: data.department,
+                authorId: token.sub as string,
+                image: data.image || null,
+              },
+              include: {
+                author: true,
+                comments: {
+                  include: {
+                    author: true,
+                  },
                 },
               },
-            },
-          })
+            })
 
-          io?.emit('new-post', post)
-        } catch (error) {
-          console.error('Error creating post:', error)
-          socket.emit('error', 'Failed to create post')
-        }
-      })
-
-      // Handle post likes
-      socket.on('like-post', async (data) => {
-        try {
-          const token = await getToken({ req })
-          if (!token) {
-            socket.emit('error', 'Unauthorized')
-            return
+            io?.emit('new-post', post)
+          } catch (error) {
+            console.error('Error creating post:', error)
+            socket.emit('error', 'Failed to create post')
           }
+        })
 
-          const existingLike = await db.like.findUnique({
-            where: {
-              postId_userId: {
-                postId: data.postId,
-                userId: token.sub as string,
-              },
-            },
-          })
+        // Handle post likes
+        socket.on('like-post', async (data) => {
+          try {
+            const token = await getToken({ req: socket.handshake.headers as any })
+            if (!token) {
+              socket.emit('error', 'Unauthorized')
+              return
+            }
 
-          if (existingLike) {
-            await db.like.delete({
+            const existingLike = await db.like.findUnique({
               where: {
-                id: existingLike.id,
+                postId_userId: {
+                  postId: data.postId,
+                  userId: token.sub as string,
+                },
               },
             })
-          } else {
-            await db.like.create({
-              data: {
+
+            if (existingLike) {
+              await db.like.delete({
+                where: {
+                  id: existingLike.id,
+                },
+              })
+            } else {
+              await db.like.create({
+                data: {
+                  postId: data.postId,
+                  userId: token.sub as string,
+                },
+              })
+            }
+
+            const likes = await db.like.count({
+              where: {
                 postId: data.postId,
-                userId: token.sub as string,
               },
             })
-          }
 
-          const likes = await db.like.count({
-            where: {
+            io?.emit('post-liked', {
               postId: data.postId,
-            },
-          })
+              likes,
+            })
+          } catch (error) {
+            console.error('Error liking post:', error)
+            socket.emit('error', 'Failed to like post')
+          }
+        })
 
-          io?.emit('post-liked', {
-            postId: data.postId,
-            likes,
-          })
-        } catch (error) {
-          console.error('Error liking post:', error)
-          socket.emit('error', 'Failed to like post')
-        }
+        // Handle comments
+        socket.on('add-comment', async (data) => {
+          try {
+            const token = await getToken({ req: socket.handshake.headers as any })
+            if (!token) {
+              socket.emit('error', 'Unauthorized')
+              return
+            }
+
+            const comment = await db.comment.create({
+              data: {
+                content: data.content,
+                postId: data.postId,
+                authorId: token.sub as string,
+              },
+              include: {
+                author: true,
+              },
+            })
+
+            io?.emit('new-comment', {
+              postId: data.postId,
+              comment,
+            })
+          } catch (error) {
+            console.error('Error adding comment:', error)
+            socket.emit('error', 'Failed to add comment')
+          }
+        })
+
+        socket.on('disconnect', () => {
+          console.log('Client disconnected:', socket.id)
+        })
       })
 
-      // Handle comments
-      socket.on('add-comment', async (data) => {
+      // Try to start the server, if port is in use, try another port
+      let port = 3001
+      const maxAttempts = 10
+      let attempts = 0
+
+      while (attempts < maxAttempts) {
         try {
-          const token = await getToken({ req })
-          if (!token) {
-            socket.emit('error', 'Unauthorized')
-            return
-          }
-
-          const comment = await db.comment.create({
-            data: {
-              content: data.content,
-              postId: data.postId,
-              authorId: token.sub as string,
-            },
-            include: {
-              author: true,
-            },
-          })
-
-          io?.emit('new-comment', {
-            postId: data.postId,
-            comment,
-          })
+          httpServer.listen(port)
+          console.log(`Socket.IO server running on port ${port}`)
+          break
         } catch (error) {
-          console.error('Error adding comment:', error)
-          socket.emit('error', 'Failed to add comment')
+          const serverError = error as ServerError
+          if (serverError.code === 'EADDRINUSE') {
+            port++
+            attempts++
+            console.log(`Port ${port - 1} in use, trying ${port}...`)
+          } else {
+            throw error
+          }
         }
-      })
+      }
 
-      socket.on('disconnect', () => {
-        console.log('Client disconnected:', socket.id)
-      })
-    })
-
-    httpServer.listen(3001)
+      if (attempts === maxAttempts) {
+        throw new Error('Could not find an available port for Socket.IO server')
+      }
+    } catch (error) {
+      console.error('Error initializing Socket.IO server:', error)
+      return NextResponse.json({ error: 'Failed to initialize Socket.IO server' }, { status: 500 })
+    }
   }
 
   return NextResponse.json({ success: true })
