@@ -90,11 +90,12 @@ export async function createPost(data: PostFormValues) {
       return { error: "Unauthorized" }
     }
 
-    // Create post
+    // Create post with department as a tag
     const post = await db.post.create({
       data: {
         content: validatedData.content,
         authorId: user.id,
+        department: user.department,
         ...(validatedData.image && { image: validatedData.image }),
       },
     })

@@ -198,6 +198,11 @@ model Resource {
   updatedAt   DateTime @updatedAt
   authorId    String
   courseId    String?
+  tags        String[]
+  subject     String?
+  fileType    String?
+  uploadDate  DateTime?
+  uploadedBy  String?
 
   // Relations
   author User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
