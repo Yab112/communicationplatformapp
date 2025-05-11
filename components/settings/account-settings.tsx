@@ -105,7 +105,7 @@ export function AccountSettings() {
           </CardContent>
         </Card>
 
-        <Card>
+        {/* <Card>
           <CardHeader>
             <CardTitle>Change Password</CardTitle>
             <CardDescription>Update your password to keep your account secure</CardDescription>
@@ -166,7 +166,7 @@ export function AccountSettings() {
               </form>
             </Form>
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
     </div>
   )
