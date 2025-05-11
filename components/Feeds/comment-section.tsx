@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { formatDistanceToNow } from "date-fns"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -27,7 +27,23 @@ interface CommentSectionProps {
 
 export function CommentSection({ postId, comments: initialComments }: CommentSectionProps) {
   const [comments, setComments] = useState<Comment[]>(initialComments)
+  const [commentTimes, setCommentTimes] = useState<Record<string, string>>({})
   const { toast } = useToast()
+
+  useEffect(() => {
+    const updateTimes = () => {
+      const times: Record<string, string> = {}
+      comments.forEach(comment => {
+        times[comment.id] = formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })
+      })
+      setCommentTimes(times)
+    }
+
+    updateTimes()
+    const interval = setInterval(updateTimes, 60000)
+
+    return () => clearInterval(interval)
+  }, [comments])
 
   const form = useForm<CommentFormValues>({
     resolver: zodResolver(commentSchema),
@@ -142,7 +158,7 @@ export function CommentSection({ postId, comments: initialComments }: CommentSec
   const reactionEmojis = ["👍", "❤️", "😂"]
 
   return (
-    <div className="border-t p-4">
+    <div className="border-t p-4  w-full">
       <div className="space-y-4">
         {comments.map((comment) => (
           <div key={comment.id} className="flex gap-3">
@@ -155,10 +171,10 @@ export function CommentSection({ postId, comments: initialComments }: CommentSec
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-medium">{comment.author.name}</p>
                   <p className="text-xs text-[var(--color-muted-fg)]">
-                    {formatDistanceToNow(new Date(comment.createdAt), { addSuffix: true })}
+                    {commentTimes[comment.id] || ''}
                   </p>
                 </div>
-                <p className="mt-1 text-sm">{comment.content}</p>
+                <p className="mt-1 text-sm break-words whitespace-pre-wrap max-w-[500px] ">{comment.content}</p>
               </div>
               <div className="mt-1 flex items-center gap-1">
                 <div className="flex gap-1">

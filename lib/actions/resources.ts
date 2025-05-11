@@ -7,6 +7,8 @@ import { resourceSchema, type ResourceFormValues } from "@/lib/validator/resourc
 
 import type { Resource } from "@/types/resource"
 import { prisma } from "../prisma"
+import path from "path"
+import fs from "fs"
 
 export async function getResources(filters?: {
   teacherName?: string;
@@ -117,22 +119,14 @@ export async function createResource(formData: FormData) {
     const fileType = formData.get("fileType") as string
     const courseName = formData.get("courseId") as string
     const tags = JSON.parse(formData.get("tags") as string) as string[]
-    const file = formData.get("file") as File
-
-    if (!file) {
-      console.error("No file provided")
-      return { resource: null, error: "File is required" }
-    }
+    const url = formData.get("url") as string
+    const fileSize = parseInt(formData.get("fileSize") as string, 10)
 
     // Validate required fields
-    if (!title || !description || !type || !department || !fileType) {
-      console.error("Missing required fields:", { title, description, type, department, fileType })
+    if (!title || !description || !type || !department || !fileType || !url) {
+      console.error("Missing required fields:", { title, description, type, department, fileType, url })
       return { resource: null, error: "All required fields must be filled" }
     }
-
-    // Create a unique filename using a stable format
-    const filename = `${user.id}-${file.name}`
-    const fileUrl = `/uploads/${filename}`
 
     let courseId = null
     if (courseName) {
@@ -160,8 +154,9 @@ export async function createResource(formData: FormData) {
       department,
       fileType,
       courseId,
-      fileSize: file.size,
-      authorId: user.id
+      fileSize,
+      authorId: user.id,
+      url
     })
 
     const resource = await db.resource.create({
@@ -173,10 +168,9 @@ export async function createResource(formData: FormData) {
         fileType,
         courseId,
         tags,
-        url: fileUrl,
-        fileSize: file.size,
+        url,
+        fileSize,
         authorId: user.id,
-        uploadDate: new Date(),
       },
       include: {
         author: {

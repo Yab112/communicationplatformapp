@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { Bell, User, LogOut } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -19,29 +19,31 @@ import { ProfileModal, type ProfileType } from "@/components/profile/profile-mod
 import { useToast } from "@/hooks/use-toast"
 import { signOut } from "next-auth/react"
 import ThemeToggle from "../theme-toggle"
+import { useUser } from "@/context/user-context"
 
 export function Header() {
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false) 
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
+  const { user, loading } = useUser()
 
-  // Calculate total unread messages
-  const totalUnreadCount = useMemo(() => {
-    return mockChatRooms.reduce((total, room) => total + room.unreadCount, 0)
-  }, []) // Empty dependency array means this only calculates once
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Current user profile data
-  const currentUserProfile: ProfileType = {
-    id: "current-user",
-    name: "John Doe",
-    avatar: "/placeholder.svg?height=96&width=96",
-    role: "Student",
-    department: "Computer Science",
-    year: "2nd Year",
-    status: "online",
-    bio: "Computer Science student interested in AI and machine learning.",
-    email: "john.doe@university.edu",
-  }
+  const currentUserProfile: ProfileType = useMemo(() => ({
+    id: user?.id || "current-user",
+    name: user?.name || "Anonymous User",
+    avatar: user?.image || "/placeholder.svg?height=96&width=96",
+    role: user?.role || "Student",
+    department: user?.department || "Unspecified",
+    year: user?.year || undefined,
+    status: user?.status || "offline",
+    bio: user?.bio || "No bio available",
+    email: user?.email || undefined,
+  }), [user])
 
   const handleNavigateToSettings = () => {
     router.push("/settings")
@@ -58,6 +60,24 @@ export function Header() {
         variant: "destructive",
       })
     }
+  }
+
+  // Prevent hydration mismatch by not rendering user-specific content until mounted
+  const renderAvatar = () => {
+    if (!mounted || loading) {
+      return (
+        <Avatar className="h-8 w-8">
+          <AvatarFallback>...</AvatarFallback>
+        </Avatar>
+      )
+    }
+
+    return (
+      <Avatar className="h-8 w-8">
+        <AvatarImage src={currentUserProfile.avatar} alt={currentUserProfile.name} />
+        <AvatarFallback>{currentUserProfile.name.charAt(0)}</AvatarFallback>
+      </Avatar>
+    )
   }
 
   return (
@@ -90,15 +110,7 @@ export function Header() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src="/placeholder.svg?height=32&width=32" alt="@user" />
-                  <AvatarFallback>JD</AvatarFallback>
-                </Avatar>
-                {totalUnreadCount > 0 && (
-                  <Badge className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
-                    {totalUnreadCount}
-                  </Badge>
-                )}
+                {renderAvatar()}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
@@ -119,12 +131,13 @@ export function Header() {
         </div>
       </div>
 
-      {/* Profile Modal */}
-      <ProfileModal
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-        profile={currentUserProfile}
-      />
+      {mounted && (
+        <ProfileModal
+          isOpen={isProfileModalOpen}
+          onClose={() => setIsProfileModalOpen(false)}
+          profile={currentUserProfile}
+        />
+      )}
     </header>
   )
 }

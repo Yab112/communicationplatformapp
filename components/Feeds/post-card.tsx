@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { formatDistanceToNow } from "date-fns"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
@@ -24,7 +24,19 @@ export function PostCard({ post }: PostCardProps) {
   const [showFullContent, setShowFullContent] = useState(false)
   const [isLiked, setIsLiked] = useState(false)
   const [likesCount, setLikesCount] = useState(post.likes)
+  const [timeAgo, setTimeAgo] = useState<string>('')
   const { toast } = useToast()
+
+  useEffect(() => {
+    setTimeAgo(formatDistanceToNow(new Date(post.createdAt), { addSuffix: true }))
+    
+    // Update time every minute
+    const interval = setInterval(() => {
+      setTimeAgo(formatDistanceToNow(new Date(post.createdAt), { addSuffix: true }))
+    }, 60000)
+
+    return () => clearInterval(interval)
+  }, [post.createdAt])
 
   const handleLike = async () => {
     try {
@@ -64,7 +76,7 @@ export function PostCard({ post }: PostCardProps) {
             <div>
               <p className="font-medium leading-none">{post.author.name}</p>
               <p className="text-sm text-[var(--color-muted-fg)]">
-                {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
+                {timeAgo}
               </p>
             </div>
             <DropdownMenu>
@@ -88,29 +100,23 @@ export function PostCard({ post }: PostCardProps) {
         </div>
       </CardHeader>
       <CardContent className="p-4 pt-0">
-        <div className="relative">
-          <p className={`${showFullContent ? "" : "line-clamp-2"} mb-4`}>{post.content}</p>
-          {!showFullContent && post.content.length > 120 && (
-            <div
-              className="absolute inset-0 flex items-end cursor-pointer group"
-              onClick={() => setShowFullContent(true)}
-            >
-              <div className="w-full h-8 bg-gradient-to-t from-[var(--color-card)] to-transparent"></div>
-              <span className="absolute bottom-0 right-0 text-sm font-medium text-[var(--color-primary)] opacity-0 group-hover:opacity-100 transition-opacity">
-                Read more
-              </span>
+        <div className="space-y-4">
+          <div>
+            <p className="break-words whitespace-pre-wrap">{post.content}</p>
+          </div>
+          {post.image && (
+            <div className="relative aspect-video overflow-hidden rounded-lg">
+              <motion.img
+                src={post.image}
+                alt="Post image"
+                className="h-full w-full object-cover"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+              />
             </div>
           )}
         </div>
-        {post.image && (
-          <div className="overflow-hidden rounded-md">
-            <img
-              src={post.image || "/placeholder.svg"}
-              alt="Post attachment"
-              className="aspect-video w-full object-cover"
-            />
-          </div>
-        )}
       </CardContent>
       <CardFooter className="flex flex-col p-0">
         <div className="flex items-center justify-between px-4 py-2">

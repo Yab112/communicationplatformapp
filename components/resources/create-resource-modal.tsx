@@ -89,9 +89,24 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
 
     setIsUploading(true)
     try {
-      // Create FormData for file upload
+      // First, upload the file to blob storage
+      const uploadFormData = new FormData()
+      uploadFormData.append("file", selectedFile)
+
+      const uploadResponse = await fetch("/api/upload", {
+        method: "POST",
+        body: uploadFormData,
+      })
+
+      if (!uploadResponse.ok) {
+        const error = await uploadResponse.json()
+        throw new Error(error.error || "Failed to upload file")
+      }
+
+      const { url: fileUrl, fileSize } = await uploadResponse.json()
+
+      // Then create the resource with the blob URL
       const formData = new FormData()
-      formData.append("file", selectedFile)
       formData.append("title", values.title)
       formData.append("description", values.description)
       formData.append("type", values.type)
@@ -99,16 +114,8 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
       formData.append("fileType", values.fileType)
       formData.append("courseId", values.courseId || "")
       formData.append("tags", JSON.stringify(selectedTags))
-
-      console.log("Submitting form data:", {
-        title: values.title,
-        type: values.type,
-        department: values.department,
-        fileType: values.fileType,
-        courseId: values.courseId,
-        tags: selectedTags,
-        fileSize: selectedFile.size
-      })
+      formData.append("url", fileUrl)
+      formData.append("fileSize", fileSize)
 
       const { resource, error } = await createResource(formData)
 
@@ -138,7 +145,7 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
       console.error("Error in form submission:", error)
       toast({
         title: "Error",
-        description: "Failed to create resource. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to create resource. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -152,7 +159,7 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
       setSelectedFile(file)
 
       // Auto-detect file type
-      const extension = file.name.split(".").pop()?.toLowerCase() || ""
+      const extension = file.name.split(".").pop()?.toLowerCase()
       if (extension && fileTypes.includes(extension)) {
         form.setValue("fileType", extension)
       }

@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -16,23 +16,38 @@ import { Upload, X } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { profileFormSchema } from "@/lib/validator/profile"
 import { departments, years } from "@/app/constants"
-
+import { useUser } from "@/context/user-context"
+import { updateProfile } from "@/lib/actions/settings"
 
 type ProfileFormValues = z.infer<typeof profileFormSchema>
 
 export function ProfileSettings() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const { toast } = useToast()
+  const { user, refreshUser } = useUser()
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      name: "Yabibal Eshetie",
-      department: "Computer Science",
-      year: "2nd Year",
-      bio: "Computer Science student interested in AI and machine learning.",
+      name: "",
+      department: "",
+      year: "",
+      bio: "",
     },
   })
+
+  // Update form when user data is available
+  useEffect(() => {
+    if (user) {
+      form.reset({
+        name: user.name,
+        department: user.department || "",
+        year: user.year || "",
+        bio: user.bio || "",
+      })
+      setAvatarPreview(user.image || null)
+    }
+  }, [user, form])
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -49,12 +64,30 @@ export function ProfileSettings() {
     setAvatarPreview(null)
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const onSubmit = (data: ProfileFormValues) => {
-    toast({
-      title: "Profile updated",
-      description: "Your profile has been updated successfully.",
-    })
+  const onSubmit = async (data: ProfileFormValues) => {
+    try {
+      const result = await updateProfile({
+        ...data,
+        image: avatarPreview || undefined,
+      })
+
+      if (result.error) {
+        throw new Error(result.error)
+      }
+
+      await refreshUser()
+      
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully.",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to update profile",
+        variant: "destructive",
+      })
+    }
   }
 
   return (
