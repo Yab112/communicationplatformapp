@@ -27,6 +27,10 @@ export function PostCard({ post }: PostCardProps) {
   const [timeAgo, setTimeAgo] = useState<string>('')
   const { toast } = useToast()
 
+  // Character limit for the preview
+  const CHAR_LIMIT = 280 // Similar to Twitter's limit
+  const isLongText = post.content.length > CHAR_LIMIT
+
   useEffect(() => {
     setTimeAgo(formatDistanceToNow(new Date(post.createdAt), { addSuffix: true }))
     
@@ -62,6 +66,40 @@ export function PostCard({ post }: PostCardProps) {
         variant: "destructive",
       })
     }
+  }
+
+  const renderContent = () => {
+    if (!isLongText || showFullContent) {
+      return (
+        <div>
+          <p className="break-words whitespace-pre-wrap">{post.content}</p>
+          {isLongText && (
+            <Button
+              variant="link"
+              className="px-0 text-sm text-muted-foreground hover:text-primary"
+              onClick={() => setShowFullContent(false)}
+            >
+              Read less
+            </Button>
+          )}
+        </div>
+      )
+    }
+
+    return (
+      <div>
+        <p className="break-words whitespace-pre-wrap">
+          {post.content.slice(0, CHAR_LIMIT)}...
+          <Button
+            variant="link"
+            className="px-0 text-sm text-muted-foreground hover:text-primary"
+            onClick={() => setShowFullContent(true)}
+          >
+            Read more
+          </Button>
+        </p>
+      </div>
+    )
   }
 
   return (
@@ -101,9 +139,7 @@ export function PostCard({ post }: PostCardProps) {
       </CardHeader>
       <CardContent className="p-4 pt-0">
         <div className="space-y-4">
-          <div>
-            <p className="break-words whitespace-pre-wrap">{post.content}</p>
-          </div>
+          {renderContent()}
           {post.image && (
             <div className="relative aspect-video overflow-hidden rounded-lg">
               <motion.img
