@@ -7,6 +7,7 @@ import { SocketProvider } from "@/providers/socket-provider"
 import { Toaster } from "sonner"
 import { ThemeProvider } from "next-themes"
 import Provider from "./provider"
+import { UserProvider } from "@/context/user-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -24,14 +25,16 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <Provider>
-          <AuthProvider>
-            <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-              <SocketProvider>
-                {children}
-                <Toaster />
-              </SocketProvider>
-            </ThemeProvider>
-          </AuthProvider>
+          <UserProvider>
+            <AuthProvider>
+              <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+                <SocketProvider>
+                  {children}
+                  <Toaster />
+                </SocketProvider>
+              </ThemeProvider>
+            </AuthProvider>
+          </UserProvider>
         </Provider>
       </body>
     </html>

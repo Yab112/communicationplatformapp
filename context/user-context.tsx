@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
+import { updateUserStatus } from "@/lib/actions/users"
 
 export type User = {
   id: string
@@ -54,8 +55,25 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const response = await fetch(`/api/users/${session.user.id}`)
-      const data = await response.json()
-      setUser(data)
+      if (!response.ok) {
+        throw new Error('Failed to fetch user data')
+      }
+      const userData = await response.json()
+      
+      // Transform the data to match our User type
+      const transformedUser: User = {
+        id: userData.id,
+        name: userData.name,
+        email: userData.email,
+        image: userData.image,
+        role: userData.role as "Student" | "Teacher" | "Admin",
+        department: userData.department,
+        year: userData.year,
+        status: userData.status as "online" | "offline",
+        bio: userData.bio,
+      }
+      
+      setUser(transformedUser)
     } catch (error) {
       console.error("Error fetching user data:", error)
       setUser(null)
@@ -63,6 +81,56 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setLoading(false)
     }
   }
+
+  // Handle online status
+  useEffect(() => {
+    const updateStatus = async (newStatus: "online" | "offline") => {
+      try {
+        const result = await updateUserStatus(newStatus)
+        if (result.error) {
+          throw new Error(result.error)
+        }
+        
+        if (user) {
+          setUser(prev => prev ? { ...prev, status: newStatus } : null)
+        }
+      } catch (error) {
+        console.error("Error updating user status:", error)
+      }
+    }
+
+    const handleOnline = () => updateStatus("online")
+    const handleOffline = () => updateStatus("offline")
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        updateStatus("online")
+      } else {
+        updateStatus("offline")
+      }
+    }
+
+    // Set initial online status when authenticated and user data is loaded
+    if (status === "authenticated" && mounted && user) {
+      updateStatus("online")
+    }
+
+    // Add event listeners
+    window.addEventListener("online", handleOnline)
+    window.addEventListener("offline", handleOffline)
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+
+    // Cleanup function
+    return () => {
+      window.removeEventListener("online", handleOnline)
+      window.removeEventListener("offline", handleOffline)
+      document.removeEventListener("visibilitychange", handleVisibilityChange)
+      
+      // Update status to offline when component unmounts
+      if (status === "authenticated" && user) {
+        updateStatus("offline")
+      }
+    }
+  }, [status, mounted, user])
 
   useEffect(() => {
     if (status === "authenticated") {
