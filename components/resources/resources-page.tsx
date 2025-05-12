@@ -42,14 +42,11 @@ export function ResourcesPage() {
   // Initialize resources on client-side only
   useEffect(() => {
     let isMounted = true;
-    const controller = new AbortController();
 
     const fetchResources = async () => {
       if (!isMounted) return;
 
       try {
-        console.log("Fetching resources with filters:", filters);
-        
         const { resources: fetchedResources, error } = await getResources({
           teacherName: filters.teacherName,
           department: filters.department,
@@ -67,70 +64,54 @@ export function ResourcesPage() {
             description: error,
             variant: "destructive",
           });
-          if (isInitialLoad) {
-            setResources([]);
-          }
+          setResources([]);
           return;
         }
 
-        console.log(`Received ${fetchedResources.length} resources from API`);
-        
-        // Transform the resources to match the Resource type
-        const transformedResources: Resource[] = fetchedResources.map(resource => {
-          console.log("Transforming resource:", resource);
-          return {
-            id: resource.id,
-            title: resource.title,
-            description: resource.description,
-            type: resource.type,
-            url: resource.url || "",
-            fileSize: resource.fileSize?.toString() || "",
-            subject: resource.subject || "",
-            department: resource.department || "",
-            courseId: resource.courseId || "",
-            fileType: resource.fileType || "",
-            uploadDate: resource.createdAt.toISOString(),
-            tags: resource.tags || [],
-            uploadedBy: {
-              id: resource.author.id,
-              name: resource.author.name,
-              avatar: resource.author.image || "",
-            },
-            dueDate: null,
-          };
-        });
+        // Transform the resources only once and store the result
+        const transformedResources = fetchedResources.map(resource => ({
+          id: resource.id,
+          title: resource.title,
+          description: resource.description,
+          type: resource.type,
+          url: resource.url || "",
+          fileSize: resource.fileSize?.toString() || "",
+          subject: resource.subject || "",
+          department: resource.department || "",
+          courseId: resource.courseId || "",
+          fileType: resource.fileType || "",
+          uploadDate: resource.createdAt.toISOString(),
+          tags: resource.tags || [],
+          uploadedBy: {
+            id: resource.author.id,
+            name: resource.author.name,
+            avatar: resource.author.image || "",
+          },
+          dueDate: null,
+        }));
 
-        console.log("Transformed resources:", transformedResources);
         setResources(transformedResources);
       } catch (error) {
-        if (!isMounted) return;
         console.error("Error in fetchResources:", error);
         toast({
           title: "Error",
           description: error instanceof Error ? error.message : "Failed to fetch resources",
           variant: "destructive",
         });
-        if (isInitialLoad) {
-          setResources([]);
-        }
+        setResources([]);
       } finally {
-        if (isMounted && isInitialLoad) {
+        if (isMounted) {
           setIsInitialLoad(false);
         }
       }
     };
 
-    // Debounce the fetch call
-    const timeoutId = setTimeout(() => {
-      fetchResources();
-    }, 300); // 300ms debounce
+    fetchResources();
 
     return () => {
       isMounted = false;
-      controller.abort();
-      clearTimeout(timeoutId);
     };
-  }, [filters, toast, isInitialLoad]);
+  }, [filters, toast]);
 
   // Apply date range filter and sorting
   const filteredResources = useMemo(() => {

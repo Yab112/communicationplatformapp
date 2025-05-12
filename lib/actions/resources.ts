@@ -18,8 +18,6 @@ export async function getResources(filters?: {
   search?: string;
 }) {
   try {
-    console.log("Fetching resources with filters:", filters);
-    
     const resources = await db.resource.findMany({
       where: {
         ...(filters?.teacherName && {
@@ -72,17 +70,8 @@ export async function getResources(filters?: {
       },
     });
 
-    console.log(`Found ${resources.length} resources`);
-    
-    if (resources.length === 0) {
-      console.log("No resources found in database");
-    } else {
-      console.log("First resource:", resources[0]);
-    }
-
     return { resources, error: null };
   } catch (error) {
-    console.error("Error fetching resources:", error);
     if (error instanceof Error) {
       return { resources: [], error: `Failed to fetch resources: ${error.message}` };
     }
