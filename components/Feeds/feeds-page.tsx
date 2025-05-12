@@ -10,6 +10,7 @@ import { Plus } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import type { Post } from "@/types/post"
 import { getPosts, createPost } from "@/lib/actions/feed"
+import { useUser } from "@/context/user-context"
 
 export function FeedsPage() {
   const [posts, setPosts] = useState<Post[]>([])
@@ -18,6 +19,7 @@ export function FeedsPage() {
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null)
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest")
   const { toast } = useToast()
+  const { user } = useUser();
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -167,8 +169,7 @@ export function FeedsPage() {
     }
   }
 
-  // Mock user role - in a real app, this would come from auth
-  const isAdmin = true
+  const isAdmin = user?.role?.toLowerCase() === "admin"
 
   return (
     <div className="flex h-full">

@@ -11,6 +11,7 @@ import type { Resource } from "@/types/resource";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getResources } from "@/lib/actions/resources";
 import { Loader2 } from "lucide-react";
+import { useUser } from "@/context/user-context";
 
 export function ResourcesPage() {
   const [resources, setResources] = useState<Resource[]>([]);
@@ -18,6 +19,7 @@ export function ResourcesPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const { toast } = useToast();
+  const { user } = useUser();
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -202,8 +204,9 @@ export function ResourcesPage() {
     });
   };
 
-  // Mock user role - in a real app, this would come from auth
-  const isTeacher = true;
+  // Get user role from context
+  const isTeacher = user?.role?.toLowerCase() === "teacher" || user?.role?.toLowerCase() === "admin";
+  
 
   return (
     <div className="flex flex-col h-screen">
