@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { ResourceList } from "@/components/resources/resource-list";
 import { ResourceFilters } from "@/components/resources/resource-filters";
 import { CreateResourceModal } from "@/components/resources/create-resource-modal";
@@ -12,14 +12,19 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getResources } from "@/lib/actions/resources";
 import { Loader2 } from "lucide-react";
 import { useUser } from "@/context/user-context";
+import { useSocket } from "@/hooks/use-socket";
+import { useResourceStore } from "@/store";
 
 export function ResourcesPage() {
-  const [resources, setResources] = useState<Resource[]>([]);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const { toast } = useToast();
   const { user } = useUser();
+  const socket = useSocket();
+
+  // Use the resource store
+  const { resources, setResources, addResource } = useResourceStore();
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -39,149 +44,130 @@ export function ResourcesPage() {
   // Sort state
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "a-z">("newest");
 
-  // Initialize resources on client-side only
-  useEffect(() => {
-    let isMounted = true;
+  const fetchResources = useCallback(async () => {
+    try {
+      // If we already have resources, don't show loading state
+      if (resources.length > 0) {
+        setIsLoading(false);
+        return;
+      }
 
-    const fetchResources = async () => {
-      if (!isMounted) return;
+      const { resources: fetchedResources, error } = await getResources({
+        teacherName: filters.teacherName,
+        department: filters.department,
+        courseId: filters.courseId,
+        fileType: filters.fileType,
+        search: filters.search,
+      });
 
-      try {
-        const { resources: fetchedResources, error } = await getResources({
-          teacherName: filters.teacherName,
-          department: filters.department,
-          courseId: filters.courseId,
-          fileType: filters.fileType,
-          search: filters.search,
-        });
-
-        if (!isMounted) return;
-
-        if (error) {
-          console.error("Error fetching resources:", error);
-          toast({
-            title: "Error",
-            description: error,
-            variant: "destructive",
-          });
-          setResources([]);
-          return;
-        }
-
-        // Transform the resources only once and store the result
-        const transformedResources = fetchedResources.map(resource => ({
-          id: resource.id,
-          title: resource.title,
-          description: resource.description,
-          type: resource.type,
-          url: resource.url || "",
-          fileSize: resource.fileSize?.toString() || "",
-          subject: resource.subject || "",
-          department: resource.department || "",
-          courseId: resource.courseId || "",
-          fileType: resource.fileType || "",
-          uploadDate: resource.createdAt.toISOString(),
-          tags: resource.tags || [],
-          uploadedBy: {
-            id: resource.author.id,
-            name: resource.author.name,
-            avatar: resource.author.image || "",
-          },
-          dueDate: null,
-        }));
-
-        setResources(transformedResources);
-      } catch (error) {
-        console.error("Error in fetchResources:", error);
+      if (error) {
         toast({
           title: "Error",
-          description: error instanceof Error ? error.message : "Failed to fetch resources",
+          description: error,
           variant: "destructive",
         });
-        setResources([]);
-      } finally {
-        if (isMounted) {
-          setIsInitialLoad(false);
-        }
+        return;
       }
-    };
 
+      // Transform fetched resources to match Resource type
+      const transformedResources = fetchedResources.map(resource => ({
+        id: resource.id,
+        title: resource.title,
+        description: resource.description,
+        type: resource.type,
+        url: resource.url || "",
+        fileSize: resource.fileSize?.toString() || "",
+        subject: resource.subject || "",
+        department: resource.department || "",
+        courseId: resource.courseId || "",
+        fileType: resource.fileType || "",
+        uploadDate: resource.createdAt.toISOString(),
+        tags: resource.tags || [],
+        uploadedBy: {
+          id: resource.author.id,
+          name: resource.author.name,
+          avatar: resource.author.image || "",
+        },
+        dueDate: null,
+      }));
+
+      setResources(transformedResources);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch resources",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [filters, toast, resources.length, setResources]);
+
+  // Initial fetch on mount
+  useEffect(() => {
     fetchResources();
+  }, [fetchResources]);
+
+  // Socket connection for real-time updates
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("new_resource", (newResource: Resource) => {
+      setResources([newResource, ...resources]);
+    });
+
+    socket.on("resource_updated", (updatedResource: Resource) => {
+      setResources(
+        resources.map(resource =>
+          resource.id === updatedResource.id ? updatedResource : resource
+        )
+      );
+    });
+
+    socket.on("resource_deleted", (resourceId: string) => {
+      setResources(resources.filter(resource => resource.id !== resourceId));
+    });
 
     return () => {
-      isMounted = false;
+      socket.off("new_resource");
+      socket.off("resource_updated");
+      socket.off("resource_deleted");
     };
-  }, [filters, toast]);
+  }, [socket, resources, setResources]);
 
   // Apply date range filter and sorting
   const filteredResources = useMemo(() => {
     return resources
       .filter((resource) => {
-        // Date range filter
-        if (
-          filters.dateRange.from &&
-          new Date(resource.uploadDate) < filters.dateRange.from
-        ) {
+        if (filters.dateRange.from && new Date(resource.uploadDate) < filters.dateRange.from) {
           return false;
         }
-
-        if (
-          filters.dateRange.to &&
-          new Date(resource.uploadDate) > filters.dateRange.to
-        ) {
+        if (filters.dateRange.to && new Date(resource.uploadDate) > filters.dateRange.to) {
           return false;
         }
-
-        // Year filter
         if (filters.year && !resource.tags.includes(filters.year)) {
           return false;
         }
-
         return true;
       })
       .sort((a, b) => {
-        // Sort by date or alphabetically
         if (sortBy === "newest") {
-          return (
-            new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
-          );
+          return new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime();
         } else if (sortBy === "oldest") {
-          return (
-            new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime()
-          );
-        } else {
-          // a-z
-          return a.title.localeCompare(b.title);
+          return new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime();
         }
+        return a.title.localeCompare(b.title);
       });
   }, [resources, filters.dateRange, filters.year, sortBy]);
 
-  const handleCreateResource = (newResource: Resource) => {
-    setResources([newResource, ...resources]);
+  const handleCreateResource = async (newResource: Resource) => {
     setIsCreateModalOpen(false);
+    // Optimistically add the new resource
+    addResource(newResource);
+    
     toast({
       title: "Success",
       description: "Resource has been created successfully.",
-    });
-  };
-
-  const handleFilterChange = (newFilters: typeof filters) => {
-    setFilters(newFilters);
-  };
-
-  const clearFilters = () => {
-    setFilters({
-      search: "",
-      subject: "",
-      year: "",
-      fileType: "",
-      department: "",
-      courseId: "",
-      teacherName: "",
-      dateRange: {
-        from: undefined,
-        to: undefined,
-      },
     });
   };
 
@@ -233,12 +219,26 @@ export function ResourcesPage() {
 
             <ResourceFilters
               filters={filters}
-              onFilterChange={handleFilterChange}
-              onClearFilters={clearFilters}
+              onFilterChange={setFilters}
+              onClearFilters={() => {
+                setFilters({
+                  search: "",
+                  subject: "",
+                  year: "",
+                  fileType: "",
+                  department: "",
+                  courseId: "",
+                  teacherName: "",
+                  dateRange: {
+                    from: undefined,
+                    to: undefined,
+                  },
+                });
+              }}
             />
 
             <div className="mt-6">
-              {isInitialLoad && resources.length === 0 ? (
+              {isLoading ? (
                 <div className="flex items-center justify-center h-64">
                   <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
                 </div>

@@ -43,10 +43,19 @@ export function PostCard({ post }: PostCardProps) {
   }, [post.createdAt])
 
   const handleLike = async () => {
+    // Optimistically update the UI
+    const previousLiked = isLiked
+    const previousCount = likesCount
+    setIsLiked(!isLiked)
+    setLikesCount((prev) => (isLiked ? prev - 1 : prev + 1))
+
     try {
       const { success, error } = await likePost(post.id)
 
       if (error) {
+        // Revert optimistic update on error
+        setIsLiked(previousLiked)
+        setLikesCount(previousCount)
         toast({
           title: "Error",
           description: error,
@@ -55,11 +64,20 @@ export function PostCard({ post }: PostCardProps) {
         return
       }
 
-      if (success) {
-        setIsLiked(!isLiked)
-        setLikesCount((prev) => (isLiked ? prev - 1 : prev + 1))
+      if (!success) {
+        // Revert optimistic update if not successful
+        setIsLiked(previousLiked)
+        setLikesCount(previousCount)
+        toast({
+          title: "Error",
+          description: "Failed to update like",
+          variant: "destructive",
+        })
       }
     } catch (error) {
+      // Revert optimistic update on error
+      setIsLiked(previousLiked)
+      setLikesCount(previousCount)
       toast({
         title: "Error",
         description: "Failed to like post",

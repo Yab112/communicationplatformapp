@@ -53,10 +53,30 @@ export function CommentSection({ postId, comments: initialComments }: CommentSec
   })
 
   const onSubmit = async (values: CommentFormValues) => {
+    // Create a temporary comment with a temporary ID
+    const tempComment: Comment = {
+      id: `temp-${Date.now()}`,
+      content: values.content,
+      author: {
+        id: "default-author-id",
+        name: "Default Author",
+        avatar: "/default-avatar.svg",
+        role: "Student",
+      },
+      reactions: [],
+      createdAt: new Date().toISOString(),
+    }
+
+    // Optimistically add the comment to the UI
+    setComments([...comments, tempComment])
+    form.reset()
+
     try {
       const { success, error, comment } = await addComment(postId, values.content)
 
       if (error) {
+        // Remove the temporary comment on error
+        setComments(comments => comments.filter(c => c.id !== tempComment.id))
         toast({
           title: "Error",
           description: error,
@@ -66,25 +86,32 @@ export function CommentSection({ postId, comments: initialComments }: CommentSec
       }
 
       if (success && comment) {
-        const completeComment: Comment = {
-          ...comment,
-          author: {
-            id: "default-author-id",
-            name: "Default Author",
-            avatar: "/default-avatar.svg",
-            role: "Student",
-          },
-          reactions: [],
-          createdAt: new Date(comment.createdAt).toISOString(),
-        }
-        setComments([...comments, completeComment])
-        form.reset()
+        // Replace the temporary comment with the real one from the server
+        setComments(comments => 
+          comments.map(c => 
+            c.id === tempComment.id 
+              ? {
+                  ...comment,
+                  author: {
+                    id: "default-author-id",
+                    name: "Default Author",
+                    avatar: "/default-avatar.svg",
+                    role: "Student",
+                  },
+                  reactions: [],
+                  createdAt: new Date(comment.createdAt).toISOString(),
+                }
+              : c
+          )
+        )
         toast({
           title: "Success",
           description: "Comment added successfully",
         })
       }
     } catch (error) {
+      // Remove the temporary comment on error
+      setComments(comments => comments.filter(c => c.id !== tempComment.id))
       toast({
         title: "Error",
         description: "Failed to add comment",
@@ -94,10 +121,63 @@ export function CommentSection({ postId, comments: initialComments }: CommentSec
   }
 
   const handleReaction = async (commentId: string, type: string) => {
+    // Optimistically update the UI first
+    const updatedComments = comments.map((comment) => {
+      if (comment.id === commentId) {
+        const existingReactionIndex = comment.reactions.findIndex(
+          (r) => r.type === type && r.author.id === "current-user"
+        )
+
+        if (existingReactionIndex >= 0) {
+          // Optimistically remove the reaction
+          return {
+            ...comment,
+            reactions: comment.reactions.filter((_, i) => i !== existingReactionIndex),
+          }
+        } else {
+          // Optimistically add the reaction
+          return {
+            ...comment,
+            reactions: [
+              ...comment.reactions,
+              {
+                id: `temp-${Date.now()}`,
+                type,
+                author: {
+                  id: "current-user",
+                  name: "Current User",
+                  avatar: "/placeholder.svg",
+                  role: "Student" as const,
+                },
+                createdAt: new Date().toISOString(),
+              },
+            ],
+          }
+        }
+      }
+      return comment
+    })
+
+    // Update the UI immediately
+    setComments(updatedComments)
+
     try {
       const { success, error } = await addCommentReaction(commentId, type)
 
       if (error) {
+        // Revert the optimistic update on error
+        setComments((prevComments) => {
+          return prevComments.map((comment) => {
+            if (comment.id === commentId) {
+              return {
+                ...comment,
+                reactions: comments.find(c => c.id === commentId)?.reactions || comment.reactions
+              }
+            }
+            return comment
+          })
+        })
+        
         toast({
           title: "Error",
           description: error,
@@ -106,47 +186,40 @@ export function CommentSection({ postId, comments: initialComments }: CommentSec
         return
       }
 
-      if (success) {
-        // Update the local state to reflect the new reaction
-        setComments((prevComments) =>
-          prevComments.map((comment) => {
+      if (!success) {
+        // Revert the optimistic update if not successful
+        setComments((prevComments) => {
+          return prevComments.map((comment) => {
             if (comment.id === commentId) {
-              const existingReactionIndex = comment.reactions.findIndex(
-                (r) => r.type === type && r.author.id === "current-user"
-              )
-
-              if (existingReactionIndex >= 0) {
-                // Remove the reaction
-                return {
-                  ...comment,
-                  reactions: comment.reactions.filter((_, i) => i !== existingReactionIndex),
-                }
-              } else {
-                // Add the reaction
-                return {
-                  ...comment,
-                  reactions: [
-                    ...comment.reactions,
-                    {
-                      id: `temp-${Date.now()}`,
-                      type,
-                      author: {
-                        id: "current-user",
-                        name: "Current User",
-                        avatar: "/placeholder.svg",
-                        role: "Student",
-                      },
-                      createdAt: new Date(comment.createdAt).toISOString(),
-                    },
-                  ],
-                }
+              return {
+                ...comment,
+                reactions: comments.find(c => c.id === commentId)?.reactions || comment.reactions
               }
             }
             return comment
           })
-        )
+        })
+        
+        toast({
+          title: "Error",
+          description: "Failed to update reaction",
+          variant: "destructive",
+        })
       }
     } catch (error) {
+      // Revert the optimistic update on error
+      setComments((prevComments) => {
+        return prevComments.map((comment) => {
+          if (comment.id === commentId) {
+            return {
+              ...comment,
+              reactions: comments.find(c => c.id === commentId)?.reactions || comment.reactions
+            }
+          }
+          return comment
+        })
+      })
+
       toast({
         title: "Error",
         description: "Failed to add reaction",
