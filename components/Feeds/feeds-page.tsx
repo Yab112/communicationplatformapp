@@ -6,7 +6,7 @@ import { UsersSidebar } from "@/components/Feeds/users-sidebar"
 import { CreatePostModal } from "@/components/Feeds/create-post-modal"
 import { FeedFilters } from "@/components/Feeds/feed-filters"
 import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { Plus, RefreshCw } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import type { Post } from "@/types/post"
 import { getPosts, createPost } from "@/lib/actions/feed"
@@ -15,7 +15,8 @@ import { useSocket } from "@/hooks/use-socket"
 import { usePostStore } from "@/store"
 
 export function FeedsPage() {
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null)
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest")
@@ -26,12 +27,12 @@ export function FeedsPage() {
   // Use the post store
   const { posts, setPosts, addPost, updatePost, deletePost } = usePostStore()
 
-  const fetchPosts = useCallback(async () => {
+  const fetchPosts = useCallback(async (showLoading = false) => {
     try {
-      // If we already have posts, don't show loading state
-      if (posts.length > 0) {
-        setIsLoading(false)
-        return
+      if (showLoading) {
+        setIsLoading(true)
+      } else {
+        setIsRefreshing(true)
       }
 
       const { posts: fetchedPosts, error } = await getPosts()
@@ -92,13 +93,16 @@ export function FeedsPage() {
       })
     } finally {
       setIsLoading(false)
+      setIsRefreshing(false)
     }
-  }, [posts.length, setPosts, toast])
+  }, [setPosts, toast])
 
   // Initial fetch on mount
   useEffect(() => {
-    fetchPosts()
-  }, [fetchPosts])
+    if (posts.length === 0) {
+      fetchPosts(true)
+    }
+  }, [fetchPosts, posts.length])
 
   // Socket connection for real-time updates
   useEffect(() => {
@@ -172,6 +176,10 @@ export function FeedsPage() {
     }
   }
 
+  const handleRefresh = () => {
+    fetchPosts(false)
+  }
+
   const isAdmin = user?.role?.toLowerCase() === "admin"
 
   return (
@@ -180,7 +188,17 @@ export function FeedsPage() {
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="mx-auto content-max-width">
             <div className="mb-6">
-              <h1 className="text-2xl font-bold mb-4">Feed</h1>
+              <div className="flex justify-between items-center mb-4">
+                <h1 className="text-2xl font-bold">Feed</h1>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
               <FeedFilters
                 selectedDepartment={selectedDepartment}
                 onDepartmentChange={setSelectedDepartment}

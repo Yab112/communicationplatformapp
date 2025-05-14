@@ -5,7 +5,7 @@ import { ResourceList } from "@/components/resources/resource-list";
 import { ResourceFilters } from "@/components/resources/resource-filters";
 import { CreateResourceModal } from "@/components/resources/create-resource-modal";
 import { Button } from "@/components/ui/button";
-import { Plus, Grid, List } from "lucide-react";
+import { Plus, Grid, List, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Resource } from "@/types/resource";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,7 +16,8 @@ import { useSocket } from "@/hooks/use-socket";
 import { useResourceStore } from "@/store";
 
 export function ResourcesPage() {
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const { toast } = useToast();
@@ -44,12 +45,12 @@ export function ResourcesPage() {
   // Sort state
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "a-z">("newest");
 
-  const fetchResources = useCallback(async () => {
+  const fetchResources = useCallback(async (showLoading = false) => {
     try {
-      // If we already have resources, don't show loading state
-      if (resources.length > 0) {
-        setIsLoading(false);
-        return;
+      if (showLoading) {
+        setIsLoading(true);
+      } else {
+        setIsRefreshing(true);
       }
 
       const { resources: fetchedResources, error } = await getResources({
@@ -100,13 +101,16 @@ export function ResourcesPage() {
       });
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   }, [filters, toast, resources.length, setResources]);
 
   // Initial fetch on mount
   useEffect(() => {
-    fetchResources();
-  }, [fetchResources]);
+    if (resources.length === 0) {
+      fetchResources(true);
+    }
+  }, [fetchResources, resources.length]);
 
   // Socket connection for real-time updates
   useEffect(() => {
@@ -171,6 +175,10 @@ export function ResourcesPage() {
     });
   };
 
+  const handleRefresh = () => {
+    fetchResources(false);
+  };
+
   // Get user role from context
   const isTeacher = user?.role?.toLowerCase() === "teacher" || user?.role?.toLowerCase() === "admin";
   
@@ -181,7 +189,17 @@ export function ResourcesPage() {
         <div className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="mx-auto max-w-6xl w-full">
             <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <h1 className="text-2xl font-bold">Resources</h1>
+              <div className="flex items-center gap-4">
+                <h1 className="text-2xl font-bold">Resources</h1>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
 
               <div className="flex flex-wrap items-center gap-2 md:gap-4">
                 <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "grid" | "list")}>

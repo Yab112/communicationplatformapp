@@ -29,41 +29,39 @@ export async function GET(req: Request) {
       io.on('connection', async (socket) => {
         console.log('Client connected:', socket.id)
         
-        // Handle new post creation
-        socket.on('create-post', async (data) => {
+        // Handle joining chat rooms
+        socket.on('join-room', (roomId) => {
+          socket.join(roomId)
+        })
+
+        // Handle leaving chat rooms
+        socket.on('leave-room', (roomId) => {
+          socket.leave(roomId)
+        })
+
+        // Handle user online status
+        socket.on('user-online', async (userId) => {
           try {
             const token = await getToken({ req: socket.handshake.headers as any })
-            if (!token) {
+            if (!token || token.sub !== userId) {
               socket.emit('error', 'Unauthorized')
               return
             }
 
-            const post = await db.post.create({
-              data: {
-                content: data.content,
-                department: data.department,
-                authorId: token.sub as string,
-                image: data.image || null,
-              },
-              include: {
-                author: true,
-                comments: {
-                  include: {
-                    author: true,
-                  },
-                },
-              },
+            await db.user.update({
+              where: { id: userId },
+              data: { status: 'online' }
             })
 
-            io?.emit('new-post', post)
+            io?.emit('user-status-change', { userId, status: 'online' })
           } catch (error) {
-            console.error('Error creating post:', error)
-            socket.emit('error', 'Failed to create post')
+            console.error('Error updating user status:', error)
+            socket.emit('error', 'Failed to update user status')
           }
         })
 
-        // Handle post likes
-        socket.on('like-post', async (data) => {
+        // Handle sending messages
+        socket.on('send-message', async (data) => {
           try {
             const token = await getToken({ req: socket.handshake.headers as any })
             if (!token) {
@@ -71,74 +69,37 @@ export async function GET(req: Request) {
               return
             }
 
-            const existingLike = await db.like.findUnique({
-              where: {
-                postId_userId: {
-                  postId: data.postId,
-                  userId: token.sub as string,
-                },
+            const message = await db.message.create({
+              data: {
+                content: data.content,
+                senderId: token.sub as string,
+                chatRoomId: data.roomId,
+                ...(data.fileUrl && {
+                  fileUrl: data.fileUrl,
+                  fileName: data.fileName,
+                  fileType: data.fileType,
+                  fileSize: data.fileSize,
+                }),
+              },
+              include: {
+                sender: true,
               },
             })
 
-            if (existingLike) {
-              await db.like.delete({
-                where: {
-                  id: existingLike.id,
-                },
-              })
-            } else {
-              await db.like.create({
-                data: {
-                  postId: data.postId,
-                  userId: token.sub as string,
-                },
-              })
-            }
-
-            const likes = await db.like.count({
-              where: {
-                postId: data.postId,
-              },
-            })
-
-            io?.emit('post-liked', {
-              postId: data.postId,
-              likes,
-            })
+            io?.to(data.roomId).emit('new-message', message)
           } catch (error) {
-            console.error('Error liking post:', error)
-            socket.emit('error', 'Failed to like post')
+            console.error('Error sending message:', error)
+            socket.emit('error', 'Failed to send message')
           }
         })
 
-        // Handle comments
-        socket.on('add-comment', async (data) => {
-          try {
-            const token = await getToken({ req: socket.handshake.headers as any })
-            if (!token) {
-              socket.emit('error', 'Unauthorized')
-              return
-            }
+        // Handle typing indicators
+        socket.on('typing', ({ roomId, user }) => {
+          socket.to(roomId).emit('user-typing', user)
+        })
 
-            const comment = await db.comment.create({
-              data: {
-                content: data.content,
-                postId: data.postId,
-                authorId: token.sub as string,
-              },
-              include: {
-                author: true,
-              },
-            })
-
-            io?.emit('new-comment', {
-              postId: data.postId,
-              comment,
-            })
-          } catch (error) {
-            console.error('Error adding comment:', error)
-            socket.emit('error', 'Failed to add comment')
-          }
+        socket.on('stop-typing', ({ roomId, user }) => {
+          socket.to(roomId).emit('user-stop-typing', user)
         })
 
         socket.on('disconnect', () => {
@@ -146,29 +107,21 @@ export async function GET(req: Request) {
         })
       })
 
-      // Try to start the server, if port is in use, try another port
-      let port = 3001
-      const maxAttempts = 10
-      let attempts = 0
+      // Start the server
+      const port = 3001
+      try {
+        await new Promise<void>((resolve, reject) => {
+          httpServer.listen(port, () => {
+            console.log(`Socket.IO server running on port ${port}`)
+            resolve()
+          })
 
-      while (attempts < maxAttempts) {
-        try {
-          httpServer.listen(port)
-          console.log(`Socket.IO server running on port ${port}`)
-          break
-        } catch (error) {
-          const serverError = error as ServerError
-          if (serverError.code === 'EADDRINUSE') {
-            port++
-            attempts++
-            console.log(`Port ${port - 1} in use, trying ${port}...`)
-          } else {
-            throw error
-          }
-        }
-      }
-
-      if (attempts === maxAttempts) {
+          httpServer.on('error', (error) => {
+            reject(error)
+          })
+        })
+      } catch (error) {
+        console.error('Error starting Socket.IO server:', error)
         throw new Error('Could not find an available port for Socket.IO server')
       }
     } catch (error) {

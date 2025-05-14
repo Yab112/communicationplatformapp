@@ -13,15 +13,13 @@ interface SidebarProps {
   isMobile: boolean
 }
 
-
-
 export function Sidebar({ isMobile }: SidebarProps) {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
 
   const toggleSidebar = () => setIsOpen(!isOpen)
 
-  const renderNavItem = (item: typeof navigationItems[0]) => {
+  const renderNavItem = (item: { name: string; href: string; icon: any; badge?: string }) => {
     const isActive = pathname === item.href
 
     return (
@@ -35,15 +33,25 @@ export function Sidebar({ isMobile }: SidebarProps) {
               : "text-[var(--color-fg)] hover:bg-[var(--color-sidebar-active)]",
           )}
         >
-          <item.icon
-            className={cn(
-              "h-7 w-7 transition-colors duration-200",
+          <div className={cn(
+            "flex items-center justify-center rounded-md transition-colors",
+            isActive
+              ? "text-[var(--color-primary)]"
+              : "text-[var(--color-fg)] group-hover:text-[var(--color-primary)]"
+          )}>
+            <item.icon className="h-6 w-6" />
+          </div>
+          <span className="text-base font-medium">{item.name}</span>
+          {item.badge && (
+            <span className={cn(
+              "ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium",
               isActive
-                ? "fill-[var(--color-primary)] stroke-[var(--color-primary)]"
-                : "group-hover:fill-[var(--color-primary)] group-hover:stroke-[var(--color-primary)]"
-            )}
-          />
-          <span className="text-lg font-semibold">{item.name}</span>
+                ? "bg-[var(--color-primary)] text-[var(--color-primary-foreground)]"
+                : "bg-[var(--color-muted)] text-[var(--color-muted-foreground)] group-hover:bg-[var(--color-primary)]/10 group-hover:text-[var(--color-primary)]"
+            )}>
+              {item.badge}
+            </span>
+          )}
         </Link>
       </li>
     )
@@ -78,12 +86,21 @@ export function Sidebar({ isMobile }: SidebarProps) {
               <X className="h-6 w-6" />
             </Button>
           </div>
-          <nav className="mt-4 px-4">
-            <ul className="space-y-2">
-              {navigationItems.map((item) => (
-                <div key={item.name} onClick={toggleSidebar}>{renderNavItem(item)}</div>
-              ))}
-            </ul>
+          <nav className="mt-4 px-2">
+            {navigationItems.map((section, index) => (
+              <div key={section.name} className="mb-6">
+                <h2 className="mb-2 px-4 text-xs font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]/70">
+                  {section.name}
+                </h2>
+                <ul className="space-y-1">
+                  {section.items.map((item) => (
+                    <div key={item.name} onClick={toggleSidebar}>
+                      {renderNavItem(item)}
+                    </div>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </nav>
         </motion.div>
       </>
@@ -97,8 +114,17 @@ export function Sidebar({ isMobile }: SidebarProps) {
         <h1 className="text-2xl font-bold text-[var(--color-primary)]">UniConnect</h1>
       </div>
 
-      <nav className="mt-6 px-4">
-        <ul className="space-y-2">{navigationItems.map(renderNavItem)}</ul>
+      <nav className="mt-6 px-2">
+        {navigationItems.map((section, index) => (
+          <div key={section.name} className="mb-6">
+            <h2 className="mb-2 px-4 text-xs font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]/70">
+              {section.name}
+            </h2>
+            <ul className="space-y-1">
+              {section.items.map(renderNavItem)}
+            </ul>
+          </div>
+        ))}
       </nav>
     </div>
   )

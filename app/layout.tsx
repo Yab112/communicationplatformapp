@@ -3,7 +3,6 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { AuthProvider } from "@/providers/auth-provider"
-import { SocketProvider } from "@/providers/socket-provider"
 import { Toaster } from "sonner"
 import { ThemeProvider } from "next-themes"
 import Provider from "./provider"
@@ -28,10 +27,8 @@ export default function RootLayout({
           <UserProvider>
             <AuthProvider>
               <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-                <SocketProvider>
-                  {children}
-                  <Toaster />
-                </SocketProvider>
+                {children}
+                <Toaster />
               </ThemeProvider>
             </AuthProvider>
           </UserProvider>
