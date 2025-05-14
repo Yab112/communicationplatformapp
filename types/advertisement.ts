@@ -4,6 +4,6 @@ export interface Advertisement {
   description: string
   image: string
   link: string
-  type: "event" | "opportunity" | "promotion"
-  priority: "high" | "medium" | "low"
+  type: 'event' | 'opportunity' | 'promotion'
+  priority?: 'high' | 'normal'
 } 

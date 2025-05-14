@@ -2,18 +2,14 @@
 
 import { useState, useEffect } from "react"
 import { formatDistanceToNow } from "date-fns"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { MessageSquare, MoreHorizontal } from "lucide-react"
-import type { Post } from "@/types/post"
-import { motion } from "framer-motion"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { MessageSquare, Share2, MoreHorizontal, ArrowBigUp, ArrowBigDown } from "lucide-react"
 import { CommentSection } from "@/components/Feeds/comment-section"
-import { likePost } from "@/lib/actions/feed"
-import { useToast } from "@/hooks/use-toast"
+import type { Post } from "@/types/post"
+import { cn } from "@/lib/utils"
 
 interface PostCardProps {
   post: Post
@@ -25,10 +21,9 @@ export function PostCard({ post }: PostCardProps) {
   const [isLiked, setIsLiked] = useState(false)
   const [likesCount, setLikesCount] = useState(post.likes)
   const [timeAgo, setTimeAgo] = useState<string>('')
-  const { toast } = useToast()
 
   // Character limit for the preview
-  const CHAR_LIMIT = 280 // Similar to Twitter's limit
+  const CHAR_LIMIT = 280
   const isLongText = post.content.length > CHAR_LIMIT
 
   useEffect(() => {
@@ -42,166 +37,178 @@ export function PostCard({ post }: PostCardProps) {
     return () => clearInterval(interval)
   }, [post.createdAt])
 
-  const handleLike = async () => {
-    // 1. First update the UI optimistically
-    const newIsLiked = !isLiked
-    setIsLiked(newIsLiked)
-    setLikesCount((prev) => (newIsLiked ? prev + 1 : prev - 1))
-
-    // 2. Then make the API call
-    try {
-      const { error } = await likePost(post.id)
-
-      if (error) {
-        // 3. Revert changes if the API call fails
-        setIsLiked(!newIsLiked)
-        setLikesCount((prev) => (newIsLiked ? prev - 1 : prev + 1))
-        
-        toast({
-          title: "Error",
-          description: error || "Failed to like post",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      // 4. Handle any unexpected errors and revert the optimistic update
-      setIsLiked(!newIsLiked)
-      setLikesCount((prev) => (newIsLiked ? prev - 1 : prev + 1))
-      
-      toast({
-        title: "Error",
-        description: "Failed to like post",
-        variant: "destructive",
-      })
+  const handleLike = () => {
+    if (isLiked) {
+      setLikesCount(prev => prev - 1)
+    } else {
+      setLikesCount(prev => prev + 1)
     }
+    setIsLiked(!isLiked)
   }
 
-  const renderContent = () => {
-    if (!isLongText || showFullContent) {
-      return (
-        <div>
-          <p className="break-words whitespace-pre-wrap">{post.content}</p>
-          {isLongText && (
-            <Button
-              variant="link"
-              className="px-0 text-sm text-muted-foreground hover:text-primary"
-              onClick={() => setShowFullContent(false)}
-            >
-              Read less
-            </Button>
-          )}
-        </div>
-      )
-    }
-
-    return (
-      <div>
-        <p className="break-words whitespace-pre-wrap">
-          {post.content.slice(0, CHAR_LIMIT)}...
-          <Button
-            variant="link"
-            className="px-0 text-sm text-muted-foreground hover:text-primary"
-            onClick={() => setShowFullContent(true)}
-          >
-            Read more
-          </Button>
-        </p>
-      </div>
-    )
+  const toggleComments = () => {
+    setShowComments(!showComments)
   }
 
   return (
-    <Card className="overflow-hidden bg-[var(--color-card)] shadow-sm border border-[var(--color-border)]">
-      <CardHeader className="flex flex-row items-start gap-4 space-y-0 p-4">
-        <Avatar className="h-10 w-10">
-          <AvatarImage src={post.author.avatar || "/placeholder.svg?height=40&width=40"} alt={post.author.name} />
-          <AvatarFallback>{post.author.name.charAt(0)}</AvatarFallback>
-        </Avatar>
-        <div className="flex-1 space-y-1">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium leading-none">{post.author.name}</p>
-              <p className="text-sm text-[var(--color-muted-fg)]">
-                {timeAgo}
-              </p>
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>Save post</DropdownMenuItem>
-                <DropdownMenuItem>Report</DropdownMenuItem>
-                {post.author.id === "current-user" && <DropdownMenuItem>Delete</DropdownMenuItem>}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          {post.department && (
-            <Badge variant="outline" className="text-xs">
-              {post.department}
-            </Badge>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="p-4 pt-0">
-        <div className="space-y-4">
-          {renderContent()}
-          {post.image && (
-            <div className="relative aspect-video overflow-hidden rounded-lg">
-              <motion.img
-                src={post.image}
-                alt="Post image"
-                className="h-full w-full object-cover"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-              />
-            </div>
-          )}
-        </div>
-      </CardContent>
-      <CardFooter className="flex flex-col p-0">
-        <div className="flex items-center justify-between px-4 py-2">
-          <div className="flex items-center gap-1">
-            {likesCount > 0 && (
-              <div className="flex items-center gap-1">
-                <div className="flex items-center justify-center h-5 w-5 rounded-full bg-[var(--color-primary)]/10 text-xs">
-                  👍
-                </div>
-                <span className="text-sm text-[var(--color-muted-fg)]">{likesCount}</span>
-              </div>
-            )}
-          </div>
+    <Card className="group relative overflow-hidden hover:border-[var(--color-border)] transition-all duration-200">
+      <div className="flex">
+        {/* Vote Buttons - Desktop */}
+        <div className="hidden sm:flex flex-col items-center gap-1 bg-[var(--color-accent)] p-2 sm:p-3">
           <Button
             variant="ghost"
-            size="sm"
-            className="text-sm text-[var(--color-muted-fg)]"
-            onClick={() => setShowComments(!showComments)}
-          >
-            {post.comments.length} comments
-          </Button>
-        </div>
-        <Separator />
-        <div className="flex p-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={`flex-1 gap-2 ${isLiked ? "text-[var(--color-primary)]" : ""}`}
+            size="icon"
             onClick={handleLike}
+            className={cn(
+              "h-8 w-8 rounded-md hover:bg-[var(--color-muted)]/20",
+              isLiked && "text-orange-500"
+            )}
           >
-            <span>👍</span>
-            <span>{isLiked ? "Liked" : "Like"}</span>
+            <ArrowBigUp className={cn("h-6 w-6", isLiked && "fill-current")} />
           </Button>
-          <Button variant="ghost" size="sm" className="flex-1 gap-2" onClick={() => setShowComments(!showComments)}>
-            <MessageSquare className="h-4 w-4" />
-            <span>Comment</span>
+          <span className="text-sm font-medium">{likesCount}</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLike}
+            className="h-8 w-8 rounded-md hover:bg-[var(--color-muted)]/20"
+          >
+            <ArrowBigDown className="h-6 w-6" />
           </Button>
         </div>
 
-        {showComments && <CommentSection postId={post.id} comments={post.comments} />}
-      </CardFooter>
+        {/* Main Content */}
+        <div className="flex-1 p-3 sm:p-4">
+          {/* Header */}
+          <div className="mb-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant="outline" className="rounded-full">
+                {post.department}
+              </Badge>
+              <span className="text-sm text-[var(--color-muted-fg)]">•</span>
+              <div className="flex items-center gap-2">
+                <Avatar className="h-5 w-5">
+                  <AvatarImage src={post.author.avatar} alt={post.author.name} />
+                  <AvatarFallback>{post.author.name[0]}</AvatarFallback>
+                </Avatar>
+                <span className="text-sm font-medium hover:underline cursor-pointer">
+                  Posted by {post.author.name}
+                </span>
+                {post.author.verified && (
+                  <svg className="w-4 h-4 text-[var(--color-primary)]" viewBox="0 0 24 24" aria-label="Verified account">
+                    <path
+                      fill="currentColor"
+                      d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.415-.165-.866-.25-1.336-.25-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .47 0 .92-.086 1.335-.25.62 1.334 1.926 2.25 3.437 2.25 1.512 0 2.818-.916 3.437-2.25.415.163.865.248 1.336.248 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.513 1.158-.687 1.943-1.99 1.943-3.484zm-6.616-3.334l-4.334 6.5c-.145.217-.382.334-.625.334-.143 0-.288-.04-.416-.126l-.115-.094-2.415-2.415c-.293-.293-.293-.768 0-1.06s.768-.294 1.06 0l1.77 1.767 3.825-5.74c.23-.345.696-.436 1.04-.207.346.23.44.696.21 1.04z"
+                    />
+                  </svg>
+                )}
+                <span className="text-sm text-[var(--color-muted-fg)]">•</span>
+                <span className="text-sm text-[var(--color-muted-fg)]">{timeAgo}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="space-y-3">
+            <div className="space-y-2">
+              {isLongText && !showFullContent ? (
+                <>
+                  <p className="text-[15px] leading-relaxed">
+                    {post.content.slice(0, CHAR_LIMIT)}...{" "}
+                    <button
+                      onClick={() => setShowFullContent(true)}
+                      className="text-[var(--color-primary)] hover:underline font-medium"
+                    >
+                      See More
+                    </button>
+                  </p>
+                </>
+              ) : (
+                <p className="text-[15px] leading-relaxed">{post.content}</p>
+              )}
+            </div>
+
+            {/* Media */}
+            {post.image && (
+              <div className="relative aspect-[16/9] sm:aspect-video overflow-hidden rounded-lg border">
+                <img src={post.image} alt="Post media" className="h-full w-full object-cover" />
+              </div>
+            )}
+            {post.video && (
+              <div className="relative aspect-[16/9] sm:aspect-video overflow-hidden rounded-lg border">
+                <video
+                  src={post.video}
+                  controls
+                  className="h-full w-full object-cover"
+                  poster={post.videoPoster || undefined}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="mt-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {/* Vote Buttons - Mobile */}
+              <div className="flex sm:hidden items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleLike}
+                  className={cn(
+                    "h-8 w-8 rounded-full hover:bg-[var(--color-muted)]/20",
+                    isLiked && "text-orange-500"
+                  )}
+                >
+                  <ArrowBigUp className={cn("h-5 w-5", isLiked && "fill-current")} />
+                </Button>
+                <span className="text-sm font-medium min-w-[2ch] text-center">{likesCount}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleLike}
+                  className="h-8 w-8 rounded-full hover:bg-[var(--color-muted)]/20"
+                >
+                  <ArrowBigDown className="h-5 w-5" />
+                </Button>
+              </div>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleComments}
+                className="gap-2 text-[var(--color-muted-fg)] hover:text-[var(--color-fg)] hover:bg-[var(--color-muted)]/10"
+              >
+                <MessageSquare className="h-4 w-4" />
+                {post.comments.length}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2 text-[var(--color-muted-fg)] hover:text-[var(--color-fg)] hover:bg-[var(--color-muted)]/10"
+              >
+                <Share2 className="h-4 w-4" />
+                Share
+              </Button>
+            </div>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-[var(--color-muted-fg)] hover:text-[var(--color-fg)] hover:bg-[var(--color-muted)]/10"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Comments Section */}
+      {showComments && (
+        <div className="border-t bg-[var(--color-accent)]/50">
+          <CommentSection postId={post.id} comments={post.comments} />
+        </div>
+      )}
     </Card>
   )
 }

@@ -3,6 +3,7 @@ export interface Author {
   name: string
   avatar: string
   role: "Student" | "Teacher" | "Admin"
+  verified?: boolean
 }
 
 export interface Reaction {
@@ -27,6 +28,8 @@ export interface Post {
   author: Author
   createdAt: string
   image: string | null
+  video?: string | null
+  videoPoster?: string | null
   likes: number
   comments: Comment[]
 }

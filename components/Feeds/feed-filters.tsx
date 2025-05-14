@@ -1,14 +1,29 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+import { cn } from "@/lib/utils"
 
 interface FeedFiltersProps {
   selectedDepartment: string | null
   onDepartmentChange: (department: string | null) => void
-  sortOrder: "newest" | "oldest"
-  onSortOrderChange: (order: "newest" | "oldest") => void
+  sortOrder: "newest" | "oldest" | "trending" | "hot"
+  onSortOrderChange: (order: "newest" | "oldest" | "trending" | "hot") => void
 }
+
+const departments = [
+  "All",
+  "Computer Science",
+  "Mathematics",
+  "Physics",
+  "Chemistry",
+  "Biology",
+  "Engineering",
+  "Business",
+  "Arts",
+  "Humanities",
+  "Social Sciences",
+]
 
 export function FeedFilters({
   selectedDepartment,
@@ -17,46 +32,26 @@ export function FeedFilters({
   onSortOrderChange,
 }: FeedFiltersProps) {
   return (
-    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-3 rounded-lg bg-[var(--color-card)] border border-[var(--color-border)]">
-      <div className="flex-1">
-        <h3 className="text-sm font-medium mb-2">Filter by department</h3>
-        <Select
-          value={selectedDepartment || "all"}
-          onValueChange={(value) => onDepartmentChange(value === "all" ? null : value)}
-        >
-          <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="All Departments" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Departments</SelectItem>
-            <SelectItem value="Computer Science">Computer Science</SelectItem>
-            <SelectItem value="Engineering">Engineering</SelectItem>
-            <SelectItem value="Business">Business</SelectItem>
-            <SelectItem value="Arts">Arts</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div>
-        <h3 className="text-sm font-medium mb-2">Sort by</h3>
-        <Select value={sortOrder} onValueChange={(value) => onSortOrderChange(value as "newest" | "oldest")}>
-          <SelectTrigger className="w-full sm:w-[140px]">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="newest">Newest First</SelectItem>
-            <SelectItem value="oldest">Oldest First</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {selectedDepartment && (
-        <div className="self-end mt-2 sm:mt-6">
-          <Button variant="ghost" size="sm" onClick={() => onDepartmentChange(null)}>
-            Clear filters
+    <ScrollArea className="w-full whitespace-nowrap">
+      <div className="flex w-max space-x-2">
+        {departments.map((department) => (
+          <Button
+            key={department}
+            variant={selectedDepartment === department ? "default" : "ghost"}
+            size="sm"
+            onClick={() => onDepartmentChange(department === "All" ? null : department)}
+            className={cn(
+              "rounded-full transition-all",
+              selectedDepartment === department
+                ? "bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary)]/90"
+                : "hover:bg-[var(--color-muted)]/10"
+            )}
+          >
+            {department}
           </Button>
-        </div>
-      )}
-    </div>
+        ))}
+      </div>
+      <ScrollBar orientation="horizontal" className="invisible" />
+    </ScrollArea>
   )
 }

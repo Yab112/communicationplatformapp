@@ -2,48 +2,62 @@ import type { Advertisement } from "@/types/advertisement"
 
 export const mockAdvertisements: Advertisement[] = [
   {
-    id: "ad-1",
-    title: "Student Innovation Challenge",
-    description: "Join our annual innovation challenge and win up to $10,000 in prizes!",
-    image: "https://res.cloudinary.com/dqho0rsp3/image/upload/v1734365043/farm_6_tecplm.jpg",
-    link: "#",
+    id: "1",
+    title: "Spring Career Fair 2024",
+    description: "Connect with top employers and explore internship opportunities. Don't miss this chance to kickstart your career!",
+    image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop&q=60",
+    link: "/events/career-fair-2024",
     type: "event",
-    priority: "high",
+    priority: "high"
   },
   {
-    id: "ad-2",
-    title: "Summer Internship Program",
-    description: "Apply now for our summer internship program. Positions available in tech, business, and engineering.",
-    image: "https://res.cloudinary.com/dqho0rsp3/image/upload/v1734365043/farm_6_tecplm.jpg",
-    link: "#",
-    type: "opportunity",
-    priority: "high",
+    id: "2",
+    title: "Research Assistant Position",
+    description: "Join our cutting-edge research team in the Computer Science department. Perfect for graduate students!",
+    image: "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=800&auto=format&fit=crop&q=60",
+    link: "/opportunities/research-assistant",
+    type: "opportunity"
   },
   {
-    id: "ad-3",
-    title: "Campus Store Sale",
-    description: "30% off on all university merchandise this week!",
-    image: "https://res.cloudinary.com/dqho0rsp3/image/upload/v1734365043/farm_6_tecplm.jpg",
-    link: "#",
+    id: "3",
+    title: "Summer Coding Bootcamp",
+    description: "Learn full-stack development in 12 weeks. Early bird registration now open!",
+    image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60",
+    link: "/promotions/summer-bootcamp",
     type: "promotion",
-    priority: "medium",
+    priority: "high"
   },
   {
-    id: "ad-4",
-    title: "Research Grants Available",
-    description: "New research grants available for graduate students. Apply by June 1st.",
-    image: "https://res.cloudinary.com/dqho0rsp3/image/upload/v1734365043/farm_6_tecplm.jpg",
-    link: "#",
-    type: "opportunity",
-    priority: "medium",
+    id: "4",
+    title: "International Student Fair",
+    description: "Celebrate diversity and cultural exchange. Food, music, and networking!",
+    image: "https://images.unsplash.com/photo-1511578314322-379afb476865?w=800&auto=format&fit=crop&q=60",
+    link: "/events/international-fair",
+    type: "event"
   },
   {
-    id: "ad-5",
-    title: "Career Fair 2024",
-    description: "Meet top employers at our annual career fair. Register now!",
-    image: "https://res.cloudinary.com/dqho0rsp3/image/upload/v1734365043/farm_6_tecplm.jpg",
-    link: "#",
+    id: "5",
+    title: "Graduate Research Symposium",
+    description: "Present your research and network with fellow researchers. Cash prizes for top presentations!",
+    image: "https://images.unsplash.com/photo-1416339684178-3a239570f315?w=800&auto=format&fit=crop&q=60",
+    link: "/events/research-symposium",
     type: "event",
-    priority: "high",
+    priority: "high"
   },
+  {
+    id: "6",
+    title: "Teaching Assistant Positions",
+    description: "Multiple TA positions available for the upcoming semester in various departments.",
+    image: "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?w=800&auto=format&fit=crop&q=60",
+    link: "/opportunities/ta-positions",
+    type: "opportunity"
+  },
+  {
+    id: "7",
+    title: "Campus Store Discount",
+    description: "50% off on all academic supplies and university merchandise this week only!",
+    image: "https://images.unsplash.com/photo-1576072133139-b98bf2b6ac91?w=800&auto=format&fit=crop&q=60",
+    link: "/promotions/store-discount",
+    type: "promotion"
+  }
 ] 
