@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSocket } from "@/providers/socket-provider"
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "@/lib/actions/notifications"
 import { useToast } from "@/hooks/use-toast"
 
@@ -14,54 +15,65 @@ type Notification = {
   relatedId?: string
 }
 
-export function useNotifications() {
+export function useChatNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
+  const { socket, isConnected } = useSocket()
   const { toast } = useToast()
 
-  const fetchNotifications = async () => {
-    try {
-      setIsLoading(true)
-      const result = await getNotifications()
+  // Fetch initial notifications
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        setIsLoading(true)
+        const result = await getNotifications()
 
-      if ("error" in result) {
+        if ("error" in result) {
+          toast({
+            title: "Error",
+            description: result.error,
+            variant: "destructive",
+          })
+        } else {
+          setNotifications(result as Notification[])
+          setUnreadCount(result.filter((n: Notification) => !n.isRead).length)
+        }
+      } catch (error) {
         toast({
           title: "Error",
-          description: result.error,
+          description: "Failed to load notifications",
           variant: "destructive",
         })
-        setNotifications([])
-        setUnreadCount(0)
-      } else if ("notifications" in result && Array.isArray(result.notifications)) {
-        setNotifications(result.notifications)
-        setUnreadCount(result.notifications.filter((n: Notification) => !n.isRead).length)
-      } else {
-        setNotifications([])
-        setUnreadCount(0)
+      } finally {
+        setIsLoading(false)
       }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load notifications",
-        variant: "destructive",
-      })
-      setNotifications([])
-      setUnreadCount(0)
-    } finally {
-      setIsLoading(false)
     }
-  }
 
-  // Fetch initial notifications and poll every 30 seconds
-  useEffect(() => {
     fetchNotifications()
-    
-    // Set up polling interval
-    const interval = setInterval(fetchNotifications, 30000)
-    
-    return () => clearInterval(interval)
-  }, [])
+  }, [toast])
+
+  // Listen for new notifications via socket
+  useEffect(() => {
+    if (socket && isConnected) {
+      const handleNewNotification = (notification: Notification) => {
+        setNotifications(prev => [notification, ...prev])
+        setUnreadCount(prev => prev + 1)
+
+        // Show toast for new notification
+        toast({
+          title: notification.type.charAt(0).toUpperCase() + notification.type.slice(1),
+          description: notification.content,
+        })
+      }
+
+      socket.on("notification", handleNewNotification)
+
+      return () => {
+        socket.off("notification", handleNewNotification)
+      }
+    }
+  }, [socket, isConnected, toast])
 
   const markAsRead = async (notificationId: string) => {
     try {
@@ -76,6 +88,11 @@ export function useNotifications() {
         )
       )
       setUnreadCount(prev => Math.max(0, prev - 1))
+
+      // Emit socket event to notify other clients
+      if (socket && isConnected) {
+        socket.emit("mark-notification-read", notificationId)
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -96,6 +113,11 @@ export function useNotifications() {
         prev.map(n => ({ ...n, isRead: true }))
       )
       setUnreadCount(0)
+
+      // Emit socket event to notify other clients
+      if (socket && isConnected) {
+        socket.emit("mark-all-notifications-read")
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -112,4 +134,4 @@ export function useNotifications() {
     markAsRead,
     markAllAsRead,
   }
-}
+} 

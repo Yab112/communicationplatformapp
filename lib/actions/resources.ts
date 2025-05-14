@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { getCurrentUser } from "@/lib/get-session"
 import { resourceSchema, type ResourceFormValues } from "@/lib/validator/resource"
+import { Prisma } from "@prisma/client"
 
 import type { Resource } from "@/types/resource"
 import { prisma } from "../prisma"
@@ -18,43 +19,58 @@ export async function getResources(filters?: {
   search?: string;
 }) {
   try {
-    const resources = await db.resource.findMany({
-      where: {
-        ...(filters?.teacherName && {
-          author: {
-            name: {
-              contains: filters.teacherName,
-              mode: 'insensitive',
+    // Only include filters that have values
+    const whereClause: Prisma.ResourceWhereInput = {
+      ...(filters?.teacherName && {
+        author: {
+          name: {
+            contains: filters.teacherName,
+            mode: 'insensitive' as Prisma.QueryMode,
+          },
+        },
+      }),
+      ...(filters?.department && {
+        department: filters.department,
+      }),
+      ...(filters?.courseId && {
+        courseId: filters.courseId,
+      }),
+      ...(filters?.fileType && {
+        fileType: filters.fileType,
+      }),
+      ...(filters?.search && {
+        OR: [
+          {
+            title: {
+              contains: filters.search,
+              mode: 'insensitive' as Prisma.QueryMode,
             },
           },
-        }),
-        ...(filters?.department && {
-          department: filters.department,
-        }),
-        ...(filters?.courseId && {
-          courseId: filters.courseId,
-        }),
-        ...(filters?.fileType && {
-          fileType: filters.fileType,
-        }),
-        ...(filters?.search && {
-          OR: [
-            {
-              title: {
-                contains: filters.search,
-                mode: 'insensitive',
-              },
+          {
+            description: {
+              contains: filters.search,
+              mode: 'insensitive' as Prisma.QueryMode,
             },
-            {
-              description: {
-                contains: filters.search,
-                mode: 'insensitive',
-              },
-            },
-          ],
-        }),
-      },
-      include: {
+          },
+        ],
+      }),
+    };
+
+    // Optimize query by only including necessary fields
+    const resources = await db.resource.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        type: true,
+        url: true,
+        fileSize: true,
+        department: true,
+        courseId: true,
+        fileType: true,
+        createdAt: true,
+        tags: true,
         author: {
           select: {
             id: true,
@@ -63,11 +79,11 @@ export async function getResources(filters?: {
             role: true,
           },
         },
-        course: true,
       },
       orderBy: {
         createdAt: "desc",
       },
+      take: 50, // Limit results to prevent large payloads
     });
 
     return { resources, error: null };
@@ -137,17 +153,6 @@ export async function createResource(formData: FormData) {
       }
     }
 
-    console.log("Creating resource with data:", {
-      title,
-      type,
-      department,
-      fileType,
-      courseId,
-      fileSize,
-      authorId: user.id,
-      url
-    })
-
     const resource = await db.resource.create({
       data: {
         title,
@@ -172,9 +177,7 @@ export async function createResource(formData: FormData) {
       },
     })
 
-    console.log("Resource created successfully:", resource)
-
-    const transformedResource: Resource = {
+    const transformedResource = {
       id: resource.id,
       title: resource.title,
       description: resource.description,
@@ -194,7 +197,7 @@ export async function createResource(formData: FormData) {
       dueDate: null,
     }
 
-    revalidatePath("/resources")
+    // No need to revalidate since we're using client-side state management
     return { resource: transformedResource, error: null }
   } catch (error) {
     console.error("Error creating resource:", error)
@@ -228,7 +231,7 @@ export async function deleteResource(resourceId: string) {
     // Delete the resource
     await db.resource.delete({ where: { id: resourceId } })
 
-    revalidatePath("/resources")
+    // No need to revalidate since we're using client-side state management
     return { success: true }
   } catch (error) {
     return { error: "Failed to delete resource" }

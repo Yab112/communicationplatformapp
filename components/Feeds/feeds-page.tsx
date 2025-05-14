@@ -1,35 +1,31 @@
 "use client"
 
-import { useEffect, useState, useMemo, useCallback } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { FeedList } from "@/components/Feeds/feed-list"
-import { UsersSidebar } from "@/components/Feeds/users-sidebar"
+import { AdvertisementSidebar } from "@/components/Feeds/advertisement-sidebar"
 import { CreatePostModal } from "@/components/Feeds/create-post-modal"
 import { FeedFilters } from "@/components/Feeds/feed-filters"
 import { Button } from "@/components/ui/button"
-import { Plus, RefreshCw } from "lucide-react"
+import { Plus, RefreshCw, Newspaper } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import type { Post } from "@/types/post"
 import { getPosts, createPost } from "@/lib/actions/feed"
 import { useUser } from "@/context/user-context"
-import { useSocket } from "@/hooks/use-socket"
-import { usePostStore } from "@/store"
+import { FeedSkeleton } from "@/components/skeletons/feed-skeleton"
 
 export function FeedsPage() {
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [posts, setPosts] = useState<Post[]>([])
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null)
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest")
   const { toast } = useToast()
   const { user } = useUser()
-  const socket = useSocket()
 
-  // Use the post store
-  const { posts, setPosts, addPost, updatePost, deletePost } = usePostStore()
-
-  const fetchPosts = useCallback(async (showLoading = false) => {
+  const fetchPosts = async (showFullLoading = false) => {
     try {
-      if (showLoading) {
+      if (showFullLoading) {
         setIsLoading(true)
       } else {
         setIsRefreshing(true)
@@ -46,43 +42,33 @@ export function FeedsPage() {
         return
       }
 
-      // Transform and set posts
-      const transformedPosts = (fetchedPosts || []).map((post) => ({
+      // Transform posts to match our Post type
+      const transformedPosts = (fetchedPosts || []).map((post: any) => ({
         id: post.id,
         content: post.content,
-        department: post.department || post.author.role,
+        department: post.department || post.author.role || "General",
         author: {
           id: post.author.id,
           name: post.author.name,
           avatar: post.author.image || "",
-          role: post.author.role as "Student" | "Teacher" | "Admin",
+          role: post.author.role || "Student",
         },
-        createdAt: post.createdAt.toISOString(),
+        createdAt: new Date(post.createdAt).toISOString(),
         image: post.image || null,
-        likes: post.likes.length,
-        comments: post.comments.map((comment) => ({
+        likes: post.likes?.length || 0,
+        comments: (post.comments || []).map((comment: any) => ({
           id: comment.id,
           content: comment.content,
           author: {
             id: comment.author.id,
             name: comment.author.name,
             avatar: comment.author.image || "",
-            role: comment.author.role as "Student" | "Teacher" | "Admin",
+            role: comment.author.role || "Student",
           },
-          createdAt: comment.createdAt.toISOString(),
-          reactions: comment.CommentReaction?.map((reaction) => ({
-            id: reaction.id,
-            type: reaction.type,
-            author: {
-              id: reaction.user.id,
-              name: reaction.user.name,
-              avatar: reaction.user.image || "",
-              role: "Student" as "Student" | "Teacher" | "Admin",
-            },
-            createdAt: reaction.createdAt.toISOString(),
-          })) || [],
+          createdAt: new Date(comment.createdAt).toISOString(),
+          reactions: [],
         })),
-      })) as Post[]
+      }))
 
       setPosts(transformedPosts)
     } catch (error) {
@@ -95,39 +81,14 @@ export function FeedsPage() {
       setIsLoading(false)
       setIsRefreshing(false)
     }
-  }, [setPosts, toast])
+  }
 
-  // Initial fetch on mount
+  // Fetch data only on component mount
   useEffect(() => {
-    if (posts.length === 0) {
-      fetchPosts(true)
-    }
-  }, [fetchPosts, posts.length])
+    fetchPosts(true)
+  }, [])
 
-  // Socket connection for real-time updates
-  useEffect(() => {
-    if (!socket) return
-
-    socket.on("new_post", (newPost: Post) => {
-      addPost(newPost)
-    })
-
-    socket.on("post_updated", (updatedPost: Post) => {
-      updatePost(updatedPost)
-    })
-
-    socket.on("post_deleted", (postId: string) => {
-      deletePost(postId)
-    })
-
-    return () => {
-      socket.off("new_post")
-      socket.off("post_updated")
-      socket.off("post_deleted")
-    }
-  }, [socket, addPost, updatePost, deletePost])
-
-  // Filter posts by department and sort by date
+  // Filter posts by department and sort by date locally
   const filteredPosts = useMemo(() => {
     return posts
       .filter((post) => !selectedDepartment || post.department === selectedDepartment)
@@ -142,7 +103,7 @@ export function FeedsPage() {
     try {
       setIsCreateModalOpen(false)
       // Optimistically add the new post
-      addPost(newPost)
+      setPosts(currentPosts => [newPost, ...currentPosts])
 
       const { success, error } = await createPost({
         content: newPost.content,
@@ -152,7 +113,7 @@ export function FeedsPage() {
 
       if (error) {
         // Revert optimistic update on error
-        deletePost(newPost.id)
+        setPosts(currentPosts => currentPosts.filter(post => post.id !== newPost.id))
         toast({
           title: "Error",
           description: error,
@@ -161,13 +122,14 @@ export function FeedsPage() {
         return
       }
 
+      // Don't fetch again after successful creation, we already have the post in state
       toast({
         title: "Success",
         description: "Your post has been published successfully.",
       })
     } catch (error) {
       // Revert optimistic update on error
-      deletePost(newPost.id)
+      setPosts(currentPosts => currentPosts.filter(post => post.id !== newPost.id))
       toast({
         title: "Error",
         description: "Failed to create post",
@@ -182,22 +144,47 @@ export function FeedsPage() {
 
   const isAdmin = user?.role?.toLowerCase() === "admin"
 
+  if (isLoading) {
+    return <FeedSkeleton />
+  }
+
   return (
     <div className="flex h-full">
       <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="flex-1 overflow-y-auto feeds-scroll-hidden p-4 md:p-6">
           <div className="mx-auto content-max-width">
             <div className="mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <h1 className="text-2xl font-bold">Feed</h1>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                >
-                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                </Button>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--color-primary)]/10">
+                    <Newspaper className="h-5 w-5 text-[var(--color-primary)]" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold">News Feed</h1>
+                    <p className="text-sm text-[var(--color-muted-fg)]">Stay updated with the latest posts</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={handleRefresh}
+                    disabled={isRefreshing}
+                    className="h-9 w-9"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  </Button>
+                  {isAdmin && (
+                    <Button
+                      onClick={() => setIsCreateModalOpen(true)}
+                      size="sm"
+                      className="gap-2"
+                    >
+                      <Plus className="h-4 w-4" />
+                      New Post
+                    </Button>
+                  )}
+                </div>
               </div>
               <FeedFilters
                 selectedDepartment={selectedDepartment}
@@ -207,27 +194,11 @@ export function FeedsPage() {
               />
             </div>
 
-            {isLoading ? (
-              <div className="flex justify-center items-center h-32">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : (
-              <FeedList posts={filteredPosts} />
-            )}
+            <FeedList posts={filteredPosts} />
           </div>
         </div>
-        <UsersSidebar />
+        <AdvertisementSidebar />
       </div>
-
-      {isAdmin && (
-        <Button
-          size="icon"
-          className="fixed bottom-6 right-6 h-12 w-12 rounded-full shadow-lg bg-[var(--color-primary)] hover:bg-[var(--color-primary-dark)]"
-          onClick={() => setIsCreateModalOpen(true)}
-        >
-          <Plus className="h-6 w-6" />
-        </Button>
-      )}
 
       <CreatePostModal
         isOpen={isCreateModalOpen}

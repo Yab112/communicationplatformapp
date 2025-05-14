@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { socket } from '@/lib/socket'
 import { Post } from '@/types/post'
 import { Card, CardContent, CardHeader, CardFooter } from '@/components/ui/card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -9,55 +8,42 @@ import { Textarea } from '@/components/ui/textarea'
 import { Heart, MessageCircle, Share2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getCurrentUser } from '@/lib/get-session'
+import { likePost, addComment } from '@/lib/actions/feed'
 
 export function Feed() {
   const [posts, setPosts] = useState<Post[]>([])
   const [newComment, setNewComment] = useState('')
   const [commentingPostId, setCommentingPostId] = useState<string | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     // Get current user
     getCurrentUser().then(setCurrentUser)
-
-    // Listen for new posts
-    socket.on('new-post', (post: Post) => {
-      setPosts((prevPosts) => [post, ...prevPosts])
-    })
-
-    // Listen for new comments
-    socket.on('new-comment', (data: { postId: string; comment: any }) => {
-      setPosts((prevPosts) =>
-        prevPosts.map((post) =>
-          post.id === data.postId
-            ? { ...post, comments: [...post.comments, data.comment] }
-            : post
-        )
-      )
-    })
-
-    // Listen for like updates
-    socket.on('post-liked', (data: { postId: string; likes: number }) => {
-      setPosts((prevPosts) =>
-        prevPosts.map((post) =>
-          post.id === data.postId ? { ...post, likes: data.likes } : post
-        )
-      )
-    })
-
-    // Cleanup on unmount
-    return () => {
-      socket.off('new-post')
-      socket.off('new-comment')
-      socket.off('post-liked')
-    }
   }, [])
 
   const handleLike = async (postId: string) => {
     try {
-      socket.emit('like-post', { postId })
+      // Update UI optimistically
+      setPosts(prevPosts =>
+        prevPosts.map(post =>
+          post.id === postId ? { ...post, likes: post.likes + 1 } : post
+        )
+      )
+
+      // Make API call
+      const { error } = await likePost(postId)
+      if (error) {
+        throw new Error(error)
+      }
     } catch (error) {
       toast.error('Failed to like post')
+      // Revert optimistic update
+      setPosts(prevPosts =>
+        prevPosts.map(post =>
+          post.id === postId ? { ...post, likes: post.likes - 1 } : post
+        )
+      )
     }
   }
 
@@ -67,15 +53,57 @@ export function Feed() {
       return
     }
 
+    if (isSubmitting) return
+
     try {
-      socket.emit('add-comment', {
+      setIsSubmitting(true)
+      
+      // Add comment optimistically
+      const newCommentObj = {
+        id: Date.now().toString(),
+        content: newComment,
+        author: {
+          id: currentUser.id,
+          name: currentUser.name,
+          avatar: currentUser.image || "",
+          role: currentUser.role,
+        },
+        createdAt: new Date().toISOString(),
+        reactions: [],
+      }
+
+      setPosts(prevPosts =>
+        prevPosts.map(post =>
+          post.id === postId
+            ? { ...post, comments: [...post.comments, newCommentObj] }
+            : post
+        )
+      )
+
+      // Make API call
+      const { error } = await addComment({
         postId,
         content: newComment,
       })
+
+      if (error) {
+        throw new Error(error)
+      }
+
       setNewComment('')
       setCommentingPostId(null)
     } catch (error) {
       toast.error('Failed to add comment')
+      // Revert optimistic update
+      setPosts(prevPosts =>
+        prevPosts.map(post =>
+          post.id === postId
+            ? { ...post, comments: post.comments.slice(0, -1) }
+            : post
+        )
+      )
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -169,7 +197,11 @@ export function Feed() {
                   >
                     Cancel
                   </Button>
-                  <Button size="sm" onClick={() => handleComment(post.id)}>
+                  <Button 
+                    size="sm" 
+                    onClick={() => handleComment(post.id)}
+                    disabled={isSubmitting}
+                  >
                     Comment
                   </Button>
                 </div>

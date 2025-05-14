@@ -101,23 +101,23 @@ interface ResourceCardProps {
 const PreviewHeader = ({ resource, styling, onClose }: { resource: Resource; styling: any; onClose: () => void }) => {
   const FileIcon = getFileIcon(resource.fileType)
   return (
-    <DialogHeader className="sticky top-0 z-20 bg-white border-b p-4 flex items-center justify-between backdrop-blur-sm bg-white/90">
+    <DialogHeader className="sticky top-0 z-20 bg-[var(--color-card)] border-b p-4 flex items-center justify-between backdrop-blur-sm bg-opacity-95">
       <div className="flex items-center gap-3">
         <FileIcon className={cn("h-6 w-6", styling.iconColor)} />
-        <DialogTitle className="text-xl font-semibold line-clamp-1">{resource.title}</DialogTitle>
+        <DialogTitle className="text-xl font-semibold line-clamp-1 text-[var(--color-fg)]">{resource.title}</DialogTitle>
       </div>
       <div className="flex items-center gap-2">
         <Badge variant="secondary" className={cn(styling.badgeColor, "text-sm font-medium")}>
           {resource.type}
         </Badge>
-        <Badge variant="outline" className="uppercase text-blue-600 border-blue-200 text-sm font-medium">
+        <Badge variant="outline" className="uppercase text-[var(--color-primary)] border-[var(--color-border)] text-sm font-medium">
           {resource.fileType}
         </Badge>
         <Button
           variant="ghost"
           size="icon"
           onClick={onClose}
-          className="hover:bg-gray-100 rounded-full"
+          className="hover:bg-[var(--color-accent)] rounded-full"
           aria-label="Close preview"
         >
           <X className="h-5 w-5" />
@@ -142,11 +142,11 @@ const PreviewToolbar = ({
   onZoomOut: () => void
   onToggleFullScreen: () => void
 }) => {
-  if (!["pdf", "jpg", "jpeg", "png", "gif"].includes(fileType)) return null
+  if (!["pdf", "jpg", "jpeg", "png", "gif", "docx", "pptx"].includes(fileType)) return null
 
   return (
-    <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm border-b p-2 flex items-center gap-2 justify-center md:justify-end">
-      <div className="bg-white border rounded-full px-3 py-1 flex items-center gap-1 shadow-sm">
+    <div className="sticky top-0 z-10 bg-[var(--color-card)]/80 backdrop-blur-sm border-b p-2 flex items-center gap-2 justify-center md:justify-end">
+      <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-full px-3 py-1 flex items-center gap-1 shadow-sm">
         <Button
           variant="ghost"
           size="sm"
@@ -157,7 +157,7 @@ const PreviewToolbar = ({
         >
           <ZoomOut className="h-4 w-4" />
         </Button>
-        <span className="text-xs font-medium px-1">{Math.round(zoomLevel * 100)}%</span>
+        <span className="text-xs font-medium px-1 text-[var(--color-fg)]">{Math.round(zoomLevel * 100)}%</span>
         <Button
           variant="ghost"
           size="sm"
@@ -202,24 +202,30 @@ const PreviewContent = ({
   onDownload: () => void
 }) => {
   const FileIcon = getFileIcon(resource.fileType)
+  const [iframeLoading, setIframeLoading] = useState(true)
+
+  useEffect(() => {
+    // Reset iframe loading state when resource changes
+    setIframeLoading(true)
+  }, [resource.url])
 
   if (isLoading) {
     return (
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-white bg-opacity-90 backdrop-blur-sm">
-        <Loader2 className="h-12 w-12 animate-spin text-blue-600 mb-4" />
-        <p className="text-sm font-medium text-gray-600">Loading preview...</p>
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--color-card)] bg-opacity-90 backdrop-blur-sm">
+        <Loader2 className="h-12 w-12 animate-spin text-[var(--color-primary)] mb-4" />
+        <p className="text-sm font-medium text-[var(--color-muted-fg)]">Loading preview...</p>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center p-8 text-center bg-white rounded-xl shadow-md">
-        <div className="bg-red-50 p-4 rounded-full mb-4">
+      <div className="flex flex-col items-center justify-center p-8 text-center bg-[var(--color-card)] rounded-xl shadow-md">
+        <div className="bg-[var(--color-accent)] p-4 rounded-full mb-4">
           <FileIcon className={cn("h-16 w-16", styling.iconColor)} />
         </div>
-        <h3 className="text-xl font-semibold mb-2">Error Loading Preview</h3>
-        <p className="text-muted-foreground mb-6 max-w-md">{error}</p>
+        <h3 className="text-xl font-semibold mb-2 text-[var(--color-fg)]">Error Loading Preview</h3>
+        <p className="text-[var(--color-muted-fg)] mb-6 max-w-md">{error}</p>
         <Button variant="outline" onClick={onRetry} className="px-6">
           Try Again
         </Button>
@@ -227,82 +233,88 @@ const PreviewContent = ({
     )
   }
 
+  const handleIframeLoad = () => {
+    setIframeLoading(false)
+  }
+
   switch (fileType) {
     case "pdf":
+      const pdfUrl = (resource.url || "").startsWith('http') 
+        ? resource.url 
+        : `${window.location.origin}${resource.url}`
       return (
-        <iframe
-          src={`${window.location.origin}${resource.url}#toolbar=0&navpanes=0&zoom=${zoomLevel * 100}`}
-          className="w-full h-full rounded-md border shadow-xl bg-white"
-          style={{ minHeight: "300px", maxHeight: "100%" }}
-          title={resource.title}
-        />
+        <>
+          {iframeLoading && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--color-card)] bg-opacity-90 backdrop-blur-sm">
+              <Loader2 className="h-12 w-12 animate-spin text-[var(--color-primary)] mb-4" />
+              <p className="text-sm font-medium text-[var(--color-muted-fg)]">Loading PDF preview...</p>
+            </div>
+          )}
+          <iframe
+            src={`${pdfUrl}#toolbar=0&navpanes=0&zoom=${zoomLevel * 100}`}
+            className="w-full h-full rounded-md border shadow-xl bg-[var(--color-card)]"
+            style={{ minHeight: "300px", maxHeight: "100%" }}
+            title={resource.title}
+            onLoad={handleIframeLoad}
+          />
+        </>
+      )
+    case "docx":
+    case "pptx":
+      const officeUrl = (resource.url || "").startsWith('http')   
+        ? resource.url || ""
+        : `${window.location.origin}${resource.url || ""}`
+      return (
+        <>
+          {iframeLoading && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--color-card)] bg-opacity-90 backdrop-blur-sm">
+              <Loader2 className="h-12 w-12 animate-spin text-[var(--color-primary)] mb-4" />
+              <p className="text-sm font-medium text-[var(--color-muted-fg)]">Loading document preview...</p>
+            </div>
+          )}
+          <iframe
+            src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(officeUrl)}`}
+            className="w-full h-full rounded-md border shadow-xl bg-[var(--color-card)]"
+            style={{ minHeight: "300px", maxHeight: "100%" }}
+            title={resource.title}
+            onLoad={handleIframeLoad}
+          />
+        </>
       )
     case "jpg":
     case "jpeg":
     case "png":
     case "gif":
+      const imageUrl = (resource.url || "").startsWith('http') 
+        ? resource.url 
+        : `${window.location.origin}${resource.url}`
       return (
-        <div className="flex items-center justify-center w-full h-full overflow-hidden bg-[#f5f5f5] bg-opacity-50 backdrop-blur-sm p-4">
+        <div className="flex items-center justify-center w-full h-full overflow-hidden bg-[var(--color-accent)] bg-opacity-50 backdrop-blur-sm p-4">
           <img
-            src={`${window.location.origin}${resource.url}`}
+            src={imageUrl}
             alt={resource.title}
             className="max-w-full max-h-full object-contain rounded-md shadow-xl"
             style={{
               transform: `scale(${zoomLevel})`,
-              transition: "transform 0.2s",
-              filter: "drop-shadow(0 10px 8px rgb(0 0 0 / 0.04)) drop-shadow(0 4px 3px rgb(0 0 0 / 0.1))",
+              transition: "transform 0.2s ease-in-out",
             }}
+            onLoad={() => setIframeLoading(false)}
           />
-        </div>
-      )
-    case "mp4":
-    case "webm":
-    case "mov":
-      return (
-        <div className="flex items-center justify-center w-full h-full overflow-hidden bg-black rounded-lg">
-          <video controls className="max-w-full max-h-full rounded-md shadow-xl">
-            <source src={`${window.location.origin}${resource.url}`} type={`video/${fileType}`} />
-            Your browser does not support the video tag.
-          </video>
-        </div>
-      )
-    case "mp3":
-    case "wav":
-    case "ogg":
-      return (
-        <div className="flex flex-col items-center justify-center w-full h-full bg-gradient-to-b from-blue-50 to-indigo-50 rounded-xl p-8">
-          <div className="bg-white p-6 rounded-full shadow-md mb-8">
-            <FileIcon className="h-24 w-24 text-blue-600" />
-          </div>
-          <div className="w-full max-w-md bg-white rounded-xl shadow-lg p-6">
-            <h3 className="text-xl font-semibold mb-4 text-center">{resource.title}</h3>
-            <audio controls className="w-full mb-4">
-              <source src={`${window.location.origin}${resource.url}`} type={`audio/${fileType}`} />
-              Your browser does not support the audio element.
-            </audio>
-          </div>
         </div>
       )
     default:
       return (
-        <div className="flex flex-col items-center justify-center w-full h-full bg-gradient-to-b from-gray-50 to-white rounded-xl p-8">
-          <div className={cn("p-8 rounded-full mb-8", styling.bgColor)}>
+        <div className="flex flex-col items-center justify-center p-8 text-center">
+          <div className="bg-[var(--color-accent)] p-6 rounded-full mb-6">
             <FileIcon className={cn("h-24 w-24", styling.iconColor)} />
           </div>
-          <div className="text-center max-w-lg">
-            <p className="text-2xl font-bold mb-3">Preview not available</p>
-            <p className="text-muted-foreground mb-8 text-lg">
-              {fileType === "zip" || fileType === "rar"
-                ? "This is a compressed archive file. Please download to extract its contents."
-                : fileType === "docx" || fileType === "pptx" || fileType === "xlsx"
-                  ? `This is a Microsoft Office ${fileType === "docx" ? "Word" : fileType === "pptx" ? "PowerPoint" : "Excel"} file. Please download to view.`
-                  : "Please download the file to view its contents."}
-            </p>
-            <Button onClick={onDownload} className={cn("px-8 py-6 text-lg", styling.buttonColor)}>
-              <Download className="mr-2 h-5 w-5" />
-              Download {fileType.toUpperCase()}
-            </Button>
-          </div>
+          <p className="text-2xl font-bold mb-3 text-[var(--color-fg)]">Preview not available</p>
+          <p className="text-[var(--color-muted-fg)] mb-6 max-w-md">
+            This file type cannot be previewed. Please download the file to view its contents.
+          </p>
+          <Button onClick={onDownload} className={cn(styling.buttonColor, "text-white px-6")}>
+            Download File
+          </Button>
         </div>
       )
   }
@@ -318,7 +330,7 @@ const PreviewDetails = ({ resource, FileIcon, styling }: { resource: Resource; F
           File Information
         </h3>
         <div className="grid grid-cols-2 gap-y-3 bg-white rounded-lg p-4 shadow-sm">
-          <span className="text-sm text-muted-foreground">Type:</span>
+          <span className="text-sm text-muted-foreground">Type</span>
           <span className="text-sm font-medium">{resource.fileType.toUpperCase()}</span>
           <span className="text-sm text-muted-foreground">Size:</span>
           <span className="text-sm font-medium">{resource.fileSize}</span>
@@ -553,6 +565,13 @@ export function ResourceCard({ resource }: ResourceCardProps) {
     if (isPreviewOpen) {
       setIsInitialLoading(true)
       setError(null)
+      
+      // Add a small delay to simulate loading and ensure proper state updates
+      const timer = setTimeout(() => {
+        setIsInitialLoading(false)
+      }, 1000)
+
+      return () => clearTimeout(timer)
     } else {
       setIsInitialLoading(false)
       setError(null)

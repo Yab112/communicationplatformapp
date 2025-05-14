@@ -149,7 +149,7 @@ export async function likePost(postId: string) {
       })
     }
 
-    revalidatePath("/feeds")
+    // Don't revalidate since we're using optimistic updates
     return { success: true }
   } catch (error) {
     return { error: "Failed to like post" }
@@ -173,9 +173,19 @@ export async function addComment(postId: string, content: string) {
         authorId: user.id,
         postId,
       },
+      include: {
+        author: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+            role: true,
+          },
+        },
+      },
     })
 
-    revalidatePath("/feeds")
+    // Don't revalidate since we're using optimistic updates
     return { success: true, comment }
   } catch (error) {
     return { error: "Failed to add comment" }
@@ -209,6 +219,7 @@ export async function deletePost(postId: string) {
     // Delete the post
     await db.post.delete({ where: { id: postId } })
 
+    // Revalidate since this is a destructive action
     revalidatePath("/feeds")
     return { success: true }
   } catch (error) {
@@ -256,7 +267,7 @@ export async function addCommentReaction(commentId: string, type: string) {
       })
     }
 
-    revalidatePath("/feeds")
+    // Don't revalidate since we're using optimistic updates
     return { success: true }
   } catch (error) {
     return { error: "Failed to react to comment" }

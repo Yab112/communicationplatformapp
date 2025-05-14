@@ -7,9 +7,39 @@ async function main() {
   try {
     const hashedPassword = await hash('password123', 10);
 
-    // Create test users
-    const user1 = await prisma.user.create({
-      data: {
+    // Upsert admin user
+    const admin = await prisma.user.upsert({
+      where: { email: 'admin@example.com' },
+      update: {},
+      create: {
+        name: 'Admin User',
+        email: 'admin@example.com',
+        password: hashedPassword,
+        role: 'admin',
+        department: 'Administration',
+        image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Admin',
+      },
+    });
+
+    // Upsert teacher user
+    const teacher = await prisma.user.upsert({
+      where: { email: 'teacher@example.com' },
+      update: {},
+      create: {
+        name: 'Professor Smith',
+        email: 'teacher@example.com',
+        password: hashedPassword,
+        role: 'teacher',
+        department: 'Computer Science',
+        image: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Teacher',
+      },
+    });
+
+    // Upsert student users
+    const user1 = await prisma.user.upsert({
+      where: { email: 'john@example.com' },
+      update: {},
+      create: {
         name: 'John Doe',
         email: 'john@example.com',
         password: hashedPassword,
@@ -19,8 +49,10 @@ async function main() {
       },
     });
 
-    const user2 = await prisma.user.create({
-      data: {
+    const user2 = await prisma.user.upsert({
+      where: { email: 'jane@example.com' },
+      update: {},
+      create: {
         name: 'Jane Smith',
         email: 'jane@example.com',
         password: hashedPassword,
@@ -30,73 +62,9 @@ async function main() {
       },
     });
 
-    // Create test posts
-    const post1 = await prisma.post.create({
-      data: {
-        content: 'This is my first post!',
-        department: 'Computer Science',
-        authorId: user1.id,
-      },
-    });
+    // You can also use `upsert` for posts, comments, etc., if you have unique constraints
 
-    const post2 = await prisma.post.create({
-      data: {
-        content: 'Hello everyone!',
-        department: 'Computer Science',
-        authorId: user2.id,
-      },
-    });
-
-    // Create test comments
-    const comment1 = await prisma.comment.create({
-      data: {
-        content: 'Great post!',
-        postId: post1.id,
-        authorId: user2.id,
-      },
-    });
-
-    const comment2 = await prisma.comment.create({
-      data: {
-        content: 'Thanks for sharing!',
-        postId: post2.id,
-        authorId: user1.id,
-      },
-    });
-
-    // Add reactions to comments
-    await prisma.commentReaction.create({
-      data: {
-        type: 'LIKE',
-        commentId: comment1.id,
-        userId: user1.id,
-      },
-    });
-
-    await prisma.commentReaction.create({
-      data: {
-        type: 'LOVE',
-        commentId: comment2.id,
-        userId: user2.id,
-      },
-    });
-
-    // Add likes to posts
-    await prisma.like.create({
-      data: {
-        postId: post1.id,
-        userId: user2.id,
-      },
-    });
-
-    await prisma.like.create({
-      data: {
-        postId: post2.id,
-        userId: user1.id,
-      },
-    });
-
-    console.log('Seed data created successfully!');
+    console.log('Seed data created/updated successfully!');
   } catch (error) {
     console.error('Error seeding database:', error);
     throw error;

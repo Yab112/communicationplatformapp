@@ -43,23 +43,31 @@ export function PostCard({ post }: PostCardProps) {
   }, [post.createdAt])
 
   const handleLike = async () => {
+    // 1. First update the UI optimistically
+    const newIsLiked = !isLiked
+    setIsLiked(newIsLiked)
+    setLikesCount((prev) => (newIsLiked ? prev + 1 : prev - 1))
+
+    // 2. Then make the API call
     try {
-      const { success, error } = await likePost(post.id)
+      const { error } = await likePost(post.id)
 
       if (error) {
+        // 3. Revert changes if the API call fails
+        setIsLiked(!newIsLiked)
+        setLikesCount((prev) => (newIsLiked ? prev - 1 : prev + 1))
+        
         toast({
           title: "Error",
-          description: error,
+          description: error || "Failed to like post",
           variant: "destructive",
         })
-        return
-      }
-
-      if (success) {
-        setIsLiked(!isLiked)
-        setLikesCount((prev) => (isLiked ? prev - 1 : prev + 1))
       }
     } catch (error) {
+      // 4. Handle any unexpected errors and revert the optimistic update
+      setIsLiked(!newIsLiked)
+      setLikesCount((prev) => (newIsLiked ? prev - 1 : prev + 1))
+      
       toast({
         title: "Error",
         description: "Failed to like post",
