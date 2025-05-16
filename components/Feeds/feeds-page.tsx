@@ -13,7 +13,7 @@ import { getPosts, createPost } from "@/lib/actions/feed"
 import { useUser } from "@/context/user-context"
 import { FeedSkeleton } from "@/components/skeletons/feed-skeleton"
 import { Card } from "@/components/ui/card"
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { mockAdvertisements } from "@/data/mock/advertisements"
 import type { Advertisement } from "@/types/advertisement"
 import { motion } from "framer-motion"
@@ -221,39 +221,15 @@ export function FeedsPage() {
 
   return (
     <div className="flex min-h-screen bg-[var(--color-accent)] flex-col lg:flex-row">
-      {/* Left Sidebar - Community Rules & Info (Desktop Only) */}
-      <div className="hidden lg:block w-64 p-4">
-        <Card className="sticky top-4 p-4 space-y-4">
-          <div className="flex items-center gap-2">
-            <Newspaper className="h-5 w-5 text-[var(--color-primary)]" />
-            <h2 className="font-semibold">Community Info</h2>
-          </div>
-          <div className="space-y-2 text-sm">
-            <p className="text-[var(--color-muted-fg)]">
-              Welcome to our academic community! Share knowledge, ask questions, and connect with fellow students and teachers.
-            </p>
-            <div className="border-t pt-2">
-              <p className="font-medium">Community Rules</p>
-              <ul className="list-disc list-inside text-[var(--color-muted-fg)] space-y-1 mt-2">
-                <li>Be respectful and professional</li>
-                <li>No spam or self-promotion</li>
-                <li>Use appropriate tags</li>
-                <li>Follow academic integrity</li>
-              </ul>
-            </div>
-          </div>
-        </Card>
-      </div>
-
       {/* Mobile Advertisement Scroll */}
       <div className="lg:hidden w-full overflow-hidden relative">
         <div className="relative">
           <div className="px-0">
-            <ScrollArea className="w-full">
+            <ScrollArea className="w-full overflow-hidden">
               <div 
                 ref={scrollContainerRef}
                 onScroll={handleScroll}
-                className="flex snap-x snap-mandatory touch-pan-x"
+                className="flex snap-x snap-mandatory touch-pan-x no-scrollbar"
               >
                 {mockAdvertisements.map((ad: Advertisement, index: number) => (
                   <div 
@@ -422,11 +398,11 @@ export function FeedsPage() {
               </span>
             </div>
             <div className="flex-1 overflow-hidden px-4 xl:px-6">
-              <ScrollArea className="h-full w-full">
+              <ScrollArea className="h-full w-full overflow-hidden">
                 <div 
                   ref={scrollContainerRef}
                   onScroll={handleScroll}
-                  className="flex snap-y snap-mandatory flex-col gap-4"
+                  className="flex snap-y snap-mandatory flex-col gap-4 no-scrollbar"
                 >
                   {mockAdvertisements.map((ad: Advertisement, index: number) => (
                     <div 
