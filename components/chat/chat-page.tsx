@@ -46,11 +46,10 @@ export function ChatPage() {
       const profile: ProfileType = {
         id: user.id,
         name: user.name,
-        avatar: user.avatar,
+        image: user.image || "",
         role: user.role,
         department: user.department,
         status: user.status,
-        year: student ? "2nd Year" : undefined, // Mock data for students
         bio: teacher
           ? "Professor specializing in advanced topics and research."
           : "Student interested in learning and collaboration.",

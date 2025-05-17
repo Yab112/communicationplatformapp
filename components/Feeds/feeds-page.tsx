@@ -112,6 +112,7 @@ export function FeedsPage() {
         createdAt: new Date(post.createdAt).toISOString(),
         image: post.image || null,
         likes: post.likes?.length || 0,
+        isLiked: post.isLiked || false,
         comments: (post.comments || []).map((comment: any) => ({
           id: comment.id,
           content: comment.content,

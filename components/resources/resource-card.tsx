@@ -325,29 +325,29 @@ const PreviewDetails = ({ resource, FileIcon, styling }: { resource: Resource; F
     <div className="space-y-8 flex-1">
       {/* File Information */}
       <div className="space-y-4">
-        <h3 className="text-base font-medium text-gray-600 sticky top-0 bg-gray-50 py-2 flex items-center gap-2">
+        <h3 className="text-base font-medium text-[var(--color-fg)] sticky top-0 bg-[var(--color-accent)] py-2 flex items-center gap-2">
           <FileIcon className={cn("h-5 w-5", styling.iconColor)} />
           File Information
         </h3>
-        <div className="grid grid-cols-2 gap-y-3 bg-white rounded-lg p-4 shadow-sm">
-          <span className="text-sm text-muted-foreground">Type</span>
-          <span className="text-sm font-medium">{resource.fileType.toUpperCase()}</span>
-          <span className="text-sm text-muted-foreground">Size:</span>
-          <span className="text-sm font-medium">{resource.fileSize}</span>
+        <div className="grid grid-cols-2 gap-y-3 bg-[var(--color-card)] rounded-lg p-4 shadow-sm">
+          <span className="text-sm text-[var(--color-muted-fg)]">Type</span>
+          <span className="text-sm font-medium text-[var(--color-fg)]">{resource.fileType.toUpperCase()}</span>
+          <span className="text-sm text-[var(--color-muted-fg)]">Size:</span>
+          <span className="text-sm font-medium text-[var(--color-fg)]">{resource.fileSize}</span>
         </div>
       </div>
 
       {/* Department & Course */}
       <div className="space-y-4">
-        <h3 className="text-base font-medium text-gray-600 sticky top-0 bg-gray-50 py-2">Department & Course</h3>
-        <div className="flex flex-wrap gap-2 bg-white rounded-lg p-4 shadow-sm">
+        <h3 className="text-base font-medium text-[var(--color-fg)] sticky top-0 bg-[var(--color-accent)] py-2">Department & Course</h3>
+        <div className="flex flex-wrap gap-2 bg-[var(--color-card)] rounded-lg p-4 shadow-sm">
           {resource.department && (
-            <Badge variant="outline" className="text-base px-3 py-1 bg-white">
+            <Badge variant="outline" className="text-base px-3 py-1 bg-[var(--color-card)]">
               {resource.department}
             </Badge>
           )}
           {resource.courseId && (
-            <Badge variant="outline" className="text-base px-3 py-1 bg-white">
+            <Badge variant="outline" className="text-base px-3 py-1 bg-[var(--color-card)]">
               {resource.courseId}
             </Badge>
           )}
@@ -356,19 +356,19 @@ const PreviewDetails = ({ resource, FileIcon, styling }: { resource: Resource; F
 
       {/* Description */}
       <div className="space-y-4">
-        <h3 className="text-base font-medium text-gray-600 sticky top-0 bg-gray-50 py-2">Description</h3>
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <p className="text-base leading-relaxed break-words">{resource.description}</p>
+        <h3 className="text-base font-medium text-[var(--color-fg)] sticky top-0 bg-[var(--color-accent)] py-2">Description</h3>
+        <div className="bg-[var(--color-card)] rounded-lg p-4 shadow-sm">
+          <p className="text-base leading-relaxed break-words text-[var(--color-fg)]">{resource.description}</p>
         </div>
       </div>
 
       {/* Tags */}
       {resource.tags && resource.tags.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-base font-medium text-gray-600 sticky top-0 bg-gray-50 py-2">Tags</h3>
-          <div className="flex flex-wrap gap-2 bg-white rounded-lg p-4 shadow-sm">
+          <h3 className="text-base font-medium text-[var(--color-fg)] sticky top-0 bg-[var(--color-accent)] py-2">Tags</h3>
+          <div className="flex flex-wrap gap-2 bg-[var(--color-card)] rounded-lg p-4 shadow-sm">
             {resource.tags.map((tag) => (
-              <Badge key={tag} variant="outline" className="text-sm px-3 py-1 bg-white">
+              <Badge key={tag} variant="outline" className="text-sm px-3 py-1 bg-[var(--color-card)]">
                 {tag}
               </Badge>
             ))}
@@ -378,19 +378,19 @@ const PreviewDetails = ({ resource, FileIcon, styling }: { resource: Resource; F
 
       {/* Upload Information */}
       <div className="space-y-4">
-        <h3 className="text-base font-medium text-gray-600 sticky top-0 bg-gray-50 py-2">Upload Information</h3>
-        <div className="flex items-center gap-4 bg-white rounded-lg p-4 shadow-sm">
+        <h3 className="text-base font-medium text-[var(--color-fg)] sticky top-0 bg-[var(--color-accent)] py-2">Upload Information</h3>
+        <div className="flex items-center gap-4 bg-[var(--color-card)] rounded-lg p-4 shadow-sm">
           <div className="relative">
             <img
               src={resource.uploadedBy.avatar || "/placeholder.svg?height=48&width=48"}
               alt={resource.uploadedBy.name}
-              className="h-14 w-14 rounded-full border-2 border-white shadow-md"
+              className="h-14 w-14 rounded-full border-2 border-[var(--color-card)] shadow-md"
             />
-            <div className="absolute -bottom-1 -right-1 bg-green-500 h-4 w-4 rounded-full border-2 border-white"></div>
+            <div className="absolute -bottom-1 -right-1 bg-green-500 h-4 w-4 rounded-full border-2 border-[var(--color-card)]"></div>
           </div>
           <div>
-            <p className="text-lg font-medium">{resource.uploadedBy.name}</p>
-            <p className="text-base text-muted-foreground">
+            <p className="text-lg font-medium text-[var(--color-fg)]">{resource.uploadedBy.name}</p>
+            <p className="text-base text-[var(--color-muted-fg)]">
               {formatDistanceToNow(new Date(resource.uploadDate), { addSuffix: true })}
             </p>
           </div>
@@ -664,7 +664,7 @@ export function ResourceCard({ resource }: ResourceCardProps) {
           <PreviewHeader resource={resource} styling={styling} onClose={() => setIsPreviewOpen(false)} />
 
           <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
-            <div className="flex-[4_4_0%] min-w-0 h-full flex flex-col bg-gradient-to-b from-white to-gray-50 relative">
+            <div className="flex-[4_4_0%] min-w-0 h-full flex flex-col bg-[var(--color-accent)] relative">
               <PreviewToolbar
                 fileType={fileType}
                 zoomLevel={zoomLevel}
@@ -674,7 +674,7 @@ export function ResourceCard({ resource }: ResourceCardProps) {
                 onToggleFullScreen={toggleFullScreen}
               />
 
-              <div className="flex-1 flex items-center justify-center overflow-hidden p-6 bg-gray-50 bg-opacity-70 backdrop-blur-sm relative">
+              <div className="flex-1 flex items-center justify-center overflow-hidden p-6 bg-[var(--color-accent)] bg-opacity-70 backdrop-blur-sm relative">
                 <div className="w-full h-full flex items-center justify-center rounded-lg overflow-hidden transition-all duration-300 shadow-lg">
                   <PreviewContent
                     resource={resource}
@@ -689,11 +689,11 @@ export function ResourceCard({ resource }: ResourceCardProps) {
                     styling={styling}
                     onDownload={handleDownload}
                   />
-                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="w-full md:w-[800px] h-full overflow-y-auto bg-gray-50 border-t md:border-t-0 md:border-l flex flex-col shadow-inner">
+            <div className="w-full md:w-[800px] h-full overflow-y-auto bg-[var(--color-accent)] border-t md:border-t-0 md:border-l flex flex-col shadow-inner">
               <PreviewDetails resource={resource} FileIcon={FileIcon} styling={styling} />
             </div>
           </div>

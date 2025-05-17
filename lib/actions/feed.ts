@@ -7,6 +7,7 @@ import { postSchema, type PostFormValues } from "@/lib/validator/post"
 
 export async function getPosts() {
   try {
+    const user = await getCurrentUser();
     const posts = await db.post.findMany({
       include: {
         author: {
@@ -57,6 +58,8 @@ export async function getPosts() {
     // Transform the data to match the expected format
     const transformedPosts = posts.map(post => ({
       ...post,
+      isLiked: user ? post.likes.some(like => like.userId === user.id) : false,
+      likes: post.likes.length,
       comments: post.comments.map(comment => ({
         ...comment,
         reactions: comment.CommentReaction.map(reaction => ({

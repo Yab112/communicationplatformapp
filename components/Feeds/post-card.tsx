@@ -6,10 +6,12 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { MessageSquare, Share2, MoreHorizontal, ArrowBigUp, ArrowBigDown } from "lucide-react"
+import { MessageSquare, Share2, MoreHorizontal, ArrowBigUp, ArrowBigDown, Loader2 } from "lucide-react"
 import { CommentSection } from "@/components/Feeds/comment-section"
 import type { Post } from "@/types/post"
 import { cn } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
+import { likePost } from "@/lib/actions/feed"
 
 interface PostCardProps {
   post: Post
@@ -18,13 +20,20 @@ interface PostCardProps {
 export function PostCard({ post }: PostCardProps) {
   const [showComments, setShowComments] = useState(false)
   const [showFullContent, setShowFullContent] = useState(false)
-  const [isLiked, setIsLiked] = useState(false)
+  const [isLiked, setIsLiked] = useState(post.isLiked)
   const [likesCount, setLikesCount] = useState(post.likes)
   const [timeAgo, setTimeAgo] = useState<string>('')
+  const { toast } = useToast()
 
   // Character limit for the preview
   const CHAR_LIMIT = 280
   const isLongText = post.content.length > CHAR_LIMIT
+
+  // Update local state when post prop changes
+  useEffect(() => {
+    setIsLiked(post.isLiked)
+    setLikesCount(post.likes)
+  }, [post.isLiked, post.likes])
 
   useEffect(() => {
     setTimeAgo(formatDistanceToNow(new Date(post.createdAt), { addSuffix: true }))
@@ -37,14 +46,33 @@ export function PostCard({ post }: PostCardProps) {
     return () => clearInterval(interval)
   }, [post.createdAt])
 
-  const handleLike = () => {
-    if (isLiked) {
-      setLikesCount(prev => prev - 1)
-    } else {
-      setLikesCount(prev => prev + 1)
+  const handleLike = async () => {
+    // Immediately update UI
+    const newLikesCount = isLiked ? likesCount - 1 : likesCount + 1;
+    setLikesCount(newLikesCount);
+    setIsLiked(!isLiked);
+
+    // Show toast
+    toast({
+      title: isLiked ? "Post unliked" : "Post liked",
+      description: isLiked ? "Your reaction has been removed" : "Your reaction has been added",
+      variant: "default",
+      duration: 1500,
+    });
+
+    // Silent background sync
+    try {
+      const { error } = await likePost(post.id);
+      if (error) {
+        throw new Error(error);
+      }
+    } catch (error) {
+      // Revert on error
+      setLikesCount(likesCount);
+      setIsLiked(isLiked);
+      console.error('Like error:', error);
     }
-    setIsLiked(!isLiked)
-  }
+  };
 
   const toggleComments = () => {
     setShowComments(!showComments)

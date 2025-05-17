@@ -31,5 +31,6 @@ export interface Post {
   video?: string | null
   videoPoster?: string | null
   likes: number
+  isLiked: boolean
   comments: Comment[]
 }

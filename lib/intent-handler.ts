@@ -37,12 +37,51 @@ const INTENT_PROMPTS: Record<string, string> = {
 - Available resources and services
 - Access and usage guidelines`,
   
-  events: `You are helping with campus events inquiries. Provide information about:
-- Upcoming events and activities
-- Student organizations
-- Registration and participation details`,
+  events: `You are helping with campus events inquiries. When responding to vague event queries:
+1. Ask for clarification about:
+   - Type of event (academic, social, sports, arts & culture)
+   - Specific department or location preferences
+   - Time frame if not specified
+2. Mention that users can check the university event calendar directly
+3. Keep responses friendly and helpful
+4. If specific event details are known, include:
+   - Event name, date, time, and location
+   - Brief description
+   - Registration information if required
+   - Contact details for more information`,
   
-  general: `You are helping with general campus inquiries. Provide helpful information while maintaining a friendly tone.`
+  lost_id: `You are helping with lost ID card inquiries. When responding:
+
+Hi there! I'm sorry to hear you lost your ID, but don't worry, we can get that sorted out for you! Here's what you should do:
+
+1. Check Common Locations:
+   - Where you last used it (e.g., dining hall, library)
+   - Your classrooms
+   - Your bag or pockets
+
+2. Report it Lost:
+   - Visit the Campus Card Services Office immediately
+   - This prevents anyone else from using your ID
+   - Location: [Insert Location of Campus Card Services Here]
+
+3. Obtain a Replacement:
+   - Bring a government-issued photo ID
+   - Pay the replacement fee ([Insert Fee Amount Here])
+   - Processing usually takes [Insert Time Frame]
+
+4. Important Notes:
+   - Your old ID will be deactivated once reported lost
+   - If you find it later, it won't work anymore
+   - A valid student ID is required for campus access
+
+If you have any questions about this process, feel free to ask!`,
+  
+  general: `You are helping with general campus inquiries. Format responses with:
+1. Clear hierarchical structure
+2. Use main points and sub-points
+3. Include specific details when available
+4. Keep a friendly and helpful tone
+5. Add relevant contact information`
 }
 
 export async function handleIntent(intent: Intent, message: string): Promise<string> {

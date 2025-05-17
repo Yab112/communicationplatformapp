@@ -93,9 +93,9 @@ export function ChatBot() {
             className="mb-4"
           >
             <Card className="w-[320px] sm:w-[380px] shadow-lg">
-              <div className="p-4 border-b flex items-center justify-between bg-[var(--color-primary)] text-white">
+              <div className="p-2 border-b flex items-center justify-between bg-[var(--color-primary)] text-white">
                 <div className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
+                  <MessageSquare className="h-3 w-5" />
                   <h2 className="font-semibold">Campus Assistant</h2>
                 </div>
                 <Button
@@ -121,7 +121,7 @@ export function ChatBot() {
                         className={`rounded-lg px-4 py-2 max-w-[85%] shadow-sm ${
                           msg.role === 'user'
                             ? 'bg-[var(--color-primary)] text-white ml-4'
-                            : 'bg-[var(--color-muted)] text-[var(--color-fg)] mr-4'
+                            : 'bg-[var(--color-card)] border border-[var(--color-border)] text-[var(--color-fg)] mr-4'
                         }`}
                       >
                         <p className="text-sm whitespace-pre-wrap leading-relaxed">
