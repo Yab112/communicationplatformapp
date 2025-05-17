@@ -109,7 +109,7 @@ export function Sidebar({ isMobile }: SidebarProps) {
 
   // Desktop Sidebar
   return (
-    <div className="hidden md:block w-[260px] shrink-0 border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div className="hidden md:block w-[260px] shrink-0  bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="sticky top-0 flex flex-col h-screen">
         <div className="flex items-center px-6 h-14">
           <h1 className="text-2xl font-bold text-primary">UniConnect</h1>

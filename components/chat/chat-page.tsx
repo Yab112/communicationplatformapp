@@ -50,9 +50,10 @@ export function ChatPage() {
         role: user.role,
         department: user.department,
         status: user.status,
-        bio: teacher
-          ? "Professor specializing in advanced topics and research."
-          : "Student interested in learning and collaboration.",
+        email: user.email,
+        emailVerified: null,
+        createdAt: new Date(),
+        updatedAt: new Date()
       }
 
       setSelectedProfile(profile)
@@ -91,7 +92,7 @@ export function ChatPage() {
   }, [messages.length, activeRoom.id]) // Only depend on messages.length, not the entire messages array
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-[calc(100vh-var(--spacing-header))] ">
       {/* Main content area with proper spacing */}
       <div className="flex flex-1 overflow-hidden">
         {/* Mobile toggle button */}

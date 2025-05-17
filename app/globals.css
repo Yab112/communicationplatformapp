@@ -106,7 +106,7 @@
 
   --color-accent: var(--color-sidebar-active);
   --color-accent-foreground: var(--color-fg);
-
+  
   --color-destructive: var(--color-error);
   --color-destructive-foreground: white;
 

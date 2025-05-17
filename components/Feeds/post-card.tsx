@@ -82,7 +82,7 @@ export function PostCard({ post }: PostCardProps) {
     <Card className="group relative overflow-hidden hover:border-[var(--color-border)] transition-all duration-200">
       <div className="flex">
         {/* Vote Buttons - Desktop */}
-        <div className="hidden sm:flex flex-col items-center gap-1 bg-[var(--color-accent)] p-2 sm:p-3">
+        <div className="hidden sm:flex flex-col items-center gap-1 bg-blue-950/50 p-2 sm:p-3 bottom-0">
           <Button
             variant="ghost"
             size="icon"

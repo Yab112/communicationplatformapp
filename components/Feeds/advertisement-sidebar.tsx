@@ -82,7 +82,7 @@ export function AdvertisementSidebar() {
   )
 
   return (
-    <div className="h-[calc(100vh-4rem)] sticky top-16 flex flex-col bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div className="h-[calc(100vh-var(--spacing-header))] sticky  flex flex-col bg-background backdrop-blur ">
       <div className="sticky top-0 z-10 h-12 flex items-center justify-between px-4 bg-inherit">
         <h3 className="text-sm font-semibold">Featured</h3>
         <span className="rounded-full bg-[var(--color-primary)]/10 px-2 py-0.5 text-xs font-medium text-[var(--color-primary)]">
@@ -90,7 +90,7 @@ export function AdvertisementSidebar() {
         </span>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto feeds-scroll-hidden">
+      <div className="flex-1 min-h-0 overflow-y-auto feeds-scroll-hidden">  
         <div className="p-4">
           <div className="grid gap-4 auto-rows-max">
             {mockAdvertisements.map((ad, index) => renderAd(ad, index))}
