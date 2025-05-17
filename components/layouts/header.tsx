@@ -87,8 +87,8 @@ export function Header() {
   }
 
   return (
-    <header className="header-height shrink-0 border-b border-[var(--color-border)] bg-[var(--color-header)]">
-      <div className="flex h-full items-center justify-between px-4 md:px-6">
+    <header className=" bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex h-14 items-center justify-between px-4 md:px-6">
         <div className="md:hidden" />
 
         <div className="hidden md:block">
@@ -103,7 +103,7 @@ export function Header() {
               <Button variant="ghost" size="icon" className="relative">
                 <Bell className="h-5 w-5" />
                 {unreadCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-primary)] text-xs text-white">
+                  <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs text-primary-foreground">
                     {unreadCount}
                   </span>
                 )}

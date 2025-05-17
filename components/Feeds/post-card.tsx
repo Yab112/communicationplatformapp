@@ -172,12 +172,12 @@ export function PostCard({ post }: PostCardProps) {
 
             {/* Media */}
             {post.image && (
-              <div className="relative aspect-[16/9] sm:aspect-video overflow-hidden rounded-lg border">
+              <div className="relative aspect-[16/9] sm:aspect-video overflow-hidden rounded-lg ">
                 <img src={post.image} alt="Post media" className="h-full w-full object-cover" />
               </div>
             )}
             {post.video && (
-              <div className="relative aspect-[16/9] sm:aspect-video overflow-hidden rounded-lg border">
+              <div className="relative aspect-[16/9] sm:aspect-video overflow-hidden rounded-lg ">
                 <video
                   src={post.video}
                   controls

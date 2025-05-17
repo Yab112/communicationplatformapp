@@ -389,85 +389,11 @@ export function FeedsPage() {
       </div>
 
       {/* Right Sidebar - Advertisements (Desktop Only) */}
-      <div className="hidden lg:block w-80 xl:w-96 border-l border-[var(--color-border)] bg-[var(--color-background)]">
-        <div className="sticky top-0 h-screen overflow-hidden">
-          <div className="flex flex-col h-full">
-            <div className="flex items-center justify-between p-4 xl:p-6">
-              <h3 className="text-lg font-semibold">Featured</h3>
-              <span className="rounded-full bg-[var(--color-primary)]/10 px-2.5 py-1 text-xs font-medium text-[var(--color-primary)]">
-                {mockAdvertisements.length} Available
-              </span>
-            </div>
-            <div className="flex-1 overflow-hidden px-4 xl:px-6">
-              <ScrollArea className="h-full w-full overflow-hidden">
-                <div 
-                  ref={scrollContainerRef}
-                  onScroll={handleScroll}
-                  className="flex snap-y snap-mandatory flex-col gap-4 no-scrollbar"
-                >
-                  {mockAdvertisements.map((ad: Advertisement, index: number) => (
-                    <div 
-                      key={ad.id} 
-                      className="w-full flex-none snap-start"
-                    >
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.5 }}
-                        className="relative aspect-[2/1] w-full"
-                      >
-                        <a href={ad.link} target="_blank" rel="noopener noreferrer" className="block w-full h-full group">
-                          <img
-                            src={ad.image}
-                            alt={ad.title}
-                            className="h-full w-full object-cover rounded-xl transition-transform duration-300 group-hover:scale-[1.02]"
-                            loading="lazy"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent rounded-xl">
-                            {ad.priority === 'high' && (
-                              <div className="absolute top-2 right-2">
-                                <div className="flex items-center gap-1 rounded-full bg-white/10 px-2 py-0.5 backdrop-blur-sm">
-                                  <Sparkles className="h-3 w-3 text-white" />
-                                  <span className="text-xs font-medium text-white">Featured</span>
-                                </div>
-                              </div>
-                            )}
-                            <div className="absolute bottom-0 left-0 right-0 p-3">
-                              <div className="mb-1">
-                                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                                  ad.type === 'event' ? 'bg-blue-500/20 text-blue-100' :
-                                  ad.type === 'opportunity' ? 'bg-emerald-500/20 text-emerald-100' :
-                                  'bg-purple-500/20 text-purple-100'
-                                }`}>
-                                  {getTypeIcon(ad.type)}
-                                  {ad.type.charAt(0).toUpperCase() + ad.type.slice(1)}
-                                </span>
-                              </div>
-                              <h4 className="font-semibold text-sm text-white line-clamp-2 mb-1 group-hover:underline">{ad.title}</h4>
-                              <p className="text-xs text-white/80 line-clamp-2">{ad.description}</p>
-                            </div>
-                          </div>
-                        </a>
-                      </motion.div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4 flex justify-center gap-1.5">
-                  {mockAdvertisements.map((_, index) => (
-                    <div
-                      key={index}
-                      className={`h-1 rounded-full transition-all duration-300 ${
-                        index === currentAdIndex ? 'w-4 bg-[var(--color-primary)]' : 'w-1 bg-[var(--color-muted)]/40'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </ScrollArea>
-            </div>
-          </div>
+      <aside className="hidden lg:block w-80 xl:w-96 ">
+        <div className="fixed w-80 xl:w-96 h-[calc(100vh-3.4rem)] overflow-y-auto scrollbar-hide">
+          <AdvertisementSidebar />
         </div>
-      </div>
+      </aside>
 
       {/* Create Post Modal */}
       <CreatePostModal

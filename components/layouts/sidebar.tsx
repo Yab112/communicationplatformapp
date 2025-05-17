@@ -27,27 +27,27 @@ export function Sidebar({ isMobile }: SidebarProps) {
         <Link
           href={item.href}
           className={cn(
-            "group flex items-center gap-4 px-4 py-3 rounded-full transition-all duration-200",
+            "group flex items-center gap-4 px-4 py-2 rounded-md transition-all duration-200",
             isActive
-              ? "bg-[var(--color-sidebar-active)] text-[var(--color-primary)]"
-              : "text-[var(--color-fg)] hover:bg-[var(--color-sidebar-active)]",
+              ? "bg-primary/10 text-primary font-medium"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
           <div className={cn(
             "flex items-center justify-center rounded-md transition-colors",
             isActive
-              ? "text-[var(--color-primary)]"
-              : "text-[var(--color-fg)] group-hover:text-[var(--color-primary)]"
+              ? "text-primary"
+              : "text-muted-foreground group-hover:text-foreground"
           )}>
-            <item.icon className="h-6 w-6" />
+            <item.icon className="h-5 w-5" />
           </div>
-          <span className="text-base font-medium">{item.name}</span>
+          <span className="text-sm">{item.name}</span>
           {item.badge && (
             <span className={cn(
               "ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium",
               isActive
-                ? "bg-[var(--color-primary)] text-[var(--color-primary-foreground)]"
-                : "bg-[var(--color-muted)] text-[var(--color-muted-foreground)] group-hover:bg-[var(--color-primary)]/10 group-hover:text-[var(--color-primary)]"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
             )}>
               {item.badge}
             </span>
@@ -109,23 +109,25 @@ export function Sidebar({ isMobile }: SidebarProps) {
 
   // Desktop Sidebar
   return (
-    <div className="hidden md:block w-[260px] shrink-0 border-r border-[var(--color-border)] bg-[var(--color-sidebar)]">
-      <div className="flex items-center px-6 h-[var(--spacing-header)]">
-        <h1 className="text-2xl font-bold text-[var(--color-primary)]">UniConnect</h1>
-      </div>
+    <div className="hidden md:block w-[260px] shrink-0 border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="sticky top-0 flex flex-col h-screen">
+        <div className="flex items-center px-6 h-14">
+          <h1 className="text-2xl font-bold text-primary">UniConnect</h1>
+        </div>
 
-      <nav className="mt-6 px-2">
-        {navigationItems.map((section, index) => (
-          <div key={section.name} className="mb-6">
-            <h2 className="mb-2 px-4 text-xs font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]/70">
-              {section.name}
-            </h2>
-            <ul className="space-y-1">
-              {section.items.map(renderNavItem)}
-            </ul>
-          </div>
-        ))}
-      </nav>
+        <nav className="flex-1 mt-6 px-2 overflow-y-auto feeds-scroll-hidden">
+          {navigationItems.map((section, index) => (
+            <div key={section.name} className="mb-6">
+              <h2 className="mb-2 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                {section.name}
+              </h2>
+              <ul className="space-y-1">
+                {section.items.map(renderNavItem)}
+              </ul>
+            </div>
+          ))}
+        </nav>
+      </div>
     </div>
   )
 }
