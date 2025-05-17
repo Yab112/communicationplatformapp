@@ -7,12 +7,13 @@ import { Toaster } from "sonner"
 import { ThemeProvider } from "next-themes"
 import Provider from "./provider"
 import { UserProvider } from "@/context/user-context"
+import { ChatBot } from "@/components/ChatBot/ChatBot"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "UniConnect",
-  description: "University social platform for students and faculty",
+  title: "Campus Communication Platform",
+  description: "A modern platform for campus communication",
 }
 
 export default function RootLayout({
@@ -29,6 +30,7 @@ export default function RootLayout({
               <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
                 {children}
                 <Toaster />
+                <ChatBot />
               </ThemeProvider>
             </AuthProvider>
           </UserProvider>

@@ -111,16 +111,30 @@ export function PostCard({ post }: PostCardProps) {
           {/* Content */}
           <div className="space-y-3">
             <div className="space-y-2">
-              {isLongText && !showFullContent ? (
+              {isLongText ? (
                 <>
                   <p className="text-[15px] leading-relaxed">
-                    {post.content.slice(0, CHAR_LIMIT)}...{" "}
-                    <button
-                      onClick={() => setShowFullContent(true)}
-                      className="text-[var(--color-primary)] hover:underline font-medium"
-                    >
-                      See More
-                    </button>
+                    {showFullContent ? (
+                      <>
+                        {post.content}{" "}
+                        <button
+                          onClick={() => setShowFullContent(false)}
+                          className="text-[var(--color-primary)] hover:underline font-medium"
+                        >
+                          See Less
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {post.content.slice(0, CHAR_LIMIT)}...{" "}
+                        <button
+                          onClick={() => setShowFullContent(true)}
+                          className="text-[var(--color-primary)] hover:underline font-medium"
+                        >
+                          See More
+                        </button>
+                      </>
+                    )}
                   </p>
                 </>
               ) : (
