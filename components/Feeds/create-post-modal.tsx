@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ImageIcon, Loader2, X } from "lucide-react"
+import { ImageIcon, VideoIcon, Loader2, X } from "lucide-react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -32,6 +32,8 @@ interface CreatePostModalProps {
 export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [videoPoster, setVideoPoster] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const { toast } = useToast()
 
@@ -55,29 +57,82 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
         role: "Admin",
       },
       createdAt: new Date().toISOString(),
-      image: imageUrl, 
+      image: imageUrl,
+      video: videoUrl,
+      videoPoster: videoPoster,
       likes: 0,
       comments: [],
+      isLiked: false,
     }
 
     onSubmit(newPost)
     form.reset()
     setImagePreview(null)
     setImageUrl(null)
+    setVideoUrl(null)
+    setVideoPoster(null)
   }
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
     const file = e.target.files?.[0]
     if (!file) return
+
+    // Check file size
+    const maxSize = type === 'video' ? 100 * 1024 * 1024 : 5 * 1024 * 1024 // 100MB for video, 5MB for images
+    if (file.size > maxSize) {
+      toast({
+        title: "File too large",
+        description: `${type === 'video' ? 'Video' : 'Image'} must be less than ${maxSize / (1024 * 1024)}MB`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Clear existing media
+    setImagePreview(null)
+    setImageUrl(null)
+    setVideoUrl(null)
+    setVideoPoster(null)
 
     setIsUploading(true)
 
     try {
-      // Create FormData for the file upload
       const formData = new FormData()
       formData.append("file", file)
+      formData.append("fileType", type)
 
-      // Upload the file using the server action
+      // If it's a video, start generating thumbnail in parallel
+      let thumbnailPromise: Promise<string | null> | null = null
+      if (type === 'video') {
+        thumbnailPromise = new Promise((resolve) => {
+          const video = document.createElement('video')
+          video.preload = 'metadata'
+          video.src = URL.createObjectURL(file)
+          
+          video.onloadeddata = () => {
+            // Set video to 25% of duration for thumbnail
+            video.currentTime = video.duration * 0.25
+          }
+          
+          video.onseeked = () => {
+            const canvas = document.createElement('canvas')
+            canvas.width = video.videoWidth
+            canvas.height = video.videoHeight
+            const ctx = canvas.getContext('2d')
+            ctx?.drawImage(video, 0, 0, canvas.width, canvas.height)
+            const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.7) // Compress thumbnail
+            URL.revokeObjectURL(video.src) // Clean up
+            resolve(thumbnailUrl)
+          }
+
+          video.onerror = () => {
+            URL.revokeObjectURL(video.src)
+            resolve(null)
+          }
+        })
+      }
+
+      // Upload the file
       const result = await uploadFile(formData)
 
       if (result.error) {
@@ -89,19 +144,34 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
         return
       }
 
-      // Store the URL returned from the server
-      setImageUrl(result.url || null)
-      setImagePreview(result.url || null)
+      if (type === 'image') {
+        setImageUrl(result.url || null)
+        setImagePreview(result.url || null)
+      } else {
+        setVideoUrl(result.url || null)
+        // Wait for thumbnail if we started generating it
+        if (thumbnailPromise) {
+          const thumbnail = await thumbnailPromise
+          setVideoPoster(thumbnail)
+        }
+      }
     } catch (error) {
       toast({
         title: "Upload failed",
-        description: "An error occurred while uploading the image.",
+        description: "An error occurred while uploading the file.",
         variant: "destructive",
       })
       console.error("Upload error:", error)
     } finally {
       setIsUploading(false)
     }
+  }
+
+  const handleRemoveMedia = () => {
+    setImagePreview(null)
+    setImageUrl(null)
+    setVideoUrl(null)
+    setVideoPoster(null)
   }
 
   return (
@@ -162,21 +232,28 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
               )}
             />
 
-            {imagePreview && (
+            {(imagePreview || videoUrl) && (
               <div className="relative">
-                <img
-                  src={imagePreview || "/placeholder.svg"}
-                  alt="Preview"
-                  className="rounded-md object-cover max-h-[200px] w-full"
-                />
+                {imagePreview && (
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    className="rounded-md object-cover max-h-[200px] w-full"
+                  />
+                )}
+                {videoUrl && (
+                  <video
+                    src={videoUrl}
+                    poster={videoPoster || undefined}
+                    controls
+                    className="rounded-md object-cover max-h-[200px] w-full"
+                  />
+                )}
                 <Button
                   variant="ghost"
                   size="icon"
                   className="absolute right-2 top-2 h-6 w-6 rounded-full bg-[var(--color-bg)]"
-                  onClick={() => {
-                    setImagePreview(null)
-                    setImageUrl(null)
-                  }}
+                  onClick={handleRemoveMedia}
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -184,7 +261,14 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
             )}
 
             <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" size="sm" className="gap-2" disabled={isUploading} asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={isUploading}
+                asChild
+              >
                 <label>
                   {isUploading ? (
                     <>
@@ -201,7 +285,37 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
                     type="file"
                     accept="image/*"
                     className="hidden"
-                    onChange={handleImageUpload}
+                    onChange={(e) => handleFileUpload(e, 'image')}
+                    disabled={isUploading}
+                  />
+                </label>
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                disabled={isUploading}
+                asChild
+              >
+                <label>
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <VideoIcon className="h-4 w-4" />
+                      <span>Add Video</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    accept="video/*"
+                    className="hidden"
+                    onChange={(e) => handleFileUpload(e, 'video')}
                     disabled={isUploading}
                   />
                 </label>
