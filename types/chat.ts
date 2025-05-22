@@ -1,15 +1,34 @@
 export interface Message {
+    sender: any
     id: string
     roomId: string
     content: string
     senderId: string
     senderName: string
-    senderAvatar?: string
+    senderImage?: string
     timestamp: string
-    fileUrl?: string
-    fileName?: string
-    fileType?: string
-    fileSize?: number
+    attachments?: {
+      url: string
+      name: string
+      type: string
+      size: number
+    }[]
+  }
+  
+  export interface ChatRoomUser {
+    id: string
+    userId: string
+    chatRoomId: string
+    isAdmin: boolean
+    joinedAt: string
+    unreadCount: number
+    user: {
+      id: string
+      name: string
+      image: string | null
+      status: string
+      role: string
+    }
   }
   
   export interface ChatRoom {
@@ -23,7 +42,15 @@ export interface Message {
       timestamp: string
     }
     unreadCount: number
-    participants?: string[]
+    users?: ChatRoomUser[]
+    createdAt: string
+    updatedAt: string
+    participants?: {
+      id: string
+      name: string
+      image: string | null
+      status: string
+    }[]
   }
   
   export interface Resource {

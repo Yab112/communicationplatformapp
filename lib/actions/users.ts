@@ -2,6 +2,7 @@
 
 import { db } from "@/lib/db"
 import { getCurrentUser } from "@/lib/get-session"
+import { UserRole, UserStatus } from "@/types/user"
 
 export async function getUsers() {
   try {
@@ -28,6 +29,90 @@ export async function getUsers() {
     return { users }
   } catch (error) {
     return { error: "Failed to fetch users" }
+  }
+}
+
+export async function getTeachers() {
+  try {
+    const currentUser = await getCurrentUser()
+    if (!currentUser) {
+      return { error: "Unauthorized" }
+    }
+
+    const teachers = await db.user.findMany({
+      where: {
+        role: "teacher" as const
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        role: true,
+        status: true,
+        department: true,
+        emailVerified: true,
+        createdAt: true,
+        updatedAt: true
+      },
+      orderBy: {
+        name: "asc",
+      },
+    })
+
+    // Transform the data to match User type
+    const transformedTeachers = teachers.map(teacher => ({
+      ...teacher,
+      role: teacher.role as UserRole,
+      status: teacher.status as UserStatus
+    }))
+
+    return transformedTeachers
+  } catch (error) {
+    console.error("Error fetching teachers:", error)
+    return { error: "Failed to fetch teachers" }
+  }
+}
+
+export async function getStudents() {
+  try {
+    const currentUser = await getCurrentUser()
+    if (!currentUser) {
+      return { error: "Unauthorized" }
+    }
+
+    const students = await db.user.findMany({
+      where: {
+        role: "student" as const
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        role: true,
+        status: true,
+        department: true,
+        emailVerified: true,
+        createdAt: true,
+        updatedAt: true
+      },
+      orderBy: {
+        name: "asc",
+      },
+    })
+
+    // Transform the data to match User type
+    const transformedStudents = students.map(student => ({
+      ...student,
+      role: student.role as UserRole,
+      status: student.status as UserStatus
+    }))
+
+    return transformedStudents
+  } catch (error) {
+    console.error("Error fetching students:", error)
+    return { error: "Failed to fetch students" }
   }
 }
 

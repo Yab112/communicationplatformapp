@@ -2,54 +2,76 @@ import { cn } from "@/lib/utils"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { FileAttachment } from "@/components/chat/file-attachment"
 import type { Message } from "@/types/chat"
+import { formatDistanceToNow } from "date-fns"
 
 interface MessageItemProps {
   message: Message
-  isCurrentUser: boolean
+  onOpenProfile?: (userId: string) => void
 }
 
-export function MessageItem({ message, isCurrentUser }: MessageItemProps) {
-  const formattedTime = new Date(message.timestamp).toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-
-  const hasFile = Boolean(message.fileUrl && message.fileName && message.fileType)
+export function MessageItem({ message, onOpenProfile }: MessageItemProps) {
+  const isCurrentUser = message.senderId === "current-user" // Replace with actual user ID check
 
   return (
-    <div className={cn("flex w-full gap-2 mb-4", isCurrentUser ? "justify-end" : "justify-start")}>
-      {!isCurrentUser && (
-        <Avatar className="h-8 w-8">
-          <AvatarImage src={message.senderAvatar || "/placeholder.svg"} alt={message.senderName} />
-          <AvatarFallback>{message.senderName.charAt(0)}</AvatarFallback>
-        </Avatar>
+    <div
+      className={cn(
+        "group flex items-start gap-3 px-4",
+        isCurrentUser && "flex-row-reverse"
       )}
-      <div className={cn("flex max-w-[75%] flex-col", isCurrentUser && "items-end")}>
-        {!isCurrentUser && <span className="text-xs text-muted-foreground mb-1">{message.senderName}</span>}
+    >
+      <Avatar
+        className={cn(
+          "h-8 w-8 cursor-pointer",
+          !isCurrentUser && "hover:opacity-80"
+        )}
+        onClick={() => !isCurrentUser && onOpenProfile?.(message.senderId)}
+      >
+        <AvatarImage src={message.senderImage} alt={message.senderName} />
+        <AvatarFallback>{message.senderName.charAt(0)}</AvatarFallback>
+      </Avatar>
+
+      <div
+        className={cn(
+          "flex flex-col gap-1",
+          isCurrentUser && "items-end"
+        )}
+      >
+        <div className="flex items-center gap-2">
+          <span
+            className={cn(
+              "text-sm font-medium",
+              !isCurrentUser && "cursor-pointer hover:underline"
+            )}
+            onClick={() => !isCurrentUser && onOpenProfile?.(message.senderId)}
+          >
+            {message.senderName}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })}
+          </span>
+        </div>
+
         <div
           className={cn(
-            "rounded-lg px-3 py-2",
-            isCurrentUser ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+            "rounded-lg px-4 py-2",
+            isCurrentUser
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted"
           )}
         >
           {message.content}
-          {hasFile && message.fileUrl && message.fileName && message.fileType && (
-            <FileAttachment
-              fileUrl={message.fileUrl}
-              fileName={message.fileName}
-              fileType={message.fileType}
-              fileSize={message.fileSize || 0}
-            />
-          )}
         </div>
-        <span className="text-xs text-muted-foreground mt-1">{formattedTime}</span>
+
+        {message.attachments?.map((attachment, index) => (
+          <FileAttachment
+            key={index}
+            url={attachment.url}
+            name={attachment.name}
+            type={attachment.type}
+            size={attachment.size}
+          />
+        ))}
       </div>
-      {isCurrentUser && (
-        <Avatar className="h-8 w-8">
-          <AvatarImage src={message.senderAvatar || "/placeholder.svg"} alt={message.senderName} />
-          <AvatarFallback>{message.senderName.charAt(0)}</AvatarFallback>
-        </Avatar>
-      )}
     </div>
   )
 }

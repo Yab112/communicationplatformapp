@@ -10,14 +10,16 @@ import { motion } from "framer-motion"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { getStudents } from "@/lib/actions/users"
+import { createDirectMessage } from "@/lib/actions/chat"
 import type { User } from "@/types/user"
 
 interface StudentsListProps {
   roomId: string
   onOpenProfile?: (userId: string) => void
+  onRoomCreated?: (roomId: string) => void
 }
 
-export function StudentsList({ roomId, onOpenProfile }: StudentsListProps) {
+export function StudentsList({ roomId, onOpenProfile, onRoomCreated }: StudentsListProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedStudent, setSelectedStudent] = useState<string | null>(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
@@ -32,7 +34,16 @@ export function StudentsList({ roomId, onOpenProfile }: StudentsListProps) {
   const fetchStudents = async () => {
     try {
       const data = await getStudents()
+      if ('error' in data) {
+        toast({
+          title: "Error",
+          description: data.error,
+          variant: "destructive",
+        })
+        return
+      }
       setStudents(data)
+      console.log("students list is this",data)
     } catch (error) {
       toast({
         title: "Error",
@@ -76,14 +87,38 @@ export function StudentsList({ roomId, onOpenProfile }: StudentsListProps) {
     }
   }
 
-  const confirmStartDM = () => {
-    const student = students.find((s) => s.id === selectedStudent)
-    if (student) {
+  const confirmStartDM = async () => {
+    if (!selectedStudent) return
+
+    try {
+      const result = await createDirectMessage(selectedStudent)
+
+      if ('error' in result) {
+        toast({
+          title: "Error",
+          description: result.error,
+          variant: "destructive",
+        })
+        return
+      }
+
+      const student = students.find((s) => s.id === selectedStudent)
       toast({
         title: "Direct message created",
-        description: `You can now chat with ${student.name}`,
+        description: `You can now chat with ${student?.name}`,
       })
+
+      if (onRoomCreated && result.chatRoom) {
+        onRoomCreated(result.chatRoom.id)
+      }
+
       setShowConfirmDialog(false)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create direct message",
+        variant: "destructive",
+      })
     }
   }
 
@@ -137,7 +172,7 @@ export function StudentsList({ roomId, onOpenProfile }: StudentsListProps) {
                     className="h-10 w-10 cursor-pointer hover:opacity-80"
                     onClick={() => handleViewProfile(student.id)}
                   >
-                    <AvatarImage src={student.profileImage || "/placeholder.svg?height=40&width=40"} alt={student.name || "User"} />
+                    <AvatarImage src={student.image || "/placeholder.svg?height=40&width=40"} alt={student.name || "User"} />
                     <AvatarFallback>{(student.name || "U").charAt(0)}</AvatarFallback>
                   </Avatar>
 

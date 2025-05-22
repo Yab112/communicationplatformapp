@@ -2,85 +2,92 @@
 
 import { useState, useEffect, useRef } from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { MessageCircle } from "lucide-react"
+import { MessageCircle, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import  useMobile  from "@/hooks/use-mobile"
+import useMobile from "@/hooks/use-mobile"
 import { ChatRoom } from "@/types/chat"
 import { useChat } from "@/hooks/use-chat"
-import { mockChatRooms } from "@/data/mock/chat-rooms"
 import { ProfileModal, ProfileType } from "../profile/profile-modal"
-import { mockStudents, mockTeachers } from "@/data/mock/users"
 import { ChatRoomHeader } from "./chat-room-header"
 import { ChatMessages } from "./chat-messages"
 import { MessageInput } from "./message-input"
 import { ChatSidebar } from "./chat-sidebar"
+import { useToast } from "@/hooks/use-toast"
+import { createOrGetDMRoom } from "@/lib/actions/chat"
+import { useSession } from "next-auth/react"
+import { TeachersList } from "./teachers-list"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 
 export function ChatPage() {
-  const [activeRoom, setActiveRoom] = useState<ChatRoom>(mockChatRooms[0])
+  const [activeRoom, setActiveRoom] = useState<ChatRoom | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const { messages, sendMessage } = useChat(activeRoom.id)
+  const [showTeachersList, setShowTeachersList] = useState(false)
+  const { messages, sendMessage } = useChat(activeRoom?.id || "")
   const isMobile = useMobile()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const { toast } = useToast()
+  const { data: session } = useSession()
 
   // Profile modal state
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
   const [selectedProfile, setSelectedProfile] = useState<ProfileType | null>(null)
 
-  const handleRoomChange = (roomId: string) => {
-    const room = mockChatRooms.find((r) => r.id === roomId)
-    if (room) {
-      setActiveRoom(room)
-      if (isMobile) setSidebarOpen(false)
-    }
+  const handleRoomChange = (room: ChatRoom) => {
+    setActiveRoom(room)
+    if (isMobile) setSidebarOpen(false)
   }
 
   const handleOpenProfile = (userId: string) => {
-    // Find the user from either teachers or students list
-    const teacher = mockTeachers.find((t) => t.id === userId)
-    const student = mockStudents.find((s) => s.id === userId)
-
-    const user = teacher || student
-
-    if (user) {
-      const profile: ProfileType = {
-        id: user.id,
-        name: user.name,
-        image: user.image || "",
-        role: user.role,
-        department: user.department,
-        status: user.status,
-        email: user.email,
-        emailVerified: null,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
-
-      setSelectedProfile(profile)
-      setIsProfileModalOpen(true)
+    // In a real app, you would fetch the user's profile from the API
+    // For now, we'll just set a basic profile
+    const profile: ProfileType = {
+      id: userId,
+      name: "User", // This should be fetched from the API
+      image: "",
+      role: "user",
+      department: "",
+      status: "offline",
+      email: "",
+      emailVerified: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
     }
+
+    setSelectedProfile(profile)
+    setIsProfileModalOpen(true)
   }
 
-  const handleStartDM = (profileId: string) => {
-    // Find the user
-    const teacher = mockTeachers.find((t) => t.id === profileId)
-    const student = mockStudents.find((s) => s.id === profileId)
+  const handleStartDM = async (profileId: string) => {
+    if (!session?.user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to start a conversation",
+        variant: "destructive",
+      })
+      return
+    }
 
-    const user = teacher || student
+    try {
+      const result = await createOrGetDMRoom(profileId)
 
-    if (user) {
-      // In a real app, you would create a new DM room or navigate to an existing one
-      // For now, we'll just simulate finding or creating a room
-      const existingRoom = mockChatRooms.find((room) => !room.isGroup && room.name === user.name)
-
-      if (existingRoom) {
-        handleRoomChange(existingRoom.id)
-      } else {
-        // In a real app, you would create a new room here
-        console.log(`Starting new DM with ${user.name}`)
+      if ("error" in result) {
+        toast({
+          title: "Error",
+          description: result.error,
+          variant: "destructive",
+        })
+        return
       }
 
+      handleRoomChange(result.room)
       setIsProfileModalOpen(false)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to start conversation",
+        variant: "destructive",
+      })
     }
   }
 
@@ -89,10 +96,10 @@ export function ChatPage() {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
     }
-  }, [messages.length, activeRoom.id]) // Only depend on messages.length, not the entire messages array
+  }, [messages.length, activeRoom?.id])
 
   return (
-    <div className="flex h-[calc(100vh-var(--spacing-header))] ">
+    <div className="flex h-[calc(100vh-var(--spacing-header))]">
       {/* Main content area with proper spacing */}
       <div className="flex flex-1 overflow-hidden">
         {/* Mobile toggle button */}
@@ -120,23 +127,35 @@ export function ChatPage() {
               isMobile && !sidebarOpen && "hidden",
             )}
           >
-            <ChatSidebar
-              rooms={mockChatRooms}
-              activeRoomId={activeRoom.id}
-              onRoomChange={handleRoomChange}
-              onClose={() => setSidebarOpen(false)}
-            />
+            <div className="flex flex-col h-full">
+              <ChatSidebar
+                activeRoomId={activeRoom?.id}
+                onRoomChange={handleRoomChange}
+                onClose={() => setSidebarOpen(false)}
+              />
+            </div>
           </motion.div>
         </AnimatePresence>
 
         {/* Main chat area with message bubbles */}
         <div className="flex flex-col flex-1 overflow-hidden">
-          <ChatRoomHeader room={activeRoom} onOpenProfile={handleOpenProfile} />
-
-          <div className="relative flex-1 overflow-hidden" ref={messagesEndRef}>
-            <ChatMessages messages={messages} onOpenProfile={handleOpenProfile} />
-            <MessageInput onSendMessage={sendMessage} />
-          </div>
+          {activeRoom ? (
+            <>
+              <ChatRoomHeader room={activeRoom} onOpenProfile={handleOpenProfile} />
+              <div className="relative flex-1 overflow-hidden">
+                <ChatMessages messages={messages} onOpenProfile={handleOpenProfile} messagesEndRef={messagesEndRef} />
+                <div ref={messagesEndRef} />
+                <MessageInput roomId={activeRoom.id} onSendMessage={sendMessage} />
+              </div>
+            </>
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <div className="text-center">
+                <h3 className="text-lg font-medium">No chat selected</h3>
+                <p className="text-sm text-muted-foreground">Select a chat from the sidebar to start messaging</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -147,6 +166,13 @@ export function ChatPage() {
         profile={selectedProfile}
         onStartDM={handleStartDM}
       />
+
+      {/* Teachers List Dialog */}
+      <Dialog open={showTeachersList} onOpenChange={setShowTeachersList}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-hidden">
+          <TeachersList roomId={activeRoom?.id || ""} onOpenProfile={handleOpenProfile} />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

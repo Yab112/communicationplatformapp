@@ -7,10 +7,9 @@ export interface User {
     email: string
     emailVerified: Date | null
     image: string | null
-    password: string | null
-    role: string
+    role: UserRole
     department: string | null
-    status: string
+    status: UserStatus
     createdAt: Date
     updatedAt: Date
 }

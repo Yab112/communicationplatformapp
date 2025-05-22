@@ -10,14 +10,17 @@ import { motion } from "framer-motion"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { getTeachers } from "@/lib/actions/users"
+import { createDirectMessage } from "@/lib/actions/chat"
 import { User } from "@/types/user"
+import TeacherModalSkeleton from "../skeletons/teachermodal"
 
 interface TeachersListProps {
   roomId: string
   onOpenProfile?: (userId: string) => void
+  onRoomCreated?: (roomId: string) => void
 }
 
-export function TeachersList({ roomId, onOpenProfile }: TeachersListProps) {
+export function TeachersList({ roomId, onOpenProfile, onRoomCreated }: TeachersListProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
@@ -32,6 +35,14 @@ export function TeachersList({ roomId, onOpenProfile }: TeachersListProps) {
   const fetchTeachers = async () => {
     try {
       const data = await getTeachers()
+      if ('error' in data) {
+        toast({
+          title: "Error",
+          description: data.error,
+          variant: "destructive",
+        })
+        return
+      }
       setTeachers(data)
     } catch (error) {
       toast({
@@ -76,30 +87,44 @@ export function TeachersList({ roomId, onOpenProfile }: TeachersListProps) {
     }
   }
 
-  const confirmStartDM = () => {
-    const teacher = teachers.find((t) => t.id === selectedTeacher)
-    if (teacher) {
+  const confirmStartDM = async () => {
+    if (!selectedTeacher) return
+
+    try {
+      const result = await createDirectMessage(selectedTeacher)
+
+      if ('error' in result) {
+        toast({
+          title: "Error",
+          description: result.error,
+          variant: "destructive",
+        })
+        return
+      }
+
+      const teacher = teachers.find((t) => t.id === selectedTeacher)
       toast({
         title: "Direct message created",
-        description: `You can now chat with ${teacher.name}`,
+        description: `You can now chat with ${teacher?.name}`,
       })
+
+      if (onRoomCreated && result.chatRoom) {
+        onRoomCreated(result.chatRoom.id)
+      }
+
       setShowConfirmDialog(false)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create direct message",
+        variant: "destructive",
+      })
     }
   }
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        {[...Array(5)].map((_, i) => (
-          <div key={i} className="flex items-center gap-3 rounded-lg border border-primary/20 p-3">
-            <div className="h-10 w-10 rounded-full bg-muted animate-pulse" />
-            <div className="space-y-2">
-              <div className="h-4 w-32 bg-muted animate-pulse rounded" />
-              <div className="h-3 w-24 bg-muted animate-pulse rounded" />
-            </div>
-          </div>
-        ))}
-      </div>
+      <TeacherModalSkeleton />
     )
   }
 
@@ -137,7 +162,7 @@ export function TeachersList({ roomId, onOpenProfile }: TeachersListProps) {
                     className="h-10 w-10 cursor-pointer hover:opacity-80"
                     onClick={() => handleViewProfile(teacher.id)}
                   >
-                    <AvatarImage src={teacher.profileImage || "/placeholder.svg?height=40&width=40"} alt={teacher.name || "User"} />
+                    <AvatarImage src={teacher.image || "/placeholder.svg?height=40&width=40"} alt={teacher.name || "User"} />
                     <AvatarFallback>{(teacher.name || "U").charAt(0)}</AvatarFallback>
                   </Avatar>
 

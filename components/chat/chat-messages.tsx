@@ -5,24 +5,23 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { motion } from "framer-motion"
 import { MessageItem } from "./message-item"
 import { Message } from "@/types/chat"
+import { MessageBubble } from "./message-bubble"
 
 interface ChatMessagesProps {
   messages: Message[]
-  onOpenProfile?: (userId: string) => void
+  onOpenProfile: (userId: string) => void
+  messagesEndRef: React.RefObject<HTMLDivElement | null>
 }
 
-export function ChatMessages({ messages, onOpenProfile }: ChatMessagesProps) {
+export function ChatMessages({ messages, onOpenProfile, messagesEndRef }: ChatMessagesProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      const scrollElement = scrollAreaRef.current.querySelector("[data-radix-scroll-area-viewport]")
-      if (scrollElement) {
-        scrollElement.scrollTop = scrollElement.scrollHeight
-      }
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
     }
-  }, [messages])
+  }, [messages, messagesEndRef])
 
   // Group messages by date
   const groupedMessages: { [key: string]: Message[] } = {}
@@ -76,11 +75,16 @@ export function ChatMessages({ messages, onOpenProfile }: ChatMessagesProps) {
                   }}
                 >
                   {dateMessages.map((message) => (
-                    <MessageItem key={message.id} message={message} onOpenProfile={onOpenProfile} />
+                    <MessageBubble
+                      key={message.id}
+                      message={message}
+                      onOpenProfile={onOpenProfile}
+                    />
                   ))}
                 </motion.div>
               </div>
             ))}
+            <div ref={messagesEndRef} />
           </div>
         )}
       </ScrollArea>

@@ -3,8 +3,9 @@
 import type React from "react"
 
 import { createContext, useContext, useEffect, useState } from "react"
-import { io as createSocketIOClient, type Socket } from "socket.io-client"
+import { io as ClientIO, Socket } from "socket.io-client"
 import { useSession } from "next-auth/react"
+import { useToast } from "@/hooks/use-toast"
 
 type SocketContextType = {
   socket: Socket | null
@@ -16,63 +17,52 @@ const SocketContext = createContext<SocketContextType>({
   isConnected: false,
 })
 
-export const useSocket = () => useContext(SocketContext)
+export const useSocket = () => {
+  return useContext(SocketContext)
+}
 
-export function SocketProvider({ children }: { children: React.ReactNode }) {
+export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [socket, setSocket] = useState<Socket | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const { data: session } = useSession()
+  const { toast } = useToast()
 
   useEffect(() => {
-    // Initialize Socket.IO connection
-    const socketInitializer = async () => {
-      try {
-        // First, we need to fetch the API route to initialize the Socket.IO server
-        await fetch("/api/socket")
+    if (!session?.user) return
 
-        // Create Socket.IO client
-        const socketIo = createSocketIOClient({
-          path: "/api/socket/io",
-          addTrailingSlash: false,
-        })
-
-        socketIo.on("connect", () => {
-          console.log("Socket connected")
-          setIsConnected(true)
-
-          // Authenticate with user ID if logged in
-          if (session?.user?.id) {
-            socketIo.emit("authenticate", session.user.id)
-          }
-        })
-
-        socketIo.on("disconnect", () => {
-          console.log("Socket disconnected")
-          setIsConnected(false)
-        })
-
-        setSocket(socketIo)
-
-        // Cleanup function
-        return () => {
-          socketIo.disconnect()
-        }
-      } catch (error) {
-        console.error("Socket initialization error:", error)
+    const socketInstance = ClientIO(process.env.NEXT_PUBLIC_APP_URL || '', {
+      path: '/api/socket/io',
+      addTrailingSlash: false,
+      auth: {
+        token: session.user.id
       }
-    }
+    })
 
-    if (session?.user) {
-      socketInitializer()
-    }
+    socketInstance.on('connect', () => {
+      console.log('Socket connected')
+      setIsConnected(true)
+      socketInstance.emit('user-online')
+    })
 
-    // Cleanup on component unmount
+    socketInstance.on('disconnect', () => {
+      console.log('Socket disconnected')
+      setIsConnected(false)
+    })
+
+    socketInstance.on('error', (error) => {
+      console.error('Socket error:', error)
+    })
+
+    setSocket(socketInstance)
+
     return () => {
-      if (socket) {
-        socket.disconnect()
-      }
+      socketInstance.disconnect()
     }
   }, [session])
 
-  return <SocketContext.Provider value={{ socket, isConnected }}>{children}</SocketContext.Provider>
+  return (
+    <SocketContext.Provider value={{ socket, isConnected }}>
+      {children}
+    </SocketContext.Provider>
+  )
 }

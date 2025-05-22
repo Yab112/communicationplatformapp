@@ -1,33 +1,41 @@
 "use client"
 
 import type React from "react"
-import { useState, useRef, useEffect } from "react"
-import { Send, Smile } from "lucide-react"
+import { useState, useRef } from "react"
+import { Send, Paperclip, Smile } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Textarea } from "@/components/ui/textarea"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
+import { useChat } from "@/hooks/use-chat"
+import { EmojiPicker } from "@/components/chat/emoji-picker"
+import { FileUpload } from "@/components/chat/file-upload"
 
 interface MessageInputProps {
-  onSendMessage: (content: string) => void
+  roomId: string
+  onSendMessage: (content: string, file?: File) => Promise<{ success: boolean; message: any } | undefined>
 }
 
-const emojis = [
-  "😀", "😃", "😄", "😁", "😆", "😅", "😂", "🤣", "😊", "😇",
-  "🙂", "🙃", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚",
-  "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🥸",
-  "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "👍", "👎",
-]
-
-export function MessageInput({ onSendMessage }: MessageInputProps) {
-  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false)
+export function MessageInput({ roomId, onSendMessage }: MessageInputProps) {
   const [message, setMessage] = useState("")
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false)
+  const [isFileUploadOpen, setIsFileUploadOpen] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const { startTyping, stopTyping } = useChat(roomId)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!message.trim()) return
-    onSendMessage(message)
-    setMessage("")
+    if (!message.trim() && !selectedFile) return
+
+    try {
+      const result = await onSendMessage(message, selectedFile || undefined)
+      if (result?.success) {
+        setMessage("")
+        setSelectedFile(null)
+      }
+    } catch (error) {
+      console.error("Failed to send message:", error)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -37,80 +45,79 @@ export function MessageInput({ onSendMessage }: MessageInputProps) {
     }
   }
 
-  const insertEmoji = (emoji: string) => {
-    const textarea = textareaRef.current
-    if (textarea) {
-      const start = textarea.selectionStart
-      const end = textarea.selectionEnd
-      const newMessage = message.substring(0, start) + emoji + message.substring(end)
-      setMessage(newMessage)
-
-      // Focus back on textarea and set cursor position after the inserted emoji
-      setTimeout(() => {
-        textarea.focus()
-        textarea.setSelectionRange(start + emoji.length, start + emoji.length)
-      }, 10)
-    }
+  const handleEmojiSelect = (emoji: string) => {
+    setMessage((prev) => prev + emoji)
     setIsEmojiPickerOpen(false)
+    inputRef.current?.focus()
   }
 
-  // Auto-focus the textarea on mount
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.focus()
-    }
-  }, [])
+  const handleFileSelect = (file: File) => {
+    setSelectedFile(file)
+    setIsFileUploadOpen(false)
+  }
 
   return (
-    <div className="border-t border-border bg-card p-4 sticky bottom-0">
-      <form onSubmit={handleSubmit} className="flex items-end gap-2">
+    <div className="border-t border-[var(--color-border)] p-4">
+      {selectedFile && (
+        <div className="mb-2 flex items-center gap-2 rounded-md bg-muted p-2">
+          <span className="text-sm">{selectedFile.name}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0"
+            onClick={() => setSelectedFile(null)}
+          >
+            ×
+          </Button>
+        </div>
+      )}
+      <form onSubmit={handleSubmit} className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Textarea
-            ref={textareaRef}
-            placeholder="Type a message..."
+          <Input
+            ref={inputRef}
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="min-h-[60px] max-h-[150px] resize-none pr-10 shadow-sm focus-visible:ring-1 focus-visible:ring-primary"
+            onFocus={() => startTyping()}
+            onBlur={() => stopTyping()}
+            placeholder="Type a message..."
+            className="pr-20"
           />
-          <Popover open={isEmojiPickerOpen} onOpenChange={setIsEmojiPickerOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute bottom-2 right-2 text-muted-foreground hover:text-primary"
-              >
-                <Smile className="h-5 w-5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 p-2" align="end">
-              <div className="grid grid-cols-8 gap-1">
-                {emojis.map((emoji) => (
-                  <Button
-                    key={emoji}
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-lg hover:bg-primary/10"
-                    onClick={() => insertEmoji(emoji)}
-                  >
-                    {emoji}
-                  </Button>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
+          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setIsEmojiPickerOpen(!isEmojiPickerOpen)}
+            >
+              <Smile className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setIsFileUploadOpen(!isFileUploadOpen)}
+            >
+              <Paperclip className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-        <Button
-          type="submit"
-          size="icon"
-          className="h-10 w-10 rounded-full bg-primary hover:bg-primary/90"
-          disabled={!message.trim()}
-        >
-          <Send className="h-5 w-5" />
-          <span className="sr-only">Send message</span>
+        <Button type="submit" size="icon" disabled={!message.trim() && !selectedFile}>
+          <Send className="h-4 w-4" />
         </Button>
       </form>
+      {isEmojiPickerOpen && (
+        <div className="absolute bottom-20 right-4">
+          <EmojiPicker onSelect={handleEmojiSelect} />
+        </div>
+      )}
+      {isFileUploadOpen && (
+        <div className="absolute bottom-20 right-4">
+          <FileUpload onSelect={handleFileSelect} />
+        </div>
+      )}
     </div>
   )
 }
