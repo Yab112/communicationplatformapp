@@ -7,37 +7,28 @@ export async function GET(
   { params }: { params: { userId: string } }
 ) {
   try {
-    const currentUser = await getCurrentUser()
-    if (!currentUser) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const userId = params.userId
 
     const user = await db.user.findUnique({
-      where: { id: params.userId },
+      where: { id: userId },
       select: {
         id: true,
         name: true,
-        email: true,
-        emailVerified: true,
         image: true,
         role: true,
-        department: true,
-        status: true,
+        email: true,
         createdAt: true,
         updatedAt: true,
       },
     })
 
     if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
+      return new NextResponse("User not found", { status: 404 })
     }
 
     return NextResponse.json(user)
   } catch (error) {
-    console.error("Error fetching user:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch user" },
-      { status: 500 }
-    )
+    console.error("[USER_GET]", error)
+    return new NextResponse("Internal Error", { status: 500 })
   }
 } 

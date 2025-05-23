@@ -88,7 +88,7 @@ export function FeedsPage() {
       }
 
       const { posts: fetchedPosts, error } = await getPosts()
-      
+
       if (error) {
         toast({
           title: "Error",
@@ -111,7 +111,7 @@ export function FeedsPage() {
         },
         createdAt: new Date(post.createdAt).toISOString(),
         image: post.image || null,
-        likes: post.likes?.length || 0,
+        likes: post.likes,
         isLiked: post.isLiked || false,
         comments: (post.comments || []).map((comment: any) => ({
           id: comment.id,
@@ -123,7 +123,7 @@ export function FeedsPage() {
             role: comment.author.role || "Student",
           },
           createdAt: new Date(comment.createdAt).toISOString(),
-          reactions: [],
+          reactions: comment.reactions || [],
         })),
       }))
 
@@ -227,14 +227,14 @@ export function FeedsPage() {
         <div className="relative">
           <div className="px-0">
             <ScrollArea className="w-full overflow-hidden">
-              <div 
+              <div
                 ref={scrollContainerRef}
                 onScroll={handleScroll}
                 className="flex snap-x snap-mandatory touch-pan-x no-scrollbar"
               >
                 {mockAdvertisements.map((ad: Advertisement, index: number) => (
-                  <div 
-                    key={ad.id} 
+                  <div
+                    key={ad.id}
                     className="w-full flex-none snap-start"
                   >
                     <motion.div
@@ -262,11 +262,10 @@ export function FeedsPage() {
                           )}
                           <div className="absolute bottom-0 left-0 right-0 p-3">
                             <div className="mb-1">
-                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                                ad.type === 'event' ? 'bg-blue-500/20 text-blue-100' :
-                                ad.type === 'opportunity' ? 'bg-emerald-500/20 text-emerald-100' :
-                                'bg-purple-500/20 text-purple-100'
-                              }`}>
+                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${ad.type === 'event' ? 'bg-blue-500/20 text-blue-100' :
+                                  ad.type === 'opportunity' ? 'bg-emerald-500/20 text-emerald-100' :
+                                    'bg-purple-500/20 text-purple-100'
+                                }`}>
                                 {getTypeIcon(ad.type)}
                                 {ad.type.charAt(0).toUpperCase() + ad.type.slice(1)}
                               </span>
@@ -284,9 +283,8 @@ export function FeedsPage() {
                 {mockAdvertisements.map((_, index) => (
                   <div
                     key={index}
-                    className={`h-1 rounded-full transition-all duration-300 ${
-                      index === currentAdIndex ? 'w-4 bg-white' : 'w-1 bg-white/40'
-                    }`}
+                    className={`h-1 rounded-full transition-all duration-300 ${index === currentAdIndex ? 'w-4 bg-white' : 'w-1 bg-white/40'
+                      }`}
                   />
                 ))}
               </div>

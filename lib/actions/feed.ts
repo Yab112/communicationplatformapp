@@ -78,6 +78,7 @@ export async function getPosts() {
 
     return { posts: transformedPosts }
   } catch (error) {
+    console.error('Error fetching posts:', error)
     return { error: "Failed to fetch posts" }
   }
 }
@@ -142,6 +143,7 @@ export async function likePost(postId: string) {
           },
         },
       })
+      return { success: true, action: 'unliked' }
     } else {
       // Like the post
       await db.like.create({
@@ -150,11 +152,10 @@ export async function likePost(postId: string) {
           postId,
         },
       })
+      return { success: true, action: 'liked' }
     }
-
-    // Don't revalidate since we're using optimistic updates
-    return { success: true }
   } catch (error) {
+    console.error('Like error:', error)
     return { error: "Failed to like post" }
   }
 }

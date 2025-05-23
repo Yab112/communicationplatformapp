@@ -456,3 +456,64 @@ export async function createDirectMessage(userId: string) {
     return { error: "Failed to create direct message" }
   }
 }
+
+export async function getMessages(roomId: string) {
+  try {
+    const user = await getCurrentUser()
+    if (!user) {
+      return { error: "Unauthorized" }
+    }
+
+    // Check if user is a member of the room
+    const isMember = await db.chatRoom.findFirst({
+      where: {
+        id: roomId,
+        users: {
+          some: {
+            userId: user.id,
+          },
+        },
+      },
+    })
+
+    if (!isMember) {
+      return { error: "Not a member of this chat room" }
+    }
+
+    const messages = await db.message.findMany({
+      where: {
+        chatRoomId: roomId,
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+            role: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    })
+
+    // Update unread count
+    await db.chatRoomUser.update({
+      where: {
+        userId_chatRoomId: {
+          userId: user.id,
+          chatRoomId: roomId,
+        },
+      },
+      data: {
+        unreadCount: 0,
+      },
+    })
+
+    return messages
+  } catch (error) {
+    return { error: "Failed to fetch messages" }
+  }
+}

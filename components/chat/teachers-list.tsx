@@ -13,6 +13,7 @@ import { getTeachers } from "@/lib/actions/users"
 import { createDirectMessage } from "@/lib/actions/chat"
 import { User } from "@/types/user"
 import TeacherModalSkeleton from "../skeletons/teachermodal"
+import { ProfileModal, type ProfileType } from "@/components/profile/profile-modal"
 
 interface TeachersListProps {
   roomId: string
@@ -26,6 +27,8 @@ export function TeachersList({ roomId, onOpenProfile, onRoomCreated }: TeachersL
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
   const [teachers, setTeachers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
+  const [selectedProfile, setSelectedProfile] = useState<ProfileType | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -82,8 +85,21 @@ export function TeachersList({ roomId, onOpenProfile, onRoomCreated }: TeachersL
   }
 
   const handleViewProfile = (teacherId: string) => {
-    if (onOpenProfile) {
-      onOpenProfile(teacherId)
+    const teacher = teachers.find((t) => t.id === teacherId)
+    if (teacher) {
+      setSelectedProfile({
+        id: teacher.id,
+        name: teacher.name || "",
+        email: teacher.email || "",
+        emailVerified: null,
+        image: teacher.image || null,
+        role: teacher.role,
+        department: teacher.department || null,
+        status: teacher.status || "offline",
+        createdAt: new Date(),
+        updatedAt: new Date()
+      })
+      setIsProfileModalOpen(true)
     }
   }
 
@@ -232,6 +248,13 @@ export function TeachersList({ roomId, onOpenProfile, onRoomCreated }: TeachersL
           </div>
         </DialogContent>
       </Dialog>
+
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        profile={selectedProfile}
+        onStartDM={handleStartDM}
+      />
     </div>
   )
 }
