@@ -4,11 +4,12 @@ import { useState } from "react"
 import { formatDistanceToNow } from "date-fns"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Download, Eye, ChevronRight } from "lucide-react"
+import { Download, Eye, ChevronRight, Loader2 } from "lucide-react"
 import type { Resource } from "@/types/resource"
 import { getFileIcon } from "@/lib/file-utils"
 import { motion } from "framer-motion"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useToast } from "@/hooks/use-toast"
 
 interface ResourceRowProps {
   resource: Resource
@@ -16,6 +17,8 @@ interface ResourceRowProps {
 
 export function ResourceRow({ resource }: ResourceRowProps) {
   const [showPreview, setShowPreview] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
+  const { toast } = useToast()
   const FileIcon = getFileIcon(resource.fileType)
 
   const item = {
@@ -23,15 +26,50 @@ export function ResourceRow({ resource }: ResourceRowProps) {
     show: { opacity: 1, x: 0 },
   }
 
-  const handleDownload = () => {
-    // In a real app, this would trigger a download
-    alert(`Downloading ${resource.title}`)
+  const handleDownload = async () => {
+    if (!resource.url) {
+      toast({
+        title: "Error",
+        description: "No file URL available for download",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsDownloading(true)
+    try {
+      const response = await fetch(resource.url)
+      if (!response.ok) throw new Error("Failed to download file")
+      
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = resource.title
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      toast({
+        title: "Success",
+        description: "File downloaded successfully",
+      })
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to download file",
+        variant: "destructive",
+      })
+    } finally {
+      setIsDownloading(false)
+    }
   }
 
   return (
     <>
-      <motion.div  variants={item}>
-        <div className="flex items-center p-3 rounded-lg  hover:bg-blue-300/50 transition-colors border-b border-muted/50">
+      <motion.div variants={item}>
+        <div className="flex items-center p-3 rounded-lg hover:bg-blue-300/50 transition-colors border-b border-muted/50">
           <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center text-primary mr-4">
             <FileIcon className="h-5 w-5" />
           </div>
@@ -62,9 +100,15 @@ export function ResourceRow({ resource }: ResourceRowProps) {
               <Eye className="h-4 w-4 mr-1" />
               Preview
             </Button>
-            <Button size="sm" onClick={handleDownload}>
-              <Download className="h-4 w-4 sm:mr-1" />
-              <span className="hidden sm:inline">Download</span>
+            <Button size="sm" onClick={handleDownload} disabled={isDownloading}>
+              {isDownloading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 sm:mr-1" />
+              )}
+              <span className="hidden sm:inline">
+                {isDownloading ? "Downloading..." : "Download"}
+              </span>
             </Button>
             <Button variant="ghost" size="icon" className="sm:hidden" onClick={() => setShowPreview(true)}>
               <ChevronRight className="h-4 w-4" />
@@ -88,7 +132,7 @@ export function ResourceRow({ resource }: ResourceRowProps) {
             <div className="bg-muted rounded-md p-4 min-h-[300px] flex items-center justify-center">
               {resource.fileType === "pdf" ? (
                 <iframe
-                  src="/placeholder.svg?height=400&width=600"
+                  src={resource.url || "/placeholder.svg?height=400&width=600"}
                   className="w-full h-[400px]"
                   title={resource.title}
                 />
@@ -96,9 +140,13 @@ export function ResourceRow({ resource }: ResourceRowProps) {
                 <div className="text-center">
                   <FileIcon className="h-16 w-16 mx-auto mb-4 text-primary" />
                   <p>Preview not available for this file type</p>
-                  <Button className="mt-4" onClick={handleDownload}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Download to view
+                  <Button className="mt-4" onClick={handleDownload} disabled={isDownloading}>
+                    {isDownloading ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4 mr-2" />
+                    )}
+                    {isDownloading ? "Downloading..." : "Download to view"}
                   </Button>
                 </div>
               )}

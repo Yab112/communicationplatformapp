@@ -1,21 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { ResourceList } from "@/components/resources/resource-list";
 import { ResourceFilters } from "@/components/resources/resource-filters";
 import { CreateResourceModal } from "@/components/resources/create-resource-modal";
 import { Button } from "@/components/ui/button";
-import { Plus, Grid, List } from "lucide-react";
+import { Plus, Grid, List, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { mockResources } from "@/data/mock/resources";
 import type { Resource } from "@/types/resource";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { getResources } from "@/lib/actions/resources";
+import { Loader2 } from "lucide-react";
+import { useUser } from "@/context/user-context";
+import { ResourceSkeletonGrid } from "@/components/skeletons/resource-skeleton";
+
 
 export function ResourcesPage() {
-  const [resources, setResources] = useState<Resource[]>(mockResources);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [resources, setResources] = useState<Resource[]>([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const { toast } = useToast();
+  const { user } = useUser();
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -23,6 +30,9 @@ export function ResourcesPage() {
     subject: "",
     year: "",
     fileType: "",
+    department: "",
+    courseId: "",
+    teacherName: "",
     dateRange: {
       from: undefined as Date | undefined,
       to: undefined as Date | undefined,
@@ -32,110 +42,137 @@ export function ResourcesPage() {
   // Sort state
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "a-z">("newest");
 
-  // Apply filters and sorting
-  const filteredResources = resources
-    .filter((resource) => {
-      // Search filter
-      if (
-        filters.search &&
-        !resource.title.toLowerCase().includes(filters.search.toLowerCase()) &&
-        !resource.description
-          .toLowerCase()
-          .includes(filters.search.toLowerCase())
-      ) {
-        return false;
-      }
-
-      // Subject filter
-      if (filters.subject && resource.subject !== filters.subject) {
-        return false;
-      }
-
-      // Year filter
-      if (filters.year && !resource.tags.includes(filters.year)) {
-        return false;
-      }
-
-      // File type filter
-      if (filters.fileType && resource.fileType !== filters.fileType) {
-        return false;
-      }
-
-      // Date range filter
-      if (
-        filters.dateRange.from &&
-        new Date(resource.uploadDate) < filters.dateRange.from
-      ) {
-        return false;
-      }
-
-      if (
-        filters.dateRange.to &&
-        new Date(resource.uploadDate) > filters.dateRange.to
-      ) {
-        return false;
-      }
-
-      return true;
-    })
-    .sort((a, b) => {
-      // Sort by date or alphabetically
-      if (sortBy === "newest") {
-        return (
-          new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
-        );
-      } else if (sortBy === "oldest") {
-        return (
-          new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime()
-        );
+  const fetchResources = async (showFullLoading = false) => {
+    try {
+      if (showFullLoading) {
+        setIsLoading(true);
       } else {
-        // a-z
-        return a.title.localeCompare(b.title);
+        setIsRefreshing(true);
       }
-    });
 
-  const handleCreateResource = (newResource: Resource) => {
-    setResources([newResource, ...resources]);
+      const { resources: fetchedResources, error } = await getResources({});
+
+      if (error) throw new Error(error);
+      
+      // Transform the database response to match Resource type
+      const transformedResources = fetchedResources.map(resource => ({
+        id: resource.id,
+        title: resource.title,
+        description: resource.description,
+        type: resource.type,
+        url: resource.url || "",
+        fileSize: resource.fileSize?.toString() || "",
+        department: resource.department || "",
+        courseId: resource.courseId || "",
+        fileType: resource.fileType || "",
+        uploadDate: resource.createdAt.toISOString(),
+        tags: resource.tags || [],
+        uploadedBy: {
+          id: resource.author.id,
+          name: resource.author.name,
+          avatar: resource.author.image || "",
+        },
+        dueDate: null,
+      }));
+
+      setResources(transformedResources);
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to fetch resources",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  // Initial fetch only
+  useEffect(() => {
+    fetchResources(true);
+  }, []);
+
+  // Apply all filters locally
+  const filteredResources = useMemo(() => {
+    return resources
+      .filter((resource) => {
+        // Apply all filters locally
+        if (filters.search && !resource.title.toLowerCase().includes(filters.search.toLowerCase()) &&
+            !resource.description?.toLowerCase().includes(filters.search.toLowerCase())) {
+          return false;
+        }
+        if (filters.teacherName && !resource.uploadedBy.name.toLowerCase().includes(filters.teacherName.toLowerCase())) {
+          return false;
+        }
+        if (filters.department && resource.department.toLowerCase() !== filters.department.toLowerCase()) {
+          return false;
+        }
+        if (filters.courseId && resource.courseId.toLowerCase() !== filters.courseId.toLowerCase()) {
+          return false;
+        }
+        if (filters.fileType && resource.fileType.toLowerCase() !== filters.fileType.toLowerCase()) {
+          return false;
+        }
+        if (filters.dateRange.from && new Date(resource.uploadDate) < filters.dateRange.from) {
+          return false;
+        }
+        if (filters.dateRange.to && new Date(resource.uploadDate) > filters.dateRange.to) {
+          return false;
+        }
+        if (filters.year && !resource.tags.includes(filters.year)) {
+          return false;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        if (sortBy === "newest") {
+          return new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime();
+        } else if (sortBy === "oldest") {
+          return new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime();
+        }
+        return a.title.localeCompare(b.title);
+      });
+  }, [resources, filters, sortBy]);
+
+  const handleCreateResource = async (newResource: Resource) => {
     setIsCreateModalOpen(false);
+    // Add the new resource to the local state
+    setResources(currentResources => [newResource, ...currentResources]);
+    
     toast({
-      title: "Resource created",
-      description: "Your resource has been published successfully.",
+      title: "Success",
+      description: "Resource has been created successfully.",
     });
   };
 
-  const handleFilterChange = (newFilters: typeof filters) => {
-    setFilters(newFilters);
+  const handleRefresh = () => {
+    fetchResources(false);
   };
 
-  const clearFilters = () => {
-    setFilters({
-      search: "",
-      subject: "",
-      year: "",
-      fileType: "",
-      dateRange: {
-        from: undefined,
-        to: undefined,
-      },
-    });
-  };
-
-  // Mock user role - in a real app, this would come from auth
-  const isTeacher = true;
+  // Get user role from context
+  const isTeacher = user?.role?.toLowerCase() === "teacher" || user?.role?.toLowerCase() === "admin";
 
   return (
     <div className="flex flex-col h-screen">
       <div className="flex flex-1 overflow-hidden">
-        {/* Left spacer for balance on larger screens */}
-        <div className="hidden lg:block w-0 xl:w-24 2xl:w-48 flex-shrink-0" />
-
-        <div className="flex-1 overflow-y-auto p-4 md:p-6">
+        <div className="flex-1 overflow-y-auto feeds-scroll-hidden p-4 md:p-6">
           <div className="mx-auto max-w-6xl w-full">
             <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <h1 className="text-2xl font-bold">Resources</h1>
+              <div className="flex items-center gap-4">
+                <h1 className="text-2xl font-bold">Resources</h1>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleRefresh}
+                  disabled={isRefreshing}
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
 
               <div className="flex flex-wrap items-center gap-2 md:gap-4">
-              <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "grid" | "list")}>
+                <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "grid" | "list")}>
                   <TabsList className="grid w-[160px] grid-cols-2 bg-transparent rounded-md p-1 border border-blue-100/50 mb-1">
                     <TabsTrigger
                       value="grid"  
@@ -170,12 +207,36 @@ export function ResourcesPage() {
 
             <ResourceFilters
               filters={filters}
-              onFilterChange={handleFilterChange}
-              onClearFilters={clearFilters}
+              onFilterChange={setFilters}
+              onClearFilters={() => {
+                setFilters({
+                  search: "",
+                  subject: "",
+                  year: "",
+                  fileType: "",
+                  department: "",
+                  courseId: "",
+                  teacherName: "",
+                  dateRange: {
+                    from: undefined,
+                    to: undefined,
+                  },
+                });
+              }}
             />
 
             <div className="mt-6">
-              <ResourceList resources={filteredResources} viewMode={viewMode} />
+              {isLoading ? (
+                <ResourceSkeletonGrid />
+              ) : (
+                <ResourceList resources={filteredResources} viewMode={viewMode} />
+              )}
+              
+              {isRefreshing && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              )}
             </div>
           </div>
         </div>

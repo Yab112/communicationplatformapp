@@ -1,17 +1,17 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { formatDistanceToNow } from "date-fns"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { MessageSquare, MoreHorizontal } from "lucide-react"
-import type { Post } from "@/types/post"
-import { motion } from "framer-motion"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { MessageSquare, Share2, MoreHorizontal, ArrowBigUp, ArrowBigDown, Loader2 } from "lucide-react"
 import { CommentSection } from "@/components/Feeds/comment-section"
+import type { Post } from "@/types/post"
+import { cn } from "@/lib/utils"
+import { useToast } from "@/hooks/use-toast"
+import { likePost } from "@/lib/actions/feed"
 
 interface PostCardProps {
   post: Post
@@ -20,179 +20,220 @@ interface PostCardProps {
 export function PostCard({ post }: PostCardProps) {
   const [showComments, setShowComments] = useState(false)
   const [showFullContent, setShowFullContent] = useState(false)
-  const [reactions, setReactions] = useState({
-    "👍": post.likes > 0 ? Math.floor(post.likes * 0.6) : 0,
-    "❤️": post.likes > 0 ? Math.floor(post.likes * 0.3) : 0,
-    "😂": post.likes > 0 ? Math.floor(post.likes * 0.1) : 0,
-    "😮": 0,
-    "😢": 0,
-  })
-  const [userReaction, setUserReaction] = useState<string | null>(null)
+  const [isLiked, setIsLiked] = useState(post.isLiked)
+  const [likesCount, setLikesCount] = useState(post.likes)
+  const [timeAgo, setTimeAgo] = useState<string>('')
+  const { toast } = useToast()
 
-  const totalReactions = Object.values(reactions).reduce((sum, count) => sum + count, 0)
+  // Character limit for the preview
+  const CHAR_LIMIT = 280
+  const isLongText = post.content.length > CHAR_LIMIT
 
-  const handleReaction = (emoji: string) => {
-    // If user already reacted with this emoji, remove it
-    if (userReaction === emoji) {
-      setReactions({
-        ...reactions,
-        [emoji]: Math.max(0, reactions[emoji as keyof typeof reactions] - 1),
-      })
-      setUserReaction(null)
+  // Update local state when post prop changes
+  useEffect(() => {
+    setIsLiked(post.isLiked)
+    setLikesCount(post.likes)
+  }, [post.isLiked, post.likes])
+
+  useEffect(() => {
+    setTimeAgo(formatDistanceToNow(new Date(post.createdAt), { addSuffix: true }))
+
+    // Update time every minute
+    const interval = setInterval(() => {
+      setTimeAgo(formatDistanceToNow(new Date(post.createdAt), { addSuffix: true }))
+    }, 60000)
+
+    return () => clearInterval(interval)
+  }, [post.createdAt])
+
+  const handleLike = async () => {
+    try {
+      // Immediately update UI
+      const newLikesCount = isLiked ? likesCount - 1 : likesCount + 1;
+      setLikesCount(newLikesCount);
+      setIsLiked(!isLiked);
+
+      // Make API call
+      const { error } = await likePost(post.id);
+      if (error) {
+        throw new Error(error);
+      }
+
+      // Show success toast
+      toast({
+        title: isLiked ? "Post unliked" : "Post liked",
+        description: isLiked ? "Your reaction has been removed" : "Your reaction has been added",
+        variant: "default",
+        duration: 1500,
+      });
+    } catch (error) {
+      // Revert on error
+      setLikesCount(likesCount);
+      setIsLiked(isLiked);
+      toast({
+        title: "Error",
+        description: "Failed to update like",
+        variant: "destructive",
+      });
     }
-    // If user reacted with a different emoji, remove old one and add new one
-    else if (userReaction) {
-      setReactions({
-        ...reactions,
-        [userReaction]: Math.max(0, reactions[userReaction as keyof typeof reactions] - 1),
-        [emoji]: reactions[emoji as keyof typeof reactions] + 1,
-      })
-      setUserReaction(emoji)
-    }
-    // If user hasn't reacted yet, add new reaction
-    else {
-      setReactions({
-        ...reactions,
-        [emoji]: reactions[emoji as keyof typeof reactions] + 1,
-      })
-      setUserReaction(emoji)
-    }
+  };
+
+  const toggleComments = () => {
+    setShowComments(!showComments)
   }
 
-  const reactionEmojis = [
-    { emoji: "👍", label: "Like" },
-    { emoji: "❤️", label: "Love" },
-    { emoji: "😂", label: "Haha" },
-    { emoji: "😮", label: "Wow" },
-    { emoji: "😢", label: "Sad" },
-  ]
-
   return (
-    <Card className="overflow-hidden bg-[var(--color-card)] shadow-sm border border-[var(--color-border)]">
-      <CardHeader className="flex flex-row items-start gap-4 space-y-0 p-4">
-        <Avatar className="h-10 w-10">
-          <AvatarImage src={post.author.avatar || "/placeholder.svg?height=40&width=40"} alt={post.author.name} />
-          <AvatarFallback>{post.author.name.charAt(0)}</AvatarFallback>
-        </Avatar>
-        <div className="flex-1 space-y-1">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium leading-none">{post.author.name}</p>
-              <p className="text-sm text-[var(--color-muted-fg)]">
-                {formatDistanceToNow(new Date(post.createdAt), { addSuffix: true })}
-              </p>
-            </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem>Save post</DropdownMenuItem>
-                <DropdownMenuItem>Report</DropdownMenuItem>
-                {post.author.id === "current-user" && <DropdownMenuItem>Delete</DropdownMenuItem>}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-          {post.department && (
-            <Badge variant="outline" className="text-xs">
-              {post.department}
-            </Badge>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="p-4 pt-0">
-        <div className="relative">
-          <p className={`${showFullContent ? "" : "line-clamp-2"} mb-4`}>{post.content}</p>
-          {!showFullContent && post.content.length > 120 && (
-            <div
-              className="absolute inset-0 flex items-end cursor-pointer group"
-              onClick={() => setShowFullContent(true)}
-            >
-              <div className="w-full h-8 bg-gradient-to-t from-[var(--color-card)] to-transparent"></div>
-              <span className="absolute bottom-0 right-0 text-sm font-medium text-[var(--color-primary)] opacity-0 group-hover:opacity-100 transition-opacity">
-                Read more
-              </span>
-            </div>
-          )}
-        </div>
-        {post.image && (
-          <div className="overflow-hidden rounded-md">
-            <img
-              src={post.image || "/placeholder.svg"}
-              alt="Post attachment"
-              className="aspect-video w-full object-cover"
-            />
-          </div>
-        )}
-      </CardContent>
-      <CardFooter className="flex flex-col p-0">
-        <div className="flex items-center justify-between px-4 py-2">
-          <div className="flex items-center gap-1">
-            <div className="flex -space-x-1">
-              {Object.entries(reactions).map(
-                ([emoji, count]) =>
-                  count > 0 && (
-                    <div
-                      key={emoji}
-                      className="flex items-center justify-center h-5 w-5 rounded-full bg-[var(--color-primary)]/10 text-xs"
-                    >
-                      {emoji}
-                    </div>
-                  ),
-              )}
-            </div>
-            <span className="text-sm text-[var(--color-muted-fg)] ml-1">{totalReactions}</span>
-          </div>
+    <Card className="group relative overflow-hidden hover:border-[var(--color-border)] transition-all duration-200">
+      <div className="flex">
+        {/* Vote Buttons - Desktop */}
+        <div className="hidden sm:flex flex-col items-center gap-1 bg-blue-950/50 p-2 sm:p-3 bottom-0">
           <Button
             variant="ghost"
-            size="sm"
-            className="text-sm text-[var(--color-muted-fg)]"
-            onClick={() => setShowComments(!showComments)}
+            size="icon"
+            onClick={handleLike}
+            className={cn(
+              "h-8 w-8 rounded-md hover:bg-[var(--color-muted)]/20",
+              isLiked && "text-orange-500"
+            )}
           >
-            {post.comments.length} comments
+            <ArrowBigUp className={cn("h-6 w-6", isLiked && "fill-current")} />
           </Button>
-        </div>
-        <Separator />
-        <div className="flex p-1">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="flex-1 gap-2">
-                <span>{userReaction || "👍"}</span>
-                <span>React</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <div className="flex gap-2 p-2">
-                {reactionEmojis.map((reaction) => (
-                  <div key={reaction.emoji} className="text-center">
-                    <motion.button
-                      whileHover={{ scale: 1.2 }}
-                      className="text-2xl relative"
-                      onClick={() => handleReaction(reaction.emoji)}
-                    >
-                      {reaction.emoji}
-                      {reactions[reaction.emoji as keyof typeof reactions] > 0 && (
-                        <span className="absolute -bottom-2 -right-1 text-xs font-medium bg-[var(--color-primary)] text-white rounded-full px-1 min-w-5 text-center">
-                          {reactions[reaction.emoji as keyof typeof reactions]}
-                        </span>
-                      )}
-                    </motion.button>
-                    <div className="text-xs mt-1">{reaction.label}</div>
-                  </div>
-                ))}
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button variant="ghost" size="sm" className="flex-1 gap-2" onClick={() => setShowComments(!showComments)}>
-            <MessageSquare className="h-4 w-4" />
-            <span>Comment</span>
+          <span className="text-sm font-medium">{likesCount}</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleLike}
+            className="h-8 w-8 rounded-md hover:bg-[var(--color-muted)]/20"
+          >
+            <ArrowBigDown className="h-6 w-6" />
           </Button>
         </div>
 
-        {showComments && <CommentSection postId={post.id} comments={post.comments} />}
-      </CardFooter>
+        {/* Main Content */}
+        <div className="flex-1 p-3 sm:p-4">
+          {/* Header */}
+          <div className="mb-3">
+            <div className="flex items-center gap-2">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={post.author.avatar} alt={post.author.name} />
+                <AvatarFallback>{post.author.name[0]}</AvatarFallback>
+              </Avatar>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium">{post.author.name}</span>
+                  <Badge variant="secondary" className="text-xs">
+                    {post.author.role}
+                  </Badge>
+                </div>
+                <span className="text-xs text-muted-foreground">{timeAgo}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="space-y-4">
+            <div className="text-sm">
+              {isLongText && !showFullContent ? (
+                <>
+                  <p>{post.content.slice(0, CHAR_LIMIT)}...</p>
+                  <Button
+                    variant="link"
+                    className="p-0 h-auto text-xs"
+                    onClick={() => setShowFullContent(true)}
+                  >
+                    Read more
+                  </Button>
+                </>
+              ) : (
+                <p>{post.content}</p>
+              )}
+            </div>
+
+            {post.image && (
+              <div className="relative aspect-[16/9] sm:aspect-video overflow-hidden rounded-lg">
+                <img
+                  src={post.image}
+                  alt="Post image"
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            )}
+
+            {post.video && (
+              <div className="relative aspect-[16/9] sm:aspect-video overflow-hidden rounded-lg">
+                <video
+                  src={post.video}
+                  controls
+                  className="h-full w-full object-cover"
+                  poster={post.videoPoster || undefined}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="mt-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {/* Vote Buttons - Mobile */}
+              <div className="flex sm:hidden items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleLike}
+                  className={cn(
+                    "h-8 w-8 rounded-full hover:bg-[var(--color-muted)]/20",
+                    isLiked && "text-orange-500"
+                  )}
+                >
+                  <ArrowBigUp className={cn("h-5 w-5", isLiked && "fill-current")} />
+                </Button>
+                <span className="text-sm font-medium min-w-[2ch] text-center">{likesCount}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={handleLike}
+                  className="h-8 w-8 rounded-full hover:bg-[var(--color-muted)]/20"
+                >
+                  <ArrowBigDown className="h-5 w-5" />
+                </Button>
+              </div>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleComments}
+                className="gap-2 text-[var(--color-muted-fg)] hover:text-[var(--color-fg)] hover:bg-[var(--color-muted)]/10"
+              >
+                <MessageSquare className="h-4 w-4" />
+                {post.comments.length}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="gap-2 text-[var(--color-muted-fg)] hover:text-[var(--color-fg)] hover:bg-[var(--color-muted)]/10"
+              >
+                <Share2 className="h-4 w-4" />
+                Share
+              </Button>
+            </div>
+
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-[var(--color-muted-fg)] hover:text-[var(--color-fg)] hover:bg-[var(--color-muted)]/10"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Comments Section */}
+      {showComments && (
+        <div className="border-t bg-[var(--color-accent)]/50">
+          <CommentSection postId={post.id} comments={post.comments} />
+        </div>
+      )}
     </Card>
   )
 }

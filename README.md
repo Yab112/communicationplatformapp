@@ -1,36 +1,122 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Campus Helpdesk Chatbot
 
-## Getting Started
+A Next.js-based campus helpdesk chatbot using Google's Gemini API for natural language understanding and intent detection.
 
-First, run the development server:
+## Features
+
+- Intent detection using Gemini AI
+- Handles multiple types of campus-related queries:
+  - Course information
+  - Schedules
+  - Grades
+  - Campus facilities
+  - Events
+  - General inquiries
+- TypeScript support
+- Easy to extend and customize
+
+## Setup
+
+1. Install dependencies:
+```bash
+npm install
+# or
+yarn install
+```
+
+2. Create a `.env` file in the root directory with the following variables:
+```
+GOOGLE_API_KEY=your_google_api_key_here
+```
+
+3. Get a Google API key:
+   - Visit the [Google AI Studio](https://makersuite.google.com/app/apikey)
+   - Create a new API key
+   - Copy the key to your `.env` file
+
+## Usage
+
+### API Endpoint
+
+The chatbot is accessible via a POST request to `/api/chat`:
+
+```typescript
+const response = await fetch('/api/chat', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    message: 'What are the library hours today?',
+    context: {
+      userId: 'user123',
+      sessionId: 'session456',
+    },
+  }),
+})
+
+const data = await response.json()
+```
+
+### Response Format
+
+```typescript
+{
+  response: string;  // The chatbot's response
+  intent: {
+    type: string;   // Detected intent type
+    confidence: number;  // Confidence score
+    entities?: Record<string, string>;  // Extracted entities
+  }
+}
+```
+
+## Intent Types
+
+The chatbot can detect the following intents:
+
+- `course_info`: Questions about courses, professors, or academic programs
+- `schedule`: Questions about class schedules, academic calendar, or deadlines
+- `grades`: Questions about grades, GPA, or academic performance
+- `facilities`: Questions about campus facilities, buildings, or resources
+- `events`: Questions about campus events, activities, or organizations
+- `general`: General inquiries or greetings
+- `unknown`: When the intent cannot be determined
+
+## Customization
+
+You can customize the chatbot's behavior by:
+
+1. Modifying intent types in `types/chat.ts`
+2. Adjusting intent detection prompts in `lib/intent-detection.ts`
+3. Updating intent-specific responses in `lib/intent-handler.ts`
+
+## Error Handling
+
+The chatbot includes built-in error handling for:
+- Invalid requests
+- API failures
+- Intent detection errors
+- Response generation errors
+
+## Development
+
+Run the development server:
 
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Production
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Build and start the production server:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm run build
+npm start
+# or
+yarn build
+yarn start
+```

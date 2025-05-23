@@ -7,6 +7,8 @@ type ToasterToast = ToasterProps & {
   title?: React.ReactNode;
   description?: React.ReactNode;
   action?: React.ReactNode;
+  variant?: 'default' | 'destructive' | 'success';
+  type?: 'error' | 'success' | 'info';
 };
 
 type LocalToasterProps = {
@@ -17,10 +19,11 @@ type LocalToasterProps = {
 };
 
 export const useToast = (): LocalToasterProps => {
-  const toast = ({ title, description, action, ...props }: Omit<ToasterToast, 'id'>) => {
+  const toast = ({ title, description, action, variant, type, ...props }: Omit<ToasterToast, 'id'>) => {
     const id = sonnerToast(title, {
       description,
       action,
+      className: variant === 'destructive' || type === 'error' ? 'bg-red-500 text-white' : undefined,
       ...props,
     });
     return id as string;
@@ -34,12 +37,13 @@ export const useToast = (): LocalToasterProps => {
     }
   };
 
-  const update = ({ id, title, description, action, ...props }: ToasterToast) => {
+  const update = ({ id, title, description, action, variant, type, ...props }: ToasterToast) => {
     if (id) {
       sonnerToast(title, {
         id,
         description,
         action,
+        className: variant === 'destructive' || type === 'error' ? 'bg-red-500 text-white' : undefined,
         ...props,
       });
     }

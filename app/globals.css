@@ -46,7 +46,7 @@
   --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.05);
 
   /* Spacing */
-  --spacing-sidebar: 16rem;
+  --spacing-sidebar: 27rem;
   --spacing-header: 4rem;
   --spacing-content-max: 42rem;
 
@@ -106,7 +106,7 @@
 
   --color-accent: var(--color-sidebar-active);
   --color-accent-foreground: var(--color-fg);
-
+  
   --color-destructive: var(--color-error);
   --color-destructive-foreground: white;
 
@@ -179,6 +179,15 @@ body {
   .animate-accordion-up {
     animation: accordion-up 0.2s ease-out;
   }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
 }
 
 /* Animations */
@@ -218,4 +227,43 @@ body {
 
 .animate-slide-in {
   animation: slideIn 0.3s ease-in-out;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted-fg);
+}
+
+/* Hide scrollbar for feeds page while preserving functionality */
+.feeds-scroll-hidden {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.feeds-scroll-hidden::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+}
+
+/* Hide scrollbar utility */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

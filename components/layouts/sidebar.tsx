@@ -4,54 +4,75 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
-import { Home, BookOpen, MessageSquare, Settings, Menu, X } from "lucide-react"
+import { Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { navigationItems } from "@/app/constants"
 
 interface SidebarProps {
   isMobile: boolean
 }
 
-const navigationItems = [
-  {
-    name: "Feed",
-    href: "/feeds",
-    icon: Home,
-  },
-  {
-    name: "Resources",
-    href: "/resources",
-    icon: BookOpen,
-  },
-  {
-    name: "Chat",
-    href: "/chat",
-    icon: MessageSquare,
-  },
-  {
-    name: "Settings",
-    href: "/settings",
-    icon: Settings,
-  },
-]
-
 export function Sidebar({ isMobile }: SidebarProps) {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
 
-  const toggleSidebar = () => {
-    setIsOpen(!isOpen)
+  const toggleSidebar = () => setIsOpen(!isOpen)
+
+  const renderNavItem = (item: { name: string; href: string; icon: any; badge?: string }) => {
+    const isActive = pathname === item.href
+
+    return (
+      <li key={item.name}>
+        <Link
+          href={item.href}
+          className={cn(
+            "group flex items-center gap-4 px-4 py-2 rounded-md transition-all duration-200",
+            isActive
+              ? "bg-primary/10 text-primary font-medium"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground",
+          )}
+        >
+          <div className={cn(
+            "flex items-center justify-center rounded-md transition-colors",
+            isActive
+              ? "text-primary"
+              : "text-muted-foreground group-hover:text-foreground"
+          )}>
+            <item.icon className="h-5 w-5" />
+          </div>
+          <span className="text-sm">{item.name}</span>
+          {item.badge && (
+            <span className={cn(
+              "ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium",
+              isActive
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+            )}>
+              {item.badge}
+            </span>
+          )}
+        </Link>
+      </li>
+    )
   }
 
-  // Mobile sidebar
+  // Mobile Sidebar
   if (isMobile) {
     return (
       <>
-        <Button variant="ghost" size="icon" className="fixed left-4 top-3 z-50 md:hidden" onClick={toggleSidebar}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="fixed left-4 top-3 z-50 md:hidden"
+          onClick={toggleSidebar}
+        >
           <Menu className="h-6 w-6" />
         </Button>
 
-        {isOpen && <div className="fixed inset-0 z-40 bg-black/50" onClick={toggleSidebar} />}
+        {isOpen && (
+          <div className="fixed inset-0 z-40 bg-black/50" onClick={toggleSidebar} />
+        )}
 
         <motion.div
           className="fixed inset-y-0 left-0 z-50 w-64 bg-[var(--color-sidebar)] shadow-lg md:hidden"
@@ -59,66 +80,54 @@ export function Sidebar({ isMobile }: SidebarProps) {
           animate={{ x: isOpen ? 0 : "-100%" }}
           transition={{ duration: 0.2 }}
         >
-          <div className="flex h-[var(--spacing-header)] items-center justify-between px-4">
-            <h1 className="text-xl font-bold text-[var(--color-primary)]">UniConnect</h1>
+          <div className="flex items-center justify-between px-6 h-[var(--spacing-header)]">
+            <h1 className="text-2xl font-bold text-[var(--color-primary)]">UniConnect</h1>
             <Button variant="ghost" size="icon" onClick={toggleSidebar}>
-              <X className="h-5 w-5" />
+              <X className="h-6 w-6" />
             </Button>
           </div>
-
           <nav className="mt-4 px-2">
-            <ul className="space-y-2">
-              {navigationItems.map((item) => (
-                <li key={item.name}>
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                      pathname === item.href
-                        ? "bg-[var(--color-sidebar-active)] text-[var(--color-primary)]"
-                        : "hover:bg-[var(--color-sidebar-active)] text-[var(--color-fg)]",
-                    )}
-                    onClick={toggleSidebar}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    {item.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            {navigationItems.map((section, index) => (
+              <div key={section.name} className="mb-6">
+                <h2 className="mb-2 px-4 text-xs font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]/70">
+                  {section.name}
+                </h2>
+                <ul className="space-y-1">
+                  {section.items.map((item) => (
+                    <div key={item.name} onClick={toggleSidebar}>
+                      {renderNavItem(item)}
+                    </div>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </nav>
         </motion.div>
       </>
     )
   }
 
-  // Desktop sidebar
+  // Desktop Sidebar
   return (
-    <div className="hidden md:block sidebar-width shrink-0 border-r border-[var(--color-border)] bg-[var(--color-sidebar)]">
-      <div className="flex h-[var(--spacing-header)] items-center px-6">
-        <h1 className="text-xl font-bold text-[var(--color-primary)]">UniConnect</h1>
-      </div>
+    <div className="hidden md:block w-[260px] shrink-0  bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="sticky top-0 flex flex-col h-screen">
+        <div className="flex items-center px-6 h-14">
+          <h1 className="text-2xl font-bold text-primary">UniConnect</h1>
+        </div>
 
-      <nav className="mt-6 px-3">
-        <ul className="space-y-1">
-          {navigationItems.map((item) => (
-            <li key={item.name}>
-              <Link
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                  pathname === item.href
-                    ? "bg-[var(--color-sidebar-active)] text-[var(--color-primary)]"
-                    : "hover:bg-[var(--color-sidebar-active)] text-[var(--color-fg)]",
-                )}
-              >
-                <item.icon className="h-5 w-5" />
-                {item.name}
-              </Link>
-            </li>
+        <nav className="flex-1 mt-6 px-2 overflow-y-auto feeds-scroll-hidden">
+          {navigationItems.map((section, index) => (
+            <div key={section.name} className="mb-6">
+              <h2 className="mb-2 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                {section.name}
+              </h2>
+              <ul className="space-y-1">
+                {section.items.map(renderNavItem)}
+              </ul>
+            </div>
           ))}
-        </ul>
-      </nav>
+        </nav>
+      </div>
     </div>
   )
 }
