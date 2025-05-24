@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { put } from '@vercel/blob'
 import { getCurrentUser } from '@/lib/get-session'
 
+const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+const validVideoTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime']
+
 export async function POST(request: Request) {
   try {
     const user = await getCurrentUser()
@@ -18,6 +21,21 @@ export async function POST(request: Request) {
     const fileType = formData.get('fileType') as string
     const maxSize = fileType === 'video' ? 100 * 1024 * 1024 : 5 * 1024 * 1024 // 100MB for video, 5MB for images
 
+    // Validate file type
+    if (fileType === 'image' && !validImageTypes.includes(file.type)) {
+      return NextResponse.json(
+        { error: 'Invalid image format. Supported formats: JPEG, PNG, GIF, WebP' },
+        { status: 400 }
+      )
+    }
+
+    if (fileType === 'video' && !validVideoTypes.includes(file.type)) {
+      return NextResponse.json(
+        { error: 'Invalid video format. Supported formats: MP4, WebM, OGG, QuickTime' },
+        { status: 400 }
+      )
+    }
+
     if (file.size > maxSize) {
       return NextResponse.json(
         { error: `File size exceeds ${maxSize / (1024 * 1024)}MB limit` },
@@ -25,17 +43,19 @@ export async function POST(request: Request) {
       )
     }
 
-    // Generate a unique filename
-    const filename = `${user.id}-${Date.now()}-${file.name}`
+    // Generate a unique filename with proper extension
+    const extension = file.name.split('.').pop()
+    const filename = `${user.id}-${Date.now()}.${extension}`
 
     // Convert File to Buffer for Vercel Blob
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    // Upload to Vercel Blob
+    // Upload to Vercel Blob with explicit content type
     const blob = await put(filename, buffer, {
       access: 'public',
       contentType: file.type,
+      addRandomSuffix: true,
     })
 
     return NextResponse.json({

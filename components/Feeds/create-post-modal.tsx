@@ -87,6 +87,28 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
     const file = e.target.files?.[0]
     if (!file) return
 
+    // Validate file type
+    const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    const validVideoTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime']
+
+    if (type === 'image' && !validImageTypes.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload a valid image file (JPEG, PNG, GIF, or WebP)",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (type === 'video' && !validVideoTypes.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload a valid video file (MP4, WebM, OGG, or QuickTime)",
+        variant: "destructive",
+      })
+      return
+    }
+
     // Clear existing media
     setImagePreview(null)
     setImageUrl(null)

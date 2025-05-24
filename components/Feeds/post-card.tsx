@@ -88,12 +88,21 @@ export function PostCard({ post }: PostCardProps) {
   }, [post.video]);
 
   const handleVideoLoadStart = () => {
-    setIsVideoLoading(true);
-  };
+    setIsVideoLoading(true)
+  }
 
   const handleVideoCanPlay = () => {
-    setIsVideoLoading(false);
-  };
+    setIsVideoLoading(false)
+  }
+
+  const handleVideoError = () => {
+    setIsVideoLoading(false)
+    toast({
+      title: "Error",
+      description: "Failed to load video. Please try a different format (MP4, WebM, OGG, or QuickTime).",
+      variant: "destructive",
+    })
+  }
 
   const handleLike = async () => {
     try {
@@ -223,9 +232,16 @@ export function PostCard({ post }: PostCardProps) {
                   poster={post.videoPoster || undefined}
                   onLoadStart={handleVideoLoadStart}
                   onCanPlay={handleVideoCanPlay}
+                  onError={handleVideoError}
                   playsInline
                   muted
-                />
+                >
+                  <source src={post.video} type="video/mp4" />
+                  <source src={post.video} type="video/webm" />
+                  <source src={post.video} type="video/ogg" />
+                  <source src={post.video} type="video/quicktime" />
+                  Your browser does not support the video tag.
+                </video>
               </div>
             )}
           </div>
