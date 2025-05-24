@@ -15,9 +15,12 @@ export async function uploadFile(formData: FormData) {
       return { error: "No file provided" }
     }
 
-    // Validate file size (10MB limit)
-    if (file.size > 10 * 1024 * 1024) {
-      return { error: "File size exceeds 10MB limit" }
+    const fileType = formData.get("fileType") as string
+    const maxSize = fileType === 'video' ? 100 * 1024 * 1024 : 5 * 1024 * 1024 // 100MB for video, 5MB for images
+
+    // Validate file size
+    if (file.size > maxSize) {
+      return { error: `File size exceeds ${maxSize / (1024 * 1024)}MB limit` }
     }
 
     // Generate a unique filename

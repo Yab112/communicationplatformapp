@@ -29,12 +29,22 @@ interface CreatePostModalProps {
   onSubmit: (post: Post) => void
 }
 
+interface UploadResponse {
+  success: boolean;
+  url: string;
+  name: string;
+  size: number;
+  type: string;
+  error?: string;
+}
+
 export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [videoPoster, setVideoPoster] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
   const { toast } = useToast()
 
   const form = useForm<PostFormValues>({
@@ -57,9 +67,9 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
         role: "Admin",
       },
       createdAt: new Date().toISOString(),
-      image: imageUrl,
-      video: videoUrl,
-      videoPoster: videoPoster,
+      image: imageUrl || undefined,
+      video: videoUrl || undefined,
+      videoPoster: videoPoster || undefined,
       likes: 0,
       comments: [],
       isLiked: false,
@@ -77,22 +87,12 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
     const file = e.target.files?.[0]
     if (!file) return
 
-    // Check file size
-    const maxSize = type === 'video' ? 100 * 1024 * 1024 : 5 * 1024 * 1024 // 100MB for video, 5MB for images
-    if (file.size > maxSize) {
-      toast({
-        title: "File too large",
-        description: `${type === 'video' ? 'Video' : 'Image'} must be less than ${maxSize / (1024 * 1024)}MB`,
-        variant: "destructive",
-      })
-      return
-    }
-
     // Clear existing media
     setImagePreview(null)
     setImageUrl(null)
     setVideoUrl(null)
     setVideoPoster(null)
+    setUploadProgress(0)
 
     setIsUploading(true)
 
@@ -101,39 +101,51 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
       formData.append("file", file)
       formData.append("fileType", type)
 
-      // If it's a video, start generating thumbnail in parallel
-      let thumbnailPromise: Promise<string | null> | null = null
-      if (type === 'video') {
-        thumbnailPromise = new Promise((resolve) => {
-          const video = document.createElement('video')
-          video.preload = 'metadata'
-          video.src = URL.createObjectURL(file)
-          
-          video.onloadeddata = () => {
-            // Set video to 25% of duration for thumbnail
-            video.currentTime = video.duration * 0.25
-          }
-          
-          video.onseeked = () => {
-            const canvas = document.createElement('canvas')
-            canvas.width = video.videoWidth
-            canvas.height = video.videoHeight
-            const ctx = canvas.getContext('2d')
-            ctx?.drawImage(video, 0, 0, canvas.width, canvas.height)
-            const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.7) // Compress thumbnail
-            URL.revokeObjectURL(video.src) // Clean up
-            resolve(thumbnailUrl)
-          }
+      // Create XMLHttpRequest for progress tracking
+      const xhr = new XMLHttpRequest()
 
-          video.onerror = () => {
-            URL.revokeObjectURL(video.src)
-            resolve(null)
+      // Create a promise that resolves when upload is complete
+      const uploadPromise = new Promise<UploadResponse>((resolve, reject) => {
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            const progress = Math.round((event.loaded * 100) / event.total)
+            setUploadProgress(progress)
           }
         })
-      }
 
-      // Upload the file
-      const result = await uploadFile(formData)
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const response = JSON.parse(xhr.responseText)
+              resolve(response)
+            } catch (error) {
+              reject(new Error('Invalid response format'))
+            }
+          } else {
+            try {
+              const errorResponse = JSON.parse(xhr.responseText)
+              reject(new Error(errorResponse.error || 'Upload failed'))
+            } catch {
+              reject(new Error('Upload failed'))
+            }
+          }
+        })
+
+        xhr.addEventListener('error', () => {
+          reject(new Error('Network error occurred'))
+        })
+
+        xhr.addEventListener('abort', () => {
+          reject(new Error('Upload was cancelled'))
+        })
+      })
+
+      // Start the upload
+      xhr.open('POST', '/api/upload')
+      xhr.send(formData)
+
+      // Wait for upload to complete
+      const result = await uploadPromise
 
       if (result.error) {
         toast({
@@ -145,25 +157,59 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
       }
 
       if (type === 'image') {
-        setImageUrl(result.url || null)
-        setImagePreview(result.url || null)
+        setImageUrl(result.url)
+        setImagePreview(result.url)
       } else {
-        setVideoUrl(result.url || null)
-        // Wait for thumbnail if we started generating it
-        if (thumbnailPromise) {
-          const thumbnail = await thumbnailPromise
-          setVideoPoster(thumbnail)
+        setVideoUrl(result.url)
+
+        // Generate thumbnail after successful upload
+        const video = document.createElement('video')
+        video.preload = 'metadata'
+        video.src = URL.createObjectURL(file)
+
+        video.onloadeddata = () => {
+          video.currentTime = video.duration * 0.25
+        }
+
+        video.onseeked = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = video.videoWidth
+          canvas.height = video.videoHeight
+          const ctx = canvas.getContext('2d')
+          if (ctx) {
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+            const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.7)
+            URL.revokeObjectURL(video.src)
+            setVideoPoster(thumbnailUrl)
+          } else {
+            URL.revokeObjectURL(video.src)
+            toast({
+              title: "Warning",
+              description: "Could not generate video thumbnail",
+              variant: "destructive",
+            })
+          }
+        }
+
+        video.onerror = () => {
+          URL.revokeObjectURL(video.src)
+          toast({
+            title: "Warning",
+            description: "Could not generate video thumbnail",
+            variant: "destructive",
+          })
         }
       }
     } catch (error) {
       toast({
         title: "Upload failed",
-        description: "An error occurred while uploading the file.",
+        description: error instanceof Error ? error.message : "An error occurred while uploading the file.",
         variant: "destructive",
       })
       console.error("Upload error:", error)
     } finally {
       setIsUploading(false)
+      setUploadProgress(0)
     }
   }
 
@@ -273,7 +319,7 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
                   {isUploading ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Uploading...</span>
+                      <span>Uploading... {uploadProgress}%</span>
                     </>
                   ) : (
                     <>
@@ -303,7 +349,7 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
                   {isUploading ? (
                     <>
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Uploading...</span>
+                      <span>Uploading... {uploadProgress}%</span>
                     </>
                   ) : (
                     <>

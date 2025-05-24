@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   try {
     const server = createServer()
     const io = initSocketServer(server)
-    
+
     if (!io) {
       return new NextResponse('Socket server initialization failed', { status: 500 })
     }
@@ -27,8 +27,8 @@ export async function GET(req: Request) {
         'Connection': 'Upgrade',
       },
     })
-  } catch (error) {
+    } catch (error) {
     console.error('Socket server error:', error)
     return new NextResponse('Internal Server Error', { status: 500 })
-  }
+}
 }

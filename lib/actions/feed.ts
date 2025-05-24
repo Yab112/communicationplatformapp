@@ -9,7 +9,14 @@ export async function getPosts() {
   try {
     const user = await getCurrentUser();
     const posts = await db.post.findMany({
-      include: {
+      select: {
+        id: true,
+        content: true,
+        department: true,
+        image: true,
+        video: true,
+        videoPoster: true,
+        createdAt: true,
         author: {
           select: {
             id: true,
@@ -101,6 +108,8 @@ export async function createPost(data: PostFormValues) {
         authorId: user.id,
         department: validatedData.department,
         ...(validatedData.image && { image: validatedData.image }),
+        ...(validatedData.video && { video: validatedData.video }),
+        ...(validatedData.videoPoster && { videoPoster: validatedData.videoPoster }),
       },
     })
 

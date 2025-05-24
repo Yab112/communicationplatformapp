@@ -111,6 +111,8 @@ export function FeedsPage() {
         },
         createdAt: new Date(post.createdAt).toISOString(),
         image: post.image || null,
+        video: post.video || null,
+        videoPoster: post.videoPoster || null,
         likes: post.likes,
         isLiked: post.isLiked || false,
         comments: (post.comments || []).map((comment: any) => ({
@@ -181,6 +183,8 @@ export function FeedsPage() {
         content: newPost.content,
         department: newPost.department,
         image: newPost.image || undefined,
+        video: newPost.video || undefined,
+        videoPoster: newPost.videoPoster || undefined,
       })
 
       if (error) {
@@ -263,8 +267,8 @@ export function FeedsPage() {
                           <div className="absolute bottom-0 left-0 right-0 p-3">
                             <div className="mb-1">
                               <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${ad.type === 'event' ? 'bg-blue-500/20 text-blue-100' :
-                                  ad.type === 'opportunity' ? 'bg-emerald-500/20 text-emerald-100' :
-                                    'bg-purple-500/20 text-purple-100'
+                                ad.type === 'opportunity' ? 'bg-emerald-500/20 text-emerald-100' :
+                                  'bg-purple-500/20 text-purple-100'
                                 }`}>
                                 {getTypeIcon(ad.type)}
                                 {ad.type.charAt(0).toUpperCase() + ad.type.slice(1)}

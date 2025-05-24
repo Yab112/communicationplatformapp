@@ -1,47 +1,54 @@
-import { NextRequest, NextResponse } from "next/server"
-import { getToken } from "next-auth/jwt"
-import { writeFile } from "fs/promises"
-import { join } from "path"
-import { v4 as uuidv4 } from "uuid"
+import { NextResponse } from 'next/server'
+import { put } from '@vercel/blob'
+import { getCurrentUser } from '@/lib/get-session'
 
-export async function POST(req: NextRequest) {
+export async function POST(request: Request) {
   try {
-    const token = await getToken({ req })
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const user = await getCurrentUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const formData = await req.formData()
-    const file = formData.get("file") as File
+    const formData = await request.formData()
+    const file = formData.get('file') as File
     if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 })
+      return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
 
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = join(process.cwd(), "public", "uploads")
-    await writeFile(join(uploadsDir, "dummy"), "").catch(() => {})
+    const fileType = formData.get('fileType') as string
+    const maxSize = fileType === 'video' ? 100 * 1024 * 1024 : 5 * 1024 * 1024 // 100MB for video, 5MB for images
 
-    // Generate unique filename
-    const uniqueId = uuidv4()
-    const extension = file.name.split(".").pop()
-    const filename = `${uniqueId}.${extension}`
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { error: `File size exceeds ${maxSize / (1024 * 1024)}MB limit` },
+        { status: 400 }
+      )
+    }
 
-    // Save file
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-    await writeFile(join(uploadsDir, filename), buffer)
+    // Generate a unique filename
+    const filename = `${user.id}-${Date.now()}-${file.name}`
 
-    // Return file info
+    // Convert File to Buffer for Vercel Blob
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
+
+    // Upload to Vercel Blob
+    const blob = await put(filename, buffer, {
+      access: 'public',
+      contentType: file.type,
+    })
+
     return NextResponse.json({
-      url: `/uploads/${filename}`,
+      success: true,
+      url: blob.url,
       name: file.name,
-      type: file.type,
       size: file.size,
+      type: file.type,
     })
   } catch (error) {
-    console.error("Error uploading file:", error)
+    console.error('Upload error:', error)
     return NextResponse.json(
-      { error: "Failed to upload file" },
+      { error: 'Failed to upload file' },
       { status: 500 }
     )
   }

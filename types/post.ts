@@ -16,21 +16,37 @@ export interface Reaction {
 export interface Comment {
   id: string
   content: string
-  author: Author
+  author: {
+    id: string
+    name: string
+    avatar: string
+  }
   createdAt: string
-  reactions: Reaction[]
+  reactions: CommentReaction[]
+}
+
+export interface CommentReaction {
+  id: string
+  type: string
+  userId: string
+  createdAt: string
 }
 
 export interface Post {
   id: string
   content: string
   department: string
-  author: Author
+  author: {
+    id: string
+    name: string
+    avatar: string
+    role: string
+  }
   createdAt: string
-  image: string | null
+  image?: string | null
   video?: string | null
   videoPoster?: string | null
   likes: number
-  isLiked?: boolean
   comments: Comment[]
+  isLiked: boolean
 }
