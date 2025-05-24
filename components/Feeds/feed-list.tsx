@@ -3,6 +3,7 @@
 import { PostCard } from "@/components/Feeds/post-card"
 import type { Post } from "@/types/post"
 import { motion } from "framer-motion"
+import NoFeedFound from "./no-feed-found"
 
 interface FeedListProps {
   posts: Post[]
@@ -11,12 +12,7 @@ interface FeedListProps {
 export function FeedList({ posts }: FeedListProps) {
   if (posts.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
-        <h3 className="mb-2 text-lg font-medium">No posts found</h3>
-        <p className="text-[var(--color-muted-fg)]">
-          There are no posts matching your filters or no posts have been created yet.
-        </p>
-      </div>
+      <NoFeedFound/>
     )
   }
 

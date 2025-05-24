@@ -78,6 +78,8 @@ model Post {
   content    String    @db.Text
   department String?
   image      String?
+  video      String?
+  videoPoster String?
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   authorId   String

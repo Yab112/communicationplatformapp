@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { formatDistanceToNow } from "date-fns"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -23,6 +23,9 @@ export function PostCard({ post }: PostCardProps) {
   const [isLiked, setIsLiked] = useState(post.isLiked)
   const [likesCount, setLikesCount] = useState(post.likes)
   const [timeAgo, setTimeAgo] = useState<string>('')
+  const [isVideoLoading, setIsVideoLoading] = useState(true)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const videoContainerRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
 
   // Character limit for the preview
@@ -45,6 +48,52 @@ export function PostCard({ post }: PostCardProps) {
 
     return () => clearInterval(interval)
   }, [post.createdAt])
+
+  useEffect(() => {
+    if (!post.video || !videoRef.current || !videoContainerRef.current) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            // Video is in view, start loading
+            videoRef.current?.load();
+            // Play video without sound
+            videoRef.current?.play().then(() => {
+              if (videoRef.current) {
+                videoRef.current.muted = true;
+              }
+            }).catch(() => {
+              // Autoplay failed, user interaction required
+              console.log('Autoplay failed');
+            });
+          } else {
+            // Video is out of view, pause it
+            videoRef.current?.pause();
+          }
+        });
+      },
+      {
+        root: null,
+        rootMargin: '0px',
+        threshold: 0.5, // Video needs to be 50% visible
+      }
+    );
+
+    observer.observe(videoContainerRef.current);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [post.video]);
+
+  const handleVideoLoadStart = () => {
+    setIsVideoLoading(true);
+  };
+
+  const handleVideoCanPlay = () => {
+    setIsVideoLoading(false);
+  };
 
   const handleLike = async () => {
     try {
@@ -160,12 +209,22 @@ export function PostCard({ post }: PostCardProps) {
             )}
 
             {post.video && (
-              <div className="relative aspect-[16/9] sm:aspect-video overflow-hidden rounded-lg">
+              <div ref={videoContainerRef} className="relative aspect-[16/9] sm:aspect-video overflow-hidden rounded-lg">
+                {isVideoLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                    <Loader2 className="h-8 w-8 animate-spin text-white" />
+                  </div>
+                )}
                 <video
+                  ref={videoRef}
                   src={post.video}
                   controls
                   className="h-full w-full object-cover"
                   poster={post.videoPoster || undefined}
+                  onLoadStart={handleVideoLoadStart}
+                  onCanPlay={handleVideoCanPlay}
+                  playsInline
+                  muted
                 />
               </div>
             )}
