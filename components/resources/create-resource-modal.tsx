@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
-import { UploadIcon as FileUpload, X, Upload, Loader2 } from "lucide-react"
+import { UploadIcon as FileUpload, X, Upload, Loader2, Sparkles } from "lucide-react"
 import type { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -20,6 +20,7 @@ import { years, fileTypes, departments } from "@/data/mock/resources"
 import { resourceSchema } from "@/lib/validator/resource"
 import { useToast } from "@/hooks/use-toast"
 import { createResource } from "@/lib/actions/resources"
+import { enhanceText } from "@/lib/text-enhancement"
 
 type ResourceFormValues = z.infer<typeof resourceSchema>
 
@@ -34,6 +35,8 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [selectedDepartment, setSelectedDepartment] = useState<string>("")
   const [isUploading, setIsUploading] = useState(false)
+  const [isEnhancingTitle, setIsEnhancingTitle] = useState(false)
+  const [isEnhancingDescription, setIsEnhancingDescription] = useState(false)
   const { toast } = useToast()
 
   const form = useForm<ResourceFormValues>({
@@ -170,6 +173,74 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
     setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
   }
 
+  const handleEnhanceTitle = async () => {
+    const title = form.getValues("title")
+    if (!title) {
+      toast({
+        title: "No title to enhance",
+        description: "Please enter a title first before enhancing.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsEnhancingTitle(true)
+    try {
+      const enhancedTitle = await enhanceText(title, 'resource')
+      form.setValue("title", enhancedTitle, {
+        shouldValidate: true,
+        shouldDirty: true,
+        shouldTouch: true
+      })
+      toast({
+        title: "Title enhanced",
+        description: "Your title has been enhanced by AI.",
+      })
+    } catch (error) {
+      toast({
+        title: "Enhancement failed",
+        description: "Could not enhance the title. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsEnhancingTitle(false)
+    }
+  }
+
+  const handleEnhanceDescription = async () => {
+    const description = form.getValues("description")
+    if (!description) {
+      toast({
+        title: "No description to enhance",
+        description: "Please enter a description first before enhancing.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsEnhancingDescription(true)
+    try {
+      const enhancedDescription = await enhanceText(description, 'post')
+      form.setValue("description", enhancedDescription, {
+        shouldValidate: true,
+        shouldDirty: true,
+        shouldTouch: true
+      })
+      toast({
+        title: "Description enhanced",
+        description: "Your description has been enhanced by AI.",
+      })
+    } catch (error) {
+      toast({
+        title: "Enhancement failed",
+        description: "Could not enhance the description. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsEnhancingDescription(false)
+    }
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
@@ -187,7 +258,23 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
                   <FormItem>
                     <FormLabel>Title</FormLabel>
                     <FormControl>
-                      <Input placeholder="Enter resource title" {...field} />
+                      <div className="relative">
+                        <Input placeholder="Enter resource title" {...field} className="pr-12" />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-2 top-1/2 -translate-y-1/2"
+                          onClick={handleEnhanceTitle}
+                          disabled={isEnhancingTitle}
+                        >
+                          {isEnhancingTitle ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -225,7 +312,27 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
                 <FormItem>
                   <FormLabel>Description</FormLabel>
                   <FormControl>
-                    <Textarea placeholder="Describe the resource..." className="min-h-[100px] resize-none" {...field} />
+                    <div className="relative">
+                      <Textarea
+                        placeholder="Describe the resource..."
+                        className="min-h-[100px] resize-none pr-12"
+                        {...field}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-2 top-2"
+                        onClick={handleEnhanceDescription}
+                        disabled={isEnhancingDescription}
+                      >
+                        {isEnhancingDescription ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -239,12 +346,12 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Department</FormLabel>
-                    <Select 
+                    <Select
                       onValueChange={(value) => {
                         field.onChange(value)
                         setSelectedDepartment(value)
                         form.setValue("courseId", "")
-                      }} 
+                      }}
                       value={field.value}
                     >
                       <FormControl>
@@ -271,8 +378,8 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Course</FormLabel>
-                    <Select 
-                      onValueChange={field.onChange} 
+                    <Select
+                      onValueChange={field.onChange}
                       value={field.value}
                       disabled={!selectedDepartment}
                     >
