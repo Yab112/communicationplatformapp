@@ -44,8 +44,8 @@ export function ProfileModal({ isOpen, onClose, profile, onStartDM }: ProfileMod
   const router = useRouter()
   const { user: currentUser, loading: userLoading } = useUser()
 
-  console.log("Current User from Context:", currentUser)
-  console.log("Profile Prop:", profile)
+  // console.log("Current User from Context:", currentUser)
+  // console.log("Profile Prop:", profile)
 
   useEffect(() => {
     const fetchFullProfile = async () => {
@@ -54,7 +54,7 @@ export function ProfileModal({ isOpen, onClose, profile, onStartDM }: ProfileMod
       try {
         // If it's the current user, use the user context data
         if (profile.id === "current-user" && currentUser) {
-          console.log("Setting profile from current user:", currentUser)
+          // console.log("Setting profile from current user:", currentUser)
           setFullProfile({
             id: currentUser.id,
             name: currentUser.name,
@@ -71,13 +71,13 @@ export function ProfileModal({ isOpen, onClose, profile, onStartDM }: ProfileMod
         }
 
         // For other users, fetch their profile
-        console.log("Fetching profile for user:", profile.id)
+        // console.log("Fetching profile for user:", profile.id)
         const response = await fetch(`/api/users/${profile.id}`)
         if (!response.ok) {
           throw new Error("Failed to fetch user profile")
         }
         const userData = await response.json()
-        console.log("API Response:", userData)
+        // console.log("API Response:", userData)
 
         if (userData.error) {
           throw new Error(userData.error)
@@ -104,7 +104,7 @@ export function ProfileModal({ isOpen, onClose, profile, onStartDM }: ProfileMod
     }
   }, [isOpen, profile, toast, currentUser])
 
-  console.log("Full Profile State:", fullProfile)
+  // console.log("Full Profile State:", fullProfile)
 
   const handleStartDM = () => {
     if (!fullProfile || isLoading) return

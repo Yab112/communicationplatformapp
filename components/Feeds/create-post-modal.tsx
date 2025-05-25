@@ -6,14 +6,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { ImageIcon, VideoIcon, Loader2, X } from "lucide-react"
+import { ImageIcon, VideoIcon, Loader2, X, Sparkles } from "lucide-react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Post } from "@/types/post"
-import { uploadFile } from "@/lib/file-upload"
 import { useToast } from "@/hooks/use-toast"
 
 const postSchema = z.object({
@@ -44,6 +43,7 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [videoPoster, setVideoPoster] = useState<string | null>(null)
   const [isUploading, setIsUploading] = useState(false)
+  const [isEnhancing, setIsEnhancing] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const { toast } = useToast()
 
@@ -242,6 +242,69 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
     setVideoPoster(null)
   }
 
+  const handleEnhanceContent = async () => {
+    const content = form.getValues("content")
+    if (!content) {
+      toast({
+        title: "No content to enhance",
+        description: "Please write something first before enhancing.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsEnhancing(true)
+    try {
+      const response = await fetch('/api/enhance-text', { // Call your new API route
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: content, type: 'post' }), // Send text and type
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        // Use the error message from the API response if available
+        throw new Error(data.error || `Server responded with ${response.status}`);
+      }
+
+      if (data.enhancedText) {
+        form.setValue("content", data.enhancedText, {
+          shouldValidate: true,
+          shouldDirty: true,
+          shouldTouch: true
+        })
+        toast({
+          title: "Content enhanced",
+          description: "Your post has been enhanced by AI.",
+        })
+      } else {
+        // This case should ideally be handled by the API returning an error or the original text
+        toast({
+          title: "Enhancement issue",
+          description: "AI did not return enhanced content.",
+          variant: "destructive",
+        })
+      }
+
+    } catch (error) {
+      console.error("Enhancement error:", error)
+      const errorMessage = error instanceof Error ? error.message : "Could not enhance the content"
+      toast({
+        title: "Enhancement failed",
+        // You can make this more user-friendly based on common errors
+        description: errorMessage.includes("AI service is not configured") || errorMessage.includes("AI API key is invalid")
+          ? "AI enhancement is currently unavailable. Please contact support."
+          : "Could not enhance the content. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsEnhancing(false)
+    }
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
@@ -270,6 +333,7 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
+                          <SelectItem value="all">All Departments</SelectItem>
                           <SelectItem value="Computer Science">Computer Science</SelectItem>
                           <SelectItem value="Engineering">Engineering</SelectItem>
                           <SelectItem value="Business">Business</SelectItem>
@@ -289,11 +353,27 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
               render={({ field }) => (
                 <FormItem>
                   <FormControl>
-                    <Textarea
-                      placeholder="What would you like to share?"
-                      className="min-h-[120px] resize-none"
-                      {...field}
-                    />
+                    <div className="relative">
+                      <Textarea
+                        placeholder="What would you like to share?"
+                        className="min-h-[120px] resize-none pr-12"
+                        {...field}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="absolute right-2 top-2"
+                        onClick={handleEnhanceContent}
+                        disabled={isEnhancing}
+                      >
+                        {isEnhancing ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>

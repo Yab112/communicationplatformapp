@@ -5,8 +5,6 @@ import { detectIntent } from '@/lib/intent-detection'
 import { handleIntent } from '@/lib/intent-handler'
 
 // Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!)
-
 export async function POST(request: Request) {
   try {
     const body = await request.json() as ChatRequest

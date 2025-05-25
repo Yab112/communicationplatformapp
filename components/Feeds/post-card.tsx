@@ -203,7 +203,18 @@ export function PostCard({ post }: PostCardProps) {
                   </Button>
                 </>
               ) : (
-                <p>{post.content}</p>
+                <>
+                  <p>{post.content}</p>
+                  {isLongText && (
+                    <Button
+                      variant="link"
+                      className="p-0 h-auto text-xs"
+                      onClick={() => setShowFullContent(false)}
+                    >
+                      Read less
+                    </Button>
+                  )}
+                </>
               )}
             </div>
 
