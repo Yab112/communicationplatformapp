@@ -409,7 +409,7 @@ export function FeedsPage() {
           </div>
 
           {/* Department Filters */}
-          <div className="mb-3 max-w-96">
+          <div className="mb-3 w-full overflow-x-hidden">
             <FeedFilters
               selectedDepartment={selectedDepartment}
               onDepartmentChange={setSelectedDepartment}
