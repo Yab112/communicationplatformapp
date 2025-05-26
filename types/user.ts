@@ -1,5 +1,5 @@
 export type UserRole = "ADMIN" | "STUDENT" | "TEACHER"
-export type UserStatus = "ONLINE" | "OFFLINE" | "AWAY"
+export type UserStatus = "online" | "offline" | "away"
 
 export interface User {
     id: string

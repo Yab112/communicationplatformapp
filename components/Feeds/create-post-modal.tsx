@@ -14,10 +14,22 @@ import { Form, FormControl, FormField, FormItem, FormMessage } from "@/component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { Post } from "@/types/post"
 import { useToast } from "@/hooks/use-toast"
+import { Input } from "@/components/ui/input"
+import { Search } from "lucide-react"
+import { departments } from "@/constants/departments"
 
 const postSchema = z.object({
-  content: z.string().min(1, "Post content is required").max(1000, "Post content is too long"),
+  content: z.string().min(1, "Post content is required").max(10000, "Post content is too long"),
   department: z.string().min(1, "Department is required"),
+  media: z.array(z.object({
+    id: z.string(),
+    type: z.enum(['image', 'video']),
+    url: z.string(),
+    poster: z.string().optional(),
+    order: z.number(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  })),
 })
 
 type PostFormValues = z.infer<typeof postSchema>
@@ -38,20 +50,29 @@ interface UploadResponse {
 }
 
 export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalProps) {
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [imageUrl, setImageUrl] = useState<string | null>(null)
-  const [videoUrl, setVideoUrl] = useState<string | null>(null)
-  const [videoPoster, setVideoPoster] = useState<string | null>(null)
+  const [mediaItems, setMediaItems] = useState<Array<{
+    type: 'image' | 'video'
+    url: string
+    poster?: string
+    preview?: string
+  }>>([])
   const [isUploading, setIsUploading] = useState(false)
   const [isEnhancing, setIsEnhancing] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [searchQuery, setSearchQuery] = useState("")
   const { toast } = useToast()
+
+  // Filter departments based on search query
+  const filteredDepartments = departments
+    .map(d => d.name)
+    .filter(name => name.toLowerCase().includes(searchQuery.toLowerCase()))
 
   const form = useForm<PostFormValues>({
     resolver: zodResolver(postSchema),
     defaultValues: {
       content: "",
       department: "",
+      media: [],
     },
   })
 
@@ -67,9 +88,15 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
         role: "Admin",
       },
       createdAt: new Date().toISOString(),
-      image: imageUrl || undefined,
-      video: videoUrl || undefined,
-      videoPoster: videoPoster || undefined,
+      media: mediaItems.map((item, index) => ({
+        id: `media-${Date.now()}-${index}`,
+        type: item.type,
+        url: item.url,
+        poster: item.poster,
+        order: index,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })),
       likes: 0,
       comments: [],
       isLiked: false,
@@ -77,169 +104,141 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
 
     onSubmit(newPost)
     form.reset()
-    setImagePreview(null)
-    setImageUrl(null)
-    setVideoUrl(null)
-    setVideoPoster(null)
+    setMediaItems([])
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'video') => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const files = e.target.files
+    if (!files?.length) return
 
-    // Validate file type
+    // Validate file types
     const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
     const validVideoTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime']
 
-    if (type === 'image' && !validImageTypes.includes(file.type)) {
-      toast({
-        title: "Invalid file type",
-        description: "Please upload a valid image file (JPEG, PNG, GIF, or WebP)",
-        variant: "destructive",
-      })
-      return
-    }
-
-    if (type === 'video' && !validVideoTypes.includes(file.type)) {
-      toast({
-        title: "Invalid file type",
-        description: "Please upload a valid video file (MP4, WebM, OGG, or QuickTime)",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Clear existing media
-    setImagePreview(null)
-    setImageUrl(null)
-    setVideoUrl(null)
-    setVideoPoster(null)
-    setUploadProgress(0)
-
-    setIsUploading(true)
-
-    try {
-      const formData = new FormData()
-      formData.append("file", file)
-      formData.append("fileType", type)
-
-      // Create XMLHttpRequest for progress tracking
-      const xhr = new XMLHttpRequest()
-
-      // Create a promise that resolves when upload is complete
-      const uploadPromise = new Promise<UploadResponse>((resolve, reject) => {
-        xhr.upload.addEventListener('progress', (event) => {
-          if (event.lengthComputable) {
-            const progress = Math.round((event.loaded * 100) / event.total)
-            setUploadProgress(progress)
-          }
-        })
-
-        xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              const response = JSON.parse(xhr.responseText)
-              resolve(response)
-            } catch (error) {
-              reject(new Error('Invalid response format'))
-            }
-          } else {
-            try {
-              const errorResponse = JSON.parse(xhr.responseText)
-              reject(new Error(errorResponse.error || 'Upload failed'))
-            } catch {
-              reject(new Error('Upload failed'))
-            }
-          }
-        })
-
-        xhr.addEventListener('error', () => {
-          reject(new Error('Network error occurred'))
-        })
-
-        xhr.addEventListener('abort', () => {
-          reject(new Error('Upload was cancelled'))
-        })
-      })
-
-      // Start the upload
-      xhr.open('POST', '/api/upload')
-      xhr.send(formData)
-
-      // Wait for upload to complete
-      const result = await uploadPromise
-
-      if (result.error) {
+    for (const file of Array.from(files)) {
+      if (type === 'image' && !validImageTypes.includes(file.type)) {
         toast({
-          title: "Upload failed",
-          description: result.error,
+          title: "Invalid file type",
+          description: "Please upload valid image files (JPEG, PNG, GIF, or WebP)",
           variant: "destructive",
         })
-        return
+        continue
       }
 
-      if (type === 'image') {
-        setImageUrl(result.url)
-        setImagePreview(result.url)
-      } else {
-        setVideoUrl(result.url)
+      if (type === 'video' && !validVideoTypes.includes(file.type)) {
+        toast({
+          title: "Invalid file type",
+          description: "Please upload valid video files (MP4, WebM, OGG, or QuickTime)",
+          variant: "destructive",
+        })
+        continue
+      }
 
-        // Generate thumbnail after successful upload
-        const video = document.createElement('video')
-        video.preload = 'metadata'
-        video.src = URL.createObjectURL(file)
+      setIsUploading(true)
+      setUploadProgress(0)
 
-        video.onloadeddata = () => {
-          video.currentTime = video.duration * 0.25
-        }
+      try {
+        const formData = new FormData()
+        formData.append("file", file)
+        formData.append("fileType", type)
 
-        video.onseeked = () => {
-          const canvas = document.createElement('canvas')
-          canvas.width = video.videoWidth
-          canvas.height = video.videoHeight
-          const ctx = canvas.getContext('2d')
-          if (ctx) {
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-            const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.7)
-            URL.revokeObjectURL(video.src)
-            setVideoPoster(thumbnailUrl)
-          } else {
-            URL.revokeObjectURL(video.src)
-            toast({
-              title: "Warning",
-              description: "Could not generate video thumbnail",
-              variant: "destructive",
-            })
-          }
-        }
+        const xhr = new XMLHttpRequest()
+        const uploadPromise = new Promise<UploadResponse>((resolve, reject) => {
+          xhr.upload.addEventListener('progress', (event) => {
+            if (event.lengthComputable) {
+              const progress = Math.round((event.loaded * 100) / event.total)
+              setUploadProgress(progress)
+            }
+          })
 
-        video.onerror = () => {
-          URL.revokeObjectURL(video.src)
+          xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                const response = JSON.parse(xhr.responseText)
+                resolve(response)
+              } catch (error) {
+                reject(new Error('Invalid response format'))
+              }
+            } else {
+              reject(new Error('Upload failed'))
+            }
+          })
+
+          xhr.addEventListener('error', () => reject(new Error('Network error occurred')))
+          xhr.addEventListener('abort', () => reject(new Error('Upload was cancelled')))
+        })
+
+        xhr.open('POST', '/api/upload')
+        xhr.send(formData)
+
+        const result = await uploadPromise
+
+        if (result.error) {
           toast({
-            title: "Warning",
-            description: "Could not generate video thumbnail",
+            title: "Upload failed",
+            description: result.error,
             variant: "destructive",
           })
+          continue
         }
+
+        if (type === 'image') {
+          setMediaItems(prev => [...prev, {
+            type: 'image',
+            url: result.url,
+            preview: result.url,
+          }])
+        } else {
+          // Generate thumbnail for video
+          const video = document.createElement('video')
+          video.preload = 'metadata'
+          video.src = URL.createObjectURL(file)
+
+          video.onloadeddata = () => {
+            video.currentTime = video.duration * 0.25
+          }
+
+          video.onseeked = () => {
+            const canvas = document.createElement('canvas')
+            canvas.width = video.videoWidth
+            canvas.height = video.videoHeight
+            const ctx = canvas.getContext('2d')
+            if (ctx) {
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+              const thumbnailUrl = canvas.toDataURL('image/jpeg', 0.7)
+              URL.revokeObjectURL(video.src)
+              setMediaItems(prev => [...prev, {
+                type: 'video',
+                url: result.url,
+                poster: thumbnailUrl,
+                preview: thumbnailUrl,
+              }])
+            }
+          }
+
+          video.onerror = () => {
+            URL.revokeObjectURL(video.src)
+            setMediaItems(prev => [...prev, {
+              type: 'video',
+              url: result.url,
+            }])
+          }
+        }
+      } catch (error) {
+        toast({
+          title: "Upload failed",
+          description: error instanceof Error ? error.message : "An error occurred while uploading the file.",
+          variant: "destructive",
+        })
       }
-    } catch (error) {
-      toast({
-        title: "Upload failed",
-        description: error instanceof Error ? error.message : "An error occurred while uploading the file.",
-        variant: "destructive",
-      })
-      console.error("Upload error:", error)
-    } finally {
-      setIsUploading(false)
-      setUploadProgress(0)
     }
+
+    setIsUploading(false)
+    setUploadProgress(0)
   }
 
-  const handleRemoveMedia = () => {
-    setImagePreview(null)
-    setImageUrl(null)
-    setVideoUrl(null)
-    setVideoPoster(null)
+  const handleRemoveMedia = (index: number) => {
+    setMediaItems(prev => prev.filter((_, i) => i !== index))
   }
 
   const handleEnhanceContent = async () => {
@@ -307,46 +306,53 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
+      <DialogContent className="w-[800px] max-h-[90vh] p-0 gap-0 overflow-auto bg-[var(--color-bg)]">
+        <DialogHeader className="p-6 border-b border-[var(--color-border)]">
           <DialogTitle>Create Post</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-10 w-10">
-                <AvatarImage src="/placeholder.svg?height=40&width=40" alt="Current user" />
-                <AvatarFallback>CU</AvatarFallback>
-              </Avatar>
-              <div>
-                <p className="font-medium">Current User</p>
-                <FormField
-                  control={form.control}
-                  name="department"
-                  render={({ field }) => (
-                    <FormItem>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger className="h-8 w-[180px]">
-                            <SelectValue placeholder="Select department" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="all">All Departments</SelectItem>
-                          <SelectItem value="Computer Science">Computer Science</SelectItem>
-                          <SelectItem value="Engineering">Engineering</SelectItem>
-                          <SelectItem value="Business">Business</SelectItem>
-                          <SelectItem value="Arts">Arts</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="p-6 space-y-6">
+            <FormField
+              control={form.control}
+              name="department"
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select Department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <div className="sticky top-0 p-2 bg-background border-b">
+                          <div className="relative">
+                            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input
+                              placeholder="Search departments..."
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              className="pl-8"
+                            />
+                          </div>
+                        </div>
+                        <SelectItem value="all">
+                          All Departments
+                        </SelectItem>
+                        {filteredDepartments.map((dept) => (
+                          <SelectItem key={dept} value={dept}>
+                            {dept}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="content"
@@ -380,35 +386,38 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
               )}
             />
 
-            {(imagePreview || videoUrl) && (
-              <div className="relative">
-                {imagePreview && (
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="rounded-md object-cover max-h-[200px] w-full"
-                  />
-                )}
-                {videoUrl && (
-                  <video
-                    src={videoUrl}
-                    poster={videoPoster || undefined}
-                    controls
-                    className="rounded-md object-cover max-h-[200px] w-full"
-                  />
-                )}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-2 top-2 h-6 w-6 rounded-full bg-[var(--color-bg)]"
-                  onClick={handleRemoveMedia}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+            {mediaItems.length > 0 && (
+              <div className="grid grid-cols-2 gap-4">
+                {mediaItems.map((item, index) => (
+                  <div key={index} className="relative group">
+                    {item.type === 'image' ? (
+                      <img
+                        src={item.preview}
+                        alt={`Media ${index + 1}`}
+                        className="rounded-md object-cover w-full h-48"
+                      />
+                    ) : (
+                      <video
+                        src={item.url}
+                        poster={item.poster}
+                        controls
+                        className="rounded-md object-cover w-full h-48"
+                      />
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-2 top-2 h-6 w-6 rounded-full bg-[var(--color-bg)] opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => handleRemoveMedia(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
               </div>
             )}
 
-            <div className="flex items-center gap-2">
+            <div className="flex gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -426,12 +435,13 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
                   ) : (
                     <>
                       <ImageIcon className="h-4 w-4" />
-                      <span>Add Image</span>
+                      <span>Add Images</span>
                     </>
                   )}
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     className="hidden"
                     onChange={(e) => handleFileUpload(e, 'image')}
                     disabled={isUploading}
@@ -456,12 +466,13 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
                   ) : (
                     <>
                       <VideoIcon className="h-4 w-4" />
-                      <span>Add Video</span>
+                      <span>Add Videos</span>
                     </>
                   )}
                   <input
                     type="file"
                     accept="video/*"
+                    multiple
                     className="hidden"
                     onChange={(e) => handleFileUpload(e, 'video')}
                     disabled={isUploading}

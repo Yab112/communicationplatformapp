@@ -17,6 +17,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { mockAdvertisements } from "@/data/mock/advertisements"
 import type { Advertisement } from "@/types/advertisement"
 import { motion } from "framer-motion"
+import { formatDistanceToNow } from "date-fns"
 
 type SortOrder = "newest" | "oldest" | "trending" | "hot"
 
@@ -42,6 +43,7 @@ export function FeedsPage() {
   const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null)
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest")
   const [currentAdIndex, setCurrentAdIndex] = useState(0)
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null)
   const { toast } = useToast()
   const { user } = useUser()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -110,9 +112,15 @@ export function FeedsPage() {
           role: post.author.role || "Student",
         },
         createdAt: new Date(post.createdAt).toISOString(),
-        image: post.image || null,
-        video: post.video || null,
-        videoPoster: post.videoPoster || null,
+        media: post.media?.map((item: any) => ({
+          id: item.id,
+          type: item.type,
+          url: item.url,
+          poster: item.poster,
+          order: item.order,
+          createdAt: item.createdAt,
+          updatedAt: item.updatedAt,
+        })) || [],
         likes: post.likes,
         isLiked: post.isLiked || false,
         comments: (post.comments || []).map((comment: any) => ({
@@ -130,6 +138,16 @@ export function FeedsPage() {
       }))
 
       setPosts(transformedPosts)
+      setLastRefreshTime(new Date())
+
+      // Show success toast only for manual refresh
+      if (!showFullLoading) {
+        toast({
+          title: "Feed Updated",
+          description: "Your feed has been refreshed successfully.",
+          duration: 2000,
+        })
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -182,9 +200,7 @@ export function FeedsPage() {
       const { success, error } = await createPost({
         content: newPost.content,
         department: newPost.department,
-        image: newPost.image || undefined,
-        video: newPost.video || undefined,
-        videoPoster: newPost.videoPoster || undefined,
+        media: newPost.media,
       })
 
       if (error) {
@@ -215,6 +231,19 @@ export function FeedsPage() {
   }
 
   const handleRefresh = () => {
+    // Prevent rapid consecutive refreshes
+    if (isRefreshing) return
+
+    // Check if last refresh was less than 10 seconds ago
+    if (lastRefreshTime && new Date().getTime() - lastRefreshTime.getTime() < 10000) {
+      toast({
+        title: "Please wait",
+        description: "You can refresh again in a few seconds.",
+        duration: 2000,
+      })
+      return
+    }
+
     fetchPosts(false)
   }
 
@@ -307,6 +336,11 @@ export function FeedsPage() {
                 <div className="flex items-center gap-1.5">
                   <Sparkles className="h-4 w-4 text-[var(--color-primary)]" />
                   <h1 className="text-lg font-bold">Academic Feed</h1>
+                  {lastRefreshTime && (
+                    <span className="text-xs text-muted-foreground ml-2">
+                      Last updated {formatDistanceToNow(lastRefreshTime, { addSuffix: true })}
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <Button
@@ -315,6 +349,7 @@ export function FeedsPage() {
                     onClick={handleRefresh}
                     disabled={isRefreshing}
                     className="h-8 w-8 rounded-full"
+                    title="Refresh feed"
                   >
                     <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
                   </Button>
@@ -374,7 +409,7 @@ export function FeedsPage() {
           </div>
 
           {/* Department Filters */}
-          <div className="mb-3">
+          <div className="mb-3 max-w-96">
             <FeedFilters
               selectedDepartment={selectedDepartment}
               onDepartmentChange={setSelectedDepartment}

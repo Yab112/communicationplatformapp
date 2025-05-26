@@ -20,6 +20,7 @@ export interface Comment {
     id: string
     name: string
     avatar: string
+    role: string
   }
   createdAt: string
   reactions: CommentReaction[]
@@ -28,8 +29,23 @@ export interface Comment {
 export interface CommentReaction {
   id: string
   type: string
-  userId: string
+  author: {
+    id: string
+    name: string
+    avatar: string
+    role: string
+  }
   createdAt: string
+}
+
+export interface PostMedia {
+  id: string
+  type: "image" | "video"
+  url: string
+  poster?: string | null
+  order: number
+  createdAt: string
+  updatedAt: string
 }
 
 export interface Post {
@@ -43,9 +59,15 @@ export interface Post {
     role: string
   }
   createdAt: string
-  image?: string | null
-  video?: string | null
-  videoPoster?: string | null
+  media: Array<{
+    id: string
+    type: 'image' | 'video'
+    url: string
+    poster?: string
+    order: number
+    createdAt: string
+    updatedAt: string
+  }>
   likes: number
   comments: Comment[]
   isLiked: boolean
