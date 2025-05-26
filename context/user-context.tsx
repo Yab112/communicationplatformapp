@@ -25,7 +25,7 @@ type UserContextType = {
 export const UserContext = createContext<UserContextType>({
   user: null,
   loading: true,
-  refreshUser: async () => {},
+  refreshUser: async () => { },
 })
 
 export const useUser = () => {
@@ -56,10 +56,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await fetch(`/api/users/${session.user.id}`)
       if (!response.ok) {
-        throw new Error('Failed to fetch user data')
+        if (response.status === 401) {
+          // Handle unauthorized - session might be invalid
+          setUser(null)
+          setLoading(false)
+          return
+        }
+        throw new Error(`Failed to fetch user data: ${response.statusText}`)
       }
       const userData = await response.json()
-      
+
       // Transform the data to match our User type
       const transformedUser: User = {
         id: userData.id,
@@ -72,7 +78,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         status: userData.status as "online" | "offline",
         bio: userData.bio,
       }
-      
+
       setUser(transformedUser)
     } catch (error) {
       console.error("Error fetching user data:", error)
@@ -85,12 +91,18 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   // Handle online status
   useEffect(() => {
     const updateStatus = async (newStatus: "online" | "offline") => {
+      if (!session?.user?.id) {
+        console.warn("Cannot update status: No authenticated user")
+        return
+      }
+
       try {
         const result = await updateUserStatus(newStatus)
         if (result.error) {
-          throw new Error(result.error)
+          console.error("Status update error:", result.error)
+          return
         }
-        
+
         if (user) {
           setUser(prev => prev ? { ...prev, status: newStatus } : null)
         }
@@ -124,7 +136,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener("online", handleOnline)
       window.removeEventListener("offline", handleOffline)
       document.removeEventListener("visibilitychange", handleVisibilityChange)
-      
+
       // Update status to offline when component unmounts
       if (status === "authenticated" && user) {
         updateStatus("offline")

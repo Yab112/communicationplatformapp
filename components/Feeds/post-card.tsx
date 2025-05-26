@@ -31,7 +31,6 @@ export function PostCard({ post, showFullContent: initialShowFullContent = false
   const videoRef = useRef<HTMLVideoElement>(null)
   const videoContainerRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
-  const router = useRouter()
 
   // Character limit for the preview
   const CHAR_LIMIT = 280
@@ -55,7 +54,8 @@ export function PostCard({ post, showFullContent: initialShowFullContent = false
   }, [post.createdAt])
 
   useEffect(() => {
-    if (!post.video || !videoRef.current || !videoContainerRef.current) return;
+    const videoMedia = post.media?.find(item => item.type === 'video');
+    if (!videoMedia || !videoRef.current || !videoContainerRef.current) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -90,7 +90,7 @@ export function PostCard({ post, showFullContent: initialShowFullContent = false
     return () => {
       observer.disconnect();
     };
-  }, [post.video]);
+  }, [post.media]);
 
   const handleVideoLoadStart = () => {
     setIsVideoLoading(true)
@@ -146,10 +146,11 @@ export function PostCard({ post, showFullContent: initialShowFullContent = false
   }
 
   const handlePostClick = (e: React.MouseEvent) => {
-    // Don't open modal if clicking on buttons or links
+    // Don't open modal if clicking on buttons, links, or outside media
     if (
       (e.target as HTMLElement).closest('button') ||
-      (e.target as HTMLElement).closest('a')
+      (e.target as HTMLElement).closest('a') ||
+      !(e.target as HTMLElement).closest('[data-media]')
     ) {
       return
     }
@@ -159,8 +160,7 @@ export function PostCard({ post, showFullContent: initialShowFullContent = false
   return (
     <>
       <Card
-        className="group relative overflow-hidden hover:border-[var(--color-border)] transition-all duration-200 cursor-pointer"
-        onClick={handlePostClick}
+        className="group relative overflow-hidden hover:border-[var(--color-border)] transition-all duration-200"
       >
         <div className="flex">
           {/* Vote Buttons - Desktop */}
@@ -210,10 +210,7 @@ export function PostCard({ post, showFullContent: initialShowFullContent = false
 
             {/* Content */}
             <div className="space-y-4">
-              <div
-                className="text-sm cursor-pointer"
-                onClick={handlePostClick}
-              >
+              <div className="text-sm">
                 {isLongText && !showFullContent ? (
                   <>
                     <p>{post.content.slice(0, CHAR_LIMIT)}...</p>
@@ -247,41 +244,67 @@ export function PostCard({ post, showFullContent: initialShowFullContent = false
                 )}
               </div>
 
-              {post.image && (
-                <div className="relative aspect-[16/9] sm:aspect-video overflow-hidden rounded-lg">
-                  <img
-                    src={post.image}
-                    alt="Post image"
-                    className="h-full w-full object-cover"
-                  />
-                </div>
-              )}
-
-              {post.video && (
-                <div ref={videoContainerRef} className="relative aspect-[16/9] sm:aspect-video overflow-hidden rounded-lg">
-                  {isVideoLoading && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                      <Loader2 className="h-8 w-8 animate-spin text-white" />
-                    </div>
+              {/* Media Grid */}
+              {post.media && post.media.length > 0 && (
+                <div
+                  className={cn(
+                    "grid gap-2",
+                    post.media.length === 1 ? "grid-cols-1" : "grid-cols-2"
                   )}
-                  <video
-                    ref={videoRef}
-                    src={post.video}
-                    controls
-                    className="h-full w-full object-cover"
-                    poster={post.videoPoster || undefined}
-                    onLoadStart={handleVideoLoadStart}
-                    onCanPlay={handleVideoCanPlay}
-                    onError={handleVideoError}
-                    playsInline
-                    muted
-                  >
-                    <source src={post.video} type="video/mp4" />
-                    <source src={post.video} type="video/webm" />
-                    <source src={post.video} type="video/ogg" />
-                    <source src={post.video} type="video/quicktime" />
-                    Your browser does not support the video tag.
-                  </video>
+                  data-media
+                  onClick={handlePostClick}
+                >
+                  {post.media.slice(0, 4).map((item, index) => (
+                    <div
+                      key={item.id}
+                      className={cn(
+                        "relative overflow-hidden rounded-lg cursor-pointer",
+                        post.media.length === 1 ? "aspect-[16/9]" : "aspect-square"
+                      )}
+                    >
+                      {item.type === 'image' ? (
+                        <img
+                          src={item.url}
+                          alt={`Post image ${index + 1}`}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div ref={videoContainerRef} className="relative h-full w-full">
+                          {isVideoLoading && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                              <Loader2 className="h-8 w-8 animate-spin text-white" />
+                            </div>
+                          )}
+                          <video
+                            ref={videoRef}
+                            src={item.url}
+                            controls
+                            className="h-full w-full object-cover"
+                            poster={item.poster || undefined}
+                            onLoadStart={handleVideoLoadStart}
+                            onCanPlay={handleVideoCanPlay}
+                            onError={handleVideoError}
+                            playsInline
+                            muted
+                          >
+                            <source src={item.url} type="video/mp4" />
+                            <source src={item.url} type="video/webm" />
+                            <source src={item.url} type="video/ogg" />
+                            <source src={item.url} type="video/quicktime" />
+                            Your browser does not support the video tag.
+                          </video>
+                        </div>
+                      )}
+                      {/* Show overlay with remaining count on the last visible image if there are more than 4 images */}
+                      {index === 3 && post.media.length > 4 && (
+                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                          <span className="text-white text-2xl font-bold">
+                            +{post.media.length - 4}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

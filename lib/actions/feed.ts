@@ -13,10 +13,12 @@ export async function getPosts() {
         id: true,
         content: true,
         department: true,
-        image: true,
-        video: true,
-        videoPoster: true,
         createdAt: true,
+        media: {
+          orderBy: {
+            order: 'asc'
+          }
+        },
         author: {
           select: {
             id: true,
@@ -107,9 +109,25 @@ export async function createPost(data: PostFormValues) {
         content: validatedData.content,
         authorId: user.id,
         department: validatedData.department,
-        ...(validatedData.image && { image: validatedData.image }),
-        ...(validatedData.video && { video: validatedData.video }),
-        ...(validatedData.videoPoster && { videoPoster: validatedData.videoPoster }),
+        media: {
+          create: validatedData.media?.map((item, index) => ({
+            type: item.type,
+            url: item.url,
+            poster: item.poster,
+            order: index,
+          })) || [],
+        },
+      },
+      include: {
+        media: true,
+        author: {
+          select: {
+            id: true,
+            name: true,
+            image: true,
+            role: true,
+          },
+        },
       },
     })
 

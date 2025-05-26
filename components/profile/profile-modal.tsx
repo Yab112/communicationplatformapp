@@ -189,9 +189,9 @@ export function ProfileModal({ isOpen, onClose, profile, onStartDM }: ProfileMod
                   <Badge className={getRoleBadgeColor(fullProfile.role)}>{fullProfile.role}</Badge>
                   <span className="flex items-center text-xs text-muted-foreground">
                     <span
-                      className={`h-2 w-2 rounded-full mr-1 ${fullProfile.status.toLowerCase() === "online" ? "bg-green-500" : "bg-gray-400"}`}
+                      className={`h-2 w-2 rounded-full mr-1 ${(fullProfile.status || "offline").toLowerCase() === "online" ? "bg-green-500" : "bg-gray-400"}`}
                     ></span>
-                    {fullProfile.status.toLowerCase() === "online" ? "Online" : "Offline"}
+                    {(fullProfile.status || "offline").toLowerCase() === "online" ? "Online" : "Offline"}
                   </span>
                 </div>
 

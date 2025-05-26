@@ -32,7 +32,7 @@ export const useAuth = () => useContext(AuthContext)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession()
   const router = useRouter()
-
+  
   const user = session?.user as User | null
   const loading = status === "loading"
 

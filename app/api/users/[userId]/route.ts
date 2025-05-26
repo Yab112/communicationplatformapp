@@ -7,7 +7,18 @@ export async function GET(
   { params }: { params: { userId: string } }
 ) {
   try {
+    const currentUser = await getCurrentUser()
+    
+    if (!currentUser) {
+      return new NextResponse("Unauthorized", { status: 401 })
+    }
+
     const userId = params.userId
+
+    // Only allow users to access their own data unless they're an admin
+    if (currentUser.id !== userId && currentUser.role !== "Admin") {
+      return new NextResponse("Forbidden", { status: 403 })
+    }
 
     const user = await db.user.findUnique({
       where: { id: userId },
@@ -17,6 +28,7 @@ export async function GET(
         image: true,
         role: true,
         email: true,
+        status: true,
         createdAt: true,
         updatedAt: true,
       },

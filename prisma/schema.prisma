@@ -77,15 +77,28 @@ model Post {
   id         String    @id @default(cuid())
   content    String    @db.Text
   department String?
-  image      String?
-  video      String?
-  videoPoster String?
+  tags       String[]  @default([])
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   authorId   String
   author     User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   comments   Comment[]
   likes      Like[]
+  media      PostMedia[]
+}
+
+model PostMedia {
+  id        String   @id @default(cuid())
+  type      String   // "image" or "video"
+  url       String
+  poster    String?  // For video thumbnails
+  order     Int      // To maintain the order of media items
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([postId])
 }
 
 model Comment {
