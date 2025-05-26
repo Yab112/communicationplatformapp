@@ -56,11 +56,23 @@ export function PostDetailModal({ post, isOpen, onClose }: PostDetailModalProps)
     const handlePrevious = () => {
         setCurrentMediaIndex(prev => (prev > 0 ? prev - 1 : post.media.length - 1))
         setZoomLevel(1)
+        // Reset video state
+        if (videoRef.current) {
+            videoRef.current.pause()
+            videoRef.current.currentTime = 0
+            setIsVideoLoading(true)
+        }
     }
 
     const handleNext = () => {
         setCurrentMediaIndex(prev => (prev < post.media.length - 1 ? prev + 1 : 0))
         setZoomLevel(1)
+        // Reset video state
+        if (videoRef.current) {
+            videoRef.current.pause()
+            videoRef.current.currentTime = 0
+            setIsVideoLoading(true)
+        }
     }
 
     const handleVideoLoadStart = () => {
@@ -188,8 +200,8 @@ export function PostDetailModal({ post, isOpen, onClose }: PostDetailModalProps)
                                                 />
                                             </div>
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center p-4">
-                                                <div className="relative w-full h-full">
+                                            <div className="w-full h-full flex items-center justify-center p-4 overflow-auto relative">
+                                                <div className="relative w-full h-full min-h-[200px]">
                                                     {isVideoLoading && (
                                                         <div className="absolute inset-0 flex items-center justify-center bg-black/50">
                                                             <Loader2 className="h-8 w-8 animate-spin text-white" />
@@ -199,7 +211,7 @@ export function PostDetailModal({ post, isOpen, onClose }: PostDetailModalProps)
                                                         ref={videoRef}
                                                         src={post.media[currentMediaIndex].url}
                                                         controls
-                                                        className="max-w-full max-h-full"
+                                                        className="w-full h-auto max-h-full object-contain"
                                                         poster={post.media[currentMediaIndex].poster || undefined}
                                                         onLoadStart={handleVideoLoadStart}
                                                         onCanPlay={handleVideoCanPlay}
@@ -213,6 +225,27 @@ export function PostDetailModal({ post, isOpen, onClose }: PostDetailModalProps)
                                                         Your browser does not support the video tag.
                                                     </video>
                                                 </div>
+                                                {/* Navigation Buttons for Video */}
+                                                {post.media.length > 1 && (
+                                                    <>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={handlePrevious}
+                                                            className="absolute left-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-[var(--color-card)]/80 backdrop-blur-sm hover:bg-[var(--color-card)] z-10"
+                                                        >
+                                                            <ChevronLeft className="h-6 w-6" />
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={handleNext}
+                                                            className="absolute right-4 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-[var(--color-card)]/80 backdrop-blur-sm hover:bg-[var(--color-card)] z-10"
+                                                        >
+                                                            <ChevronRight className="h-6 w-6" />
+                                                        </Button>
+                                                    </>
+                                                )}
                                             </div>
                                         )}
 

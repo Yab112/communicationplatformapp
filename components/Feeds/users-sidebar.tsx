@@ -17,7 +17,7 @@ export function UsersSidebar() {
         {users.map((user) => (
           <div key={user.id} className="flex items-center gap-3 rounded-lg p-2 hover:bg-[var(--color-muted)]/10">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={user.avatar || "/placeholder.svg?height=32&width=32"} alt={user.name} />
+              <AvatarImage src={user.image || "/placeholder.svg?height=32&width=32"} alt={user.name} />
               <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
             </Avatar>
             <div className="flex-1 truncate">

@@ -409,7 +409,7 @@ export function FeedsPage() {
           </div>
 
           {/* Department Filters */}
-          <div className="mb-3">
+          <div className="mb-3 max-w-96">
             <FeedFilters
               selectedDepartment={selectedDepartment}
               onDepartmentChange={setSelectedDepartment}

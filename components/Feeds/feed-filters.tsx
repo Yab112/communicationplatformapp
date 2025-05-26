@@ -28,15 +28,15 @@ export function FeedFilters({
   )
 
   return (
-    <div className="flex items-center space-x-4">
-      <div className="relative w-64">
+    <div className="flex items-center space-x-4 ">
+      <div className="relative w-full">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             placeholder="Search departments..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="h-9 pl-9 bg-[var(--color-background)] border-[var(--color-border)] focus-visible:ring-1 focus-visible:ring-[var(--color-border)]"
+            className="h-9 pl-9 w-full bg-[var(--color-background)] border-[var(--color-border)] focus-visible:ring-1 focus-visible:ring-[var(--color-border)]"
           />
         </div>
       </div>
