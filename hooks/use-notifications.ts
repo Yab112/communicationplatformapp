@@ -34,8 +34,12 @@ export function useNotifications() {
         setNotifications([])
         setUnreadCount(0)
       } else if ("notifications" in result && Array.isArray(result.notifications)) {
-        setNotifications(result.notifications)
-        setUnreadCount(result.notifications.filter((n: Notification) => !n.isRead).length)
+        setNotifications(result.notifications.map(n => ({
+          ...n,
+          createdAt: n.createdAt instanceof Date ? n.createdAt.toISOString() : n.createdAt,
+          relatedId: n.relatedId || undefined
+        })))
+        setUnreadCount(result.notifications.filter(n => !n.isRead).length)
       } else {
         setNotifications([])
         setUnreadCount(0)

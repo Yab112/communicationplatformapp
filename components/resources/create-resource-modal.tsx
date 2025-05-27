@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,11 +16,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import type { Resource } from "@/types/resource"
-import { years, fileTypes, departments } from "@/data/mock/resources"
+import { years, fileTypes } from "@/data/mock/resources"
+import { departments } from "@/constants/departments"
 import { resourceSchema } from "@/lib/validator/resource"
 import { useToast } from "@/hooks/use-toast"
 import { createResource } from "@/lib/actions/resources"
-import { enhanceText } from "@/lib/text-enhancement"
+import { getCoursesForDepartment } from "@/constants/courses"
 
 type ResourceFormValues = z.infer<typeof resourceSchema>
 
@@ -34,6 +35,7 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [selectedDepartment, setSelectedDepartment] = useState<string>("")
+  const [availableCourses, setAvailableCourses] = useState<string[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [isEnhancingTitle, setIsEnhancingTitle] = useState(false)
   const [isEnhancingDescription, setIsEnhancingDescription] = useState(false)
@@ -50,6 +52,16 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
       courseId: "",
     },
   })
+
+  // Update available courses when department changes
+  useEffect(() => {
+    if (selectedDepartment) {
+      const courses = getCoursesForDepartment(selectedDepartment)
+      setAvailableCourses(courses)
+    } else {
+      setAvailableCourses([])
+    }
+  }, [selectedDepartment])
 
   const handleSubmit = async (values: ResourceFormValues) => {
     if (!selectedFile) {
@@ -184,24 +196,103 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
       return
     }
 
-    setIsEnhancingTitle(true)
-    try {
-      const enhancedTitle = await enhanceText(title, 'resource')
-      form.setValue("title", enhancedTitle, {
-        shouldValidate: true,
-        shouldDirty: true,
-        shouldTouch: true
-      })
+    // Don't enhance if title is too short
+    if (title.length < 3) {
       toast({
-        title: "Title enhanced",
-        description: "Your title has been enhanced by AI.",
-      })
-    } catch (error) {
-      toast({
-        title: "Enhancement failed",
-        description: "Could not enhance the title. Please try again.",
+        title: "Title too short",
+        description: "Please write a bit more before enhancing.",
         variant: "destructive",
       })
+      return
+    }
+
+    setIsEnhancingTitle(true)
+    try {
+      const response = await fetch('/api/enhance-text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: title,
+          type: 'resource',
+          context: {
+            department: form.getValues("department"),
+            resourceType: form.getValues("type"),
+            fileType: form.getValues("fileType")
+          }
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Server responded with ${response.status}`);
+      }
+
+      if (data.enhancedText) {
+        // Store the original title in case user wants to revert
+        const originalTitle = title;
+
+        form.setValue("title", data.enhancedText, {
+          shouldValidate: true,
+          shouldDirty: true,
+          shouldTouch: true
+        })
+
+        toast({
+          title: "Title enhanced",
+          description: (
+            <div className="flex flex-col gap-2">
+              <p>Your title has been enhanced by AI.</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  form.setValue("title", originalTitle, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                    shouldTouch: true
+                  })
+                  toast({
+                    title: "Title reverted",
+                    description: "Your original title has been restored.",
+                  })
+                }}
+              >
+                Revert to original
+              </Button>
+            </div>
+          ),
+        })
+      } else {
+        throw new Error("AI did not return enhanced content");
+      }
+
+    } catch (error) {
+      console.error("Title enhancement error:", error)
+      const errorMessage = error instanceof Error ? error.message : "Could not enhance the title"
+
+      // Handle specific error cases
+      if (errorMessage.includes("AI service is not configured") || errorMessage.includes("AI API key is invalid")) {
+        toast({
+          title: "AI Enhancement Unavailable",
+          description: "The AI enhancement service is currently unavailable. Please try again later or contact support.",
+          variant: "destructive",
+        })
+      } else if (errorMessage.includes("network") || errorMessage.includes("fetch failed")) {
+        toast({
+          title: "Connection Error",
+          description: "Unable to connect to the enhancement service. Please check your internet connection and try again.",
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Enhancement Failed",
+          description: "Could not enhance the title. Please try again.",
+          variant: "destructive",
+        })
+      }
     } finally {
       setIsEnhancingTitle(false)
     }
@@ -218,24 +309,104 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
       return
     }
 
-    setIsEnhancingDescription(true)
-    try {
-      const enhancedDescription = await enhanceText(description, 'post')
-      form.setValue("description", enhancedDescription, {
-        shouldValidate: true,
-        shouldDirty: true,
-        shouldTouch: true
-      })
+    // Don't enhance if description is too short
+    if (description.length < 10) {
       toast({
-        title: "Description enhanced",
-        description: "Your description has been enhanced by AI.",
-      })
-    } catch (error) {
-      toast({
-        title: "Enhancement failed",
-        description: "Could not enhance the description. Please try again.",
+        title: "Description too short",
+        description: "Please write a bit more before enhancing.",
         variant: "destructive",
       })
+      return
+    }
+
+    setIsEnhancingDescription(true)
+    try {
+      const response = await fetch('/api/enhance-text', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: description,
+          type: 'post',
+          context: {
+            department: form.getValues("department"),
+            resourceType: form.getValues("type"),
+            fileType: form.getValues("fileType"),
+            title: form.getValues("title")
+          }
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `Server responded with ${response.status}`);
+      }
+
+      if (data.enhancedText) {
+        // Store the original description in case user wants to revert
+        const originalDescription = description;
+
+        form.setValue("description", data.enhancedText, {
+          shouldValidate: true,
+          shouldDirty: true,
+          shouldTouch: true
+        })
+
+        toast({
+          title: "Description enhanced",
+          description: (
+            <div className="flex flex-col gap-2">
+              <p>Your description has been enhanced by AI.</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  form.setValue("description", originalDescription, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                    shouldTouch: true
+                  })
+                  toast({
+                    title: "Description reverted",
+                    description: "Your original description has been restored.",
+                  })
+                }}
+              >
+                Revert to original
+              </Button>
+            </div>
+          ),
+        })
+      } else {
+        throw new Error("AI did not return enhanced content");
+      }
+
+    } catch (error) {
+      console.error("Description enhancement error:", error)
+      const errorMessage = error instanceof Error ? error.message : "Could not enhance the description"
+
+      // Handle specific error cases
+      if (errorMessage.includes("AI service is not configured") || errorMessage.includes("AI API key is invalid")) {
+        toast({
+          title: "AI Enhancement Unavailable",
+          description: "The AI enhancement service is currently unavailable. Please try again later or contact support.",
+          variant: "destructive",
+        })
+      } else if (errorMessage.includes("network") || errorMessage.includes("fetch failed")) {
+        toast({
+          title: "Connection Error",
+          description: "Unable to connect to the enhancement service. Please check your internet connection and try again.",
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Enhancement Failed",
+          description: "Could not enhance the description. Please try again.",
+          variant: "destructive",
+        })
+      }
     } finally {
       setIsEnhancingDescription(false)
     }
@@ -389,13 +560,11 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {selectedDepartment && departments
-                          .find(dept => dept.name === selectedDepartment)
-                          ?.courses.map((course) => (
-                            <SelectItem key={course} value={course}>
-                              {course}
-                            </SelectItem>
-                          ))}
+                        {availableCourses.map((course) => (
+                          <SelectItem key={course} value={course}>
+                            {course}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />

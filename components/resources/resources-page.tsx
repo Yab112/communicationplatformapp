@@ -53,7 +53,7 @@ export function ResourcesPage() {
       const { resources: fetchedResources, error } = await getResources({});
 
       if (error) throw new Error(error);
-      
+
       // Transform the database response to match Resource type
       const transformedResources = fetchedResources.map(resource => ({
         id: resource.id,
@@ -99,7 +99,7 @@ export function ResourcesPage() {
       .filter((resource) => {
         // Apply all filters locally
         if (filters.search && !resource.title.toLowerCase().includes(filters.search.toLowerCase()) &&
-            !resource.description?.toLowerCase().includes(filters.search.toLowerCase())) {
+          !resource.description?.toLowerCase().includes(filters.search.toLowerCase())) {
           return false;
         }
         if (filters.teacherName && !resource.uploadedBy.name.toLowerCase().includes(filters.teacherName.toLowerCase())) {
@@ -139,7 +139,7 @@ export function ResourcesPage() {
     setIsCreateModalOpen(false);
     // Add the new resource to the local state
     setResources(currentResources => [newResource, ...currentResources]);
-    
+
     toast({
       title: "Success",
       description: "Resource has been created successfully.",
@@ -169,13 +169,22 @@ export function ResourcesPage() {
                 >
                   <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                 </Button>
+                {isTeacher && (
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIsCreateModalOpen(true)}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
 
               <div className="flex flex-wrap items-center gap-2 md:gap-4">
                 <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "grid" | "list")}>
                   <TabsList className="grid w-[160px] grid-cols-2 bg-transparent rounded-md p-1 border border-blue-100/50 mb-1">
                     <TabsTrigger
-                      value="grid"  
+                      value="grid"
                       className="hover:bg-blue-100/50 data-[state=active]:bg-blue-500/40"
                     >
                       <Grid className="h-4 w-4 mr-1" />
@@ -231,7 +240,7 @@ export function ResourcesPage() {
               ) : (
                 <ResourceList resources={filteredResources} viewMode={viewMode} />
               )}
-              
+
               {isRefreshing && (
                 <div className="flex items-center justify-center py-4">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -246,20 +255,12 @@ export function ResourcesPage() {
       </div>
 
       {isTeacher && (
-        <Button
-          size="icon"
-          className="fixed bottom-6 right-6 h-12 w-12 rounded-full shadow-lg"
-          onClick={() => setIsCreateModalOpen(true)}
-        >
-          <Plus className="h-6 w-6" />
-        </Button>
+        <CreateResourceModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSubmit={handleCreateResource}
+        />
       )}
-
-      <CreateResourceModal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        onSubmit={handleCreateResource}
-      />
     </div>
   );
 }
