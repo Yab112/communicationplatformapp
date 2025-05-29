@@ -155,7 +155,7 @@ export async function getNotificationSettings() {
     }
 
     return { settings }
-  } catch (error) {
+  } catch  {
     return { error: "Failed to fetch notification settings" }
   }
 }

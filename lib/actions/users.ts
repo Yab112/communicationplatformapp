@@ -27,7 +27,7 @@ export async function getUsers() {
     })
     console.log('user--------------------->',users)
     return { users }
-  } catch (error) {
+  } catch  {
     return { error: "Failed to fetch users" }
   }
 }
@@ -174,7 +174,7 @@ export async function updateUserRole(userId: string, role: string) {
     })
 
     return { success: true }
-  } catch (error) {
+  } catch  {
     return { error: "Failed to update user role" }
   }
 }
@@ -192,7 +192,7 @@ export async function updateUserStatus(status: "online" | "offline") {
     })
 
     return { success: true }
-  } catch (error) {
+  } catch  {
     return { error: "Failed to update user status" }
   }
 }

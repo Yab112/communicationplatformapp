@@ -1,174 +1,214 @@
-import { Server as NetServer } from 'http'
-import { Server as SocketIOServer } from 'socket.io'
-import { getToken } from "next-auth/jwt"
-import { db } from "@/lib/db"
+// lib/socket-server.ts
+import { Server as NetServer, createServer } from "http";
+import { Server as SocketIOServer, Socket } from "socket.io";
+import { DefaultEventsMap } from "socket.io";
+import { db } from "@/lib/db";
 
-let io: SocketIOServer | null = null
-
-export function getSocketServer() {
-  return io
+// Interface for socket event data
+interface SendMessageData {
+  roomId: string;
+  content: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
 }
 
-export function initSocketServer(server: NetServer) {
+// Interface for socket data
+interface SocketData {
+  userId?: string;
+}
+
+let io: SocketIOServer | null = null;
+
+export function getSocketServer(): SocketIOServer {
   if (!io) {
-    console.log('🚀 Initializing Socket.IO server...')
-    
-    io = new SocketIOServer(server, {
-      path: '/api/socket/io',
-      addTrailingSlash: false,
-      cors: {
-        origin: process.env.NEXT_PUBLIC_APP_URL || '*',
-        methods: ['GET', 'POST'],
-        credentials: true
-      }
-    })
-
-    // Authentication middleware
-    io.use(async (socket, next) => {
-      try {
-        console.log('🔒 Authenticating socket connection...')
-        const token = await getToken({ req: socket.handshake.headers as any })
-        if (!token) {
-          console.log('❌ Authentication failed: No token')
-          return next(new Error('Unauthorized'))
-        }
-        socket.data.userId = token.sub
-        console.log('✅ Socket authenticated for user:', token.sub)
-        next()
-      } catch (error) {
-        console.error('❌ Authentication error:', error)
-        next(new Error('Authentication failed'))
-      }
-    })
-
-    // Socket event handlers
-    io.on('connection', async (socket) => {
-      console.log('🔌 New client connected:', socket.id)
-      
-      // Handle joining chat rooms
-      socket.on('join-room', async (roomId) => {
-        try {
-          console.log(`👥 User ${socket.data.userId} attempting to join room ${roomId}`)
-          const isMember = await db.chatRoom.findFirst({
-            where: {
-              id: roomId,
-              users: {
-                some: {
-                  userId: socket.data.userId
-                }
-              }
-            }
-          })
-
-          if (!isMember) {
-            console.log(`❌ User ${socket.data.userId} is not a member of room ${roomId}`)
-            socket.emit('error', 'Not a member of this chat room')
-            return
-          }
-
-          socket.join(roomId)
-          console.log(`✅ User ${socket.data.userId} joined room ${roomId}`)
-        } catch (error) {
-          console.error('❌ Error joining room:', error)
-          socket.emit('error', 'Failed to join room')
-        }
-      })
-
-      // Handle leaving chat rooms
-      socket.on('leave-room', (roomId) => {
-        socket.leave(roomId)
-        console.log(`User ${socket.data.userId} left room ${roomId}`)
-      })
-
-      // Handle user online status
-      socket.on('user-online', async () => {
-        try {
-          await db.user.update({
-            where: { id: socket.data.userId },
-            data: { status: 'ONLINE' }
-          })
-          io?.emit('user-status-change', { userId: socket.data.userId, status: 'ONLINE' })
-        } catch (error) {
-          console.error('Error updating user status:', error)
-          socket.emit('error', 'Failed to update user status')
-        }
-      })
-
-      // Handle sending messages
-      socket.on('send-message', async (data) => {
-        try {
-          const isMember = await db.chatRoom.findFirst({
-            where: {
-              id: data.roomId,
-              users: {
-                some: {
-                  userId: socket.data.userId
-                }
-              }
-            }
-          })
-
-          if (!isMember) {
-            socket.emit('error', 'Not a member of this chat room')
-            return
-          }
-
-          const message = await db.message.create({
-            data: {
-              content: data.content,
-              senderId: socket.data.userId,
-              chatRoomId: data.roomId,
-              ...(data.fileUrl && {
-                fileUrl: data.fileUrl,
-                fileName: data.fileName,
-                fileType: data.fileType,
-                fileSize: data.fileSize,
-              }),
-            },
-            include: {
-              sender: {
-                select: {
-                  id: true,
-                  name: true,
-                  image: true,
-                }
-              },
-            },
-          })
-
-          await db.chatRoom.update({
-            where: { id: data.roomId },
-            data: { updatedAt: new Date() }
-          })
-
-          io?.to(data.roomId).emit('new-message', message)
-        } catch (error) {
-          console.error('Error sending message:', error)
-          socket.emit('error', 'Failed to send message')
-        }
-      })
-
-      // Handle typing indicators
-      socket.on('typing', ({ roomId }) => {
-        socket.to(roomId).emit('user-typing', socket.data.userId)
-      })
-
-      socket.on('stop-typing', ({ roomId }) => {
-        socket.to(roomId).emit('user-stop-typing', socket.data.userId)
-      })
-
-      socket.on('disconnect', async () => {
-        try {
-          await db.user.update({
-            where: { id: socket.data.userId },
-            data: { status: 'OFFLINE' }
-          })
-          io?.emit('user-status-change', { userId: socket.data.userId, status: 'OFFLINE' })
-        } catch (error) {
-          console.error('Error updating user status:', error)
-        }
-      })
-    })
+    throw new Error("Socket.IO server not initialized");
   }
-  return io
-} 
+  return io;
+}
+
+export function initSocketServer(server?: NetServer): SocketIOServer {
+  if (io) return io;
+
+  console.log("🚀 Initializing Socket.IO server...");
+
+  // Create a standalone HTTP server if none provided
+  const httpServer = server || createServer();
+  const port = server ? undefined : (process.env.SOCKET_PORT || 3001);
+
+  io = new SocketIOServer(httpServer, {
+    path: "/api/socket",
+    addTrailingSlash: false,
+    cors: {
+      origin: process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000",
+      methods: ["GET", "POST"],
+      credentials: true,
+    },
+    serveClient: false,
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    maxHttpBufferSize: 1e8,
+    allowEIO3: true,
+  });
+
+  // 🔐 Auth middleware
+  io.use((socket: Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>, next) => {
+    try {
+      const token = socket.handshake.auth.token as string | undefined;
+      if (!token) {
+        console.log("❌ Authentication failed: No token");
+        return next(new Error("Unauthorized"));
+      }
+
+      const match = token.match(/^Bearer (.+)$/);
+      if (!match) {
+        console.log("❌ Authentication failed: Invalid token format");
+        return next(new Error("Unauthorized"));
+      }
+
+      socket.data.userId = match[1];
+      console.log("✅ Socket authenticated for user:", socket.data.userId);
+      next();
+    } catch (error) {
+      console.error("Authentication error:", error);
+      next(new Error("Authentication failed"));
+    }
+  });
+
+  // 📡 Socket connection
+  io.on("connection", (socket: Socket<DefaultEventsMap, DefaultEventsMap, DefaultEventsMap, SocketData>) => {
+    console.log("🔌 New client connected:", socket.id);
+
+    if (socket.data.userId) {
+      socket.join(`user:${socket.data.userId}`);
+    }
+
+    socket.on("disconnect", (reason) => {
+      console.log("🔌 Client disconnected:", socket.id, "Reason:", reason);
+    });
+
+    socket.on("send-message", async (data: SendMessageData) => {
+      try {
+        if (!socket.data.userId) {
+          socket.emit("error", "User not authenticated");
+          return;
+        }
+
+        const isMember = await db.chatRoom.findFirst({
+          where: {
+            id: data.roomId,
+            users: { some: { userId: socket.data.userId } },
+          },
+        });
+
+        if (!isMember) {
+          socket.emit("error", "Not a member of this chat room");
+          return;
+        }
+
+        const message = await db.message.create({
+          data: {
+            content: data.content,
+            senderId: socket.data.userId,
+            chatRoomId: data.roomId,
+            ...(data.fileUrl && {
+              fileUrl: data.fileUrl,
+              fileName: data.fileName,
+              fileType: data.fileType,
+              fileSize: data.fileSize,
+            }),
+          },
+          include: { sender: { select: { id: true, name: true } } },
+        });
+
+        await db.chatRoom.update({
+          where: { id: data.roomId },
+          data: { updatedAt: new Date() },
+        });
+
+        io!.to(data.roomId).emit("new-message", message);
+
+        const usersToNotify = await db.chatRoomUser.findMany({
+          where: {
+            chatRoomId: data.roomId,
+            userId: { not: socket.data.userId },
+            user: { notificationSettings: { chatNotifications: true } },
+          },
+          select: { userId: true },
+        });
+
+        const notificationData = usersToNotify.map((u) => ({
+          userId: u.userId,
+          type: "message",
+          content: `${message.sender.name} sent a message: ${data.content.slice(0, 50)}...`,
+          relatedId: message.id,
+          isRead: false,
+        }));
+
+        const savedNotifications = await db.$transaction(
+          notificationData.map((data) => db.notification.create({ data }))
+        );
+
+        savedNotifications.forEach((notification, index) => {
+          io!.to(`user:${usersToNotify[index].userId}`).emit("notification", {
+            ...notification,
+            createdAt: notification.createdAt.toISOString(),
+          });
+        });
+      } catch (error) {
+        console.error("Error sending message:", error);
+        socket.emit("error", "Failed to send message");
+      }
+    });
+
+    socket.on("join-room", async (roomId: string) => {
+      try {
+        if (!socket.data.userId) {
+          socket.emit("error", "User not authenticated");
+          return;
+        }
+
+        const isMember = await db.chatRoom.findFirst({
+          where: {
+            id: roomId,
+            users: { some: { userId: socket.data.userId } },
+          },
+        });
+
+        if (isMember) {
+          socket.join(roomId);
+          console.log("✅ Joined room:", roomId);
+        } else {
+          console.log("❌ Unauthorized to join room:", roomId);
+          socket.emit("error", "Unauthorized to join room");
+        }
+      } catch (error) {
+        console.error("Room join error:", error);
+        socket.emit("error", "Failed to join room");
+      }
+    });
+
+    socket.on("leave-room", (roomId: string) => {
+      socket.leave(roomId);
+      console.log("✅ Left room:", roomId);
+    });
+  });
+
+  io.on("error", (error: Error) => {
+    console.error("Socket.IO server error:", error);
+  });
+
+  io.on("connect_error", (error: Error) => {
+    console.error("Socket.IO connection error:", error);
+  });
+
+  // Start standalone server if no server provided
+  if (!server && port) {
+    httpServer.listen(port, () => {
+      console.log(`Socket.IO server running on port ${port}`);
+    });
+  }
+
+  return io;
+}

@@ -5,7 +5,6 @@ import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ImageIcon, VideoIcon, Loader2, X, Sparkles } from "lucide-react"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
@@ -252,53 +251,102 @@ export function CreatePostModal({ isOpen, onClose, onSubmit }: CreatePostModalPr
       return
     }
 
+    // Don't enhance if content is too short
+    if (content.length < 10) {
+      toast({
+        title: "Content too short",
+        description: "Please write a bit more before enhancing.",
+        variant: "destructive",
+      })
+      return
+    }
+
     setIsEnhancing(true)
     try {
-      const response = await fetch('/api/enhance-text', { // Call your new API route
+      const response = await fetch('/api/enhance-text', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ text: content, type: 'post' }), // Send text and type
+        body: JSON.stringify({
+          text: content,
+          type: 'post',
+          context: {
+            department: form.getValues("department"),
+            mediaCount: mediaItems.length
+          }
+        }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        // Use the error message from the API response if available
         throw new Error(data.error || `Server responded with ${response.status}`);
       }
 
       if (data.enhancedText) {
+        // Store the original content in case user wants to revert
+        const originalContent = content;
+
         form.setValue("content", data.enhancedText, {
           shouldValidate: true,
           shouldDirty: true,
           shouldTouch: true
         })
+
         toast({
           title: "Content enhanced",
-          description: "Your post has been enhanced by AI.",
+          description: (
+            <div className="flex flex-col gap-2">
+              <p>Your post has been enhanced by AI.</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  form.setValue("content", originalContent, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                    shouldTouch: true
+                  })
+                  toast({
+                    title: "Content reverted",
+                    description: "Your original content has been restored.",
+                  })
+                }}
+              >
+                Revert to original
+              </Button>
+            </div>
+          ),
         })
       } else {
-        // This case should ideally be handled by the API returning an error or the original text
-        toast({
-          title: "Enhancement issue",
-          description: "AI did not return enhanced content.",
-          variant: "destructive",
-        })
+        throw new Error("AI did not return enhanced content");
       }
 
     } catch (error) {
       console.error("Enhancement error:", error)
       const errorMessage = error instanceof Error ? error.message : "Could not enhance the content"
-      toast({
-        title: "Enhancement failed",
-        // You can make this more user-friendly based on common errors
-        description: errorMessage.includes("AI service is not configured") || errorMessage.includes("AI API key is invalid")
-          ? "AI enhancement is currently unavailable. Please contact support."
-          : "Could not enhance the content. Please try again.",
-        variant: "destructive",
-      })
+
+      // Handle specific error cases
+      if (errorMessage.includes("AI service is not configured") || errorMessage.includes("AI API key is invalid")) {
+        toast({
+          title: "AI Enhancement Unavailable",
+          description: "The AI enhancement service is currently unavailable. Please try again later or contact support.",
+          variant: "destructive",
+        })
+      } else if (errorMessage.includes("network") || errorMessage.includes("fetch failed")) {
+        toast({
+          title: "Connection Error",
+          description: "Unable to connect to the enhancement service. Please check your internet connection and try again.",
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Enhancement Failed",
+          description: "Could not enhance the content. Please try again.",
+          variant: "destructive",
+        })
+      }
     } finally {
       setIsEnhancing(false)
     }

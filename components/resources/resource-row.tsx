@@ -69,7 +69,7 @@ export function ResourceRow({ resource }: ResourceRowProps) {
   return (
     <>
       <motion.div variants={item}>
-        <div className="flex items-center p-3 rounded-lg hover:bg-blue-300/50 transition-colors border-b border-muted/50">
+        <div className="flex items-center p-3 rounded-lg transition-colors border-b border-muted/50">
           <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center text-primary mr-4">
             <FileIcon className="h-5 w-5" />
           </div>
@@ -90,7 +90,7 @@ export function ResourceRow({ resource }: ResourceRowProps) {
               </div>
             </div>
             <div className="flex items-center text-sm text-muted-foreground">
-              <span className="truncate">{resource.subject}</span>
+              <span className="truncate">{resource.uploadDate}</span>
               <span className="mx-2">•</span>
               <span>{formatDistanceToNow(new Date(resource.uploadDate), { addSuffix: true })}</span>
             </div>

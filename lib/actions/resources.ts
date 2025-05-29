@@ -1,15 +1,9 @@
 "use server"
 
-import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { getCurrentUser } from "@/lib/get-session"
-import { resourceSchema, type ResourceFormValues } from "@/lib/validator/resource"
 import { Prisma } from "@prisma/client"
-
-import type { Resource } from "@/types/resource"
-import { prisma } from "../prisma"
-import path from "path"
-import fs from "fs"
+import { getSocketServer } from "../socket-server";
 
 export async function getResources(filters?: {
   teacherName?: string;
@@ -104,7 +98,7 @@ export async function getCourses() {
     })
 
     return { courses }
-  } catch (error) {
+  } catch {
     return { error: "Failed to fetch courses" }
   }
 }
@@ -177,6 +171,43 @@ export async function createResource(formData: FormData) {
       },
     })
 
+    
+    // Fetch all users to notify (excluding the creator)
+    const usersToNotify = await db.user.findMany({
+      where: {
+        id: { not: user.id },
+        notificationSettings: { resourceNotifications: true },
+      },
+      select: { id: true },
+    });
+
+    // Create notifications in a transaction
+    const notificationData = usersToNotify.map((u) => ({
+      userId: u.id,
+      type: "resource",
+      content: `${user.name} (${user.role}) uploaded a new resource: ${title}`,
+      relatedId: resource.id,
+      isRead: false,
+    }));
+
+    await db.$transaction(
+      notificationData.map((data) => db.notification.create({ data }))
+    );
+
+    // Emit Socket.IO events
+    const io = getSocketServer();
+    usersToNotify.forEach((u) => {
+      io.to(`user:${u.id}`).emit("notification", {
+        id: resource.id,
+        type: "resource",
+        content: `${user.name} (${user.role}) uploaded a new resource: ${title}`,
+        relatedId: resource.id,
+        createdAt: new Date().toISOString(),
+        isRead: false,
+        userId: u.id,
+      });
+    });
+
     const transformedResource = {
       id: resource.id,
       title: resource.title,
@@ -233,7 +264,7 @@ export async function deleteResource(resourceId: string) {
 
     // No need to revalidate since we're using client-side state management
     return { success: true }
-  } catch (error) {
+  } catch {
     return { error: "Failed to delete resource" }
   }
 }

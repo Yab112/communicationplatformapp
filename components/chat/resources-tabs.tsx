@@ -30,7 +30,7 @@ export function ResourcesTabs({ roomId, initialResources = [] }: ResourcesTabsPr
     const fetchResources = async () => {
       try {
         const { resources: fetchedResources, error } = await getResources({
-          type: activeTab === "assignment" ? "assignment" : activeTab === "homeexam" ? "quiz" : "material",
+          fileType: activeTab === "assignment" ? "assignment" : activeTab === "homeexam" ? "quiz" : "material",
           search: searchQuery,
         })
 
