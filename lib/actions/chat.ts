@@ -68,7 +68,7 @@ export async function getChatRooms() {
     )
 
     return { chatRooms: roomsWithUnreadCount }
-  } catch (error) {
+  } catch  {
     return { error: "Failed to fetch chat rooms" }
   }
 }
@@ -129,7 +129,7 @@ export async function getChatRoomMessages(roomId: string) {
     })
 
     return { messages }
-  } catch (error) {
+  } catch  {
     return { error: "Failed to fetch messages" }
   }
 }
@@ -231,7 +231,7 @@ export async function createChatRoom(name: string, memberIds: string[]) {
 
     revalidatePath("/chat")
     return { success: true, chatRoom }
-  } catch (error) {
+  } catch  {
     return { error: "Failed to create chat room" }
   }
 }
@@ -513,7 +513,7 @@ export async function getMessages(roomId: string) {
     })
 
     return messages
-  } catch (error) {
+  } catch  {
     return { error: "Failed to fetch messages" }
   }
 }

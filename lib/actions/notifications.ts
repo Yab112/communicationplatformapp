@@ -22,7 +22,7 @@ export async function getNotifications() {
     })
 
     return { notifications }
-  } catch (error) {
+  } catch {
     return { error: "Failed to fetch notifications" }
   }
 }
@@ -54,7 +54,7 @@ export async function markNotificationAsRead(notificationId: string) {
 
     revalidatePath("/")
     return { success: true }
-  } catch (error) {
+  } catch{
     return { error: "Failed to mark notification as read" }
   }
 }
@@ -76,7 +76,7 @@ export async function markAllNotificationsAsRead() {
 
     revalidatePath("/")
     return { success: true }
-  } catch (error) {
+  } catch  {
     return { error: "Failed to mark all notifications as read" }
   }
 }

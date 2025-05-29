@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Send, Bot, User, Loader2, Sparkles, Info, Settings, MessageSquare } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
-import { ChatService } from "@/lib/services/chat-service"
+import { ChatService } from "@/lib/actions/chat-service"
 import { marked } from "marked"
 import DOMPurify from "dompurify"
 

@@ -1,34 +1,15 @@
-import { NextResponse } from "next/server"
-import { createServer } from "http"
-import { initSocketServer } from "@/lib/socket-server"
+// app/api/socket/route.ts
+import { NextResponse } from "next/server";
+import { initSocketServer } from "@/lib/socket-server";
 
-export const runtime = 'edge'
-export const dynamic = 'force-dynamic'
+export const dynamic = "force-dynamic";
 
-export async function GET(req: Request) {
-  try {
-    const server = createServer()
-    const io = initSocketServer(server)
-
-    if (!io) {
-      return new NextResponse('Socket server initialization failed', { status: 500 })
-    }
-
-    // Handle WebSocket upgrade
-    const upgradeHeader = req.headers.get('upgrade')
-    if (!upgradeHeader || upgradeHeader !== 'websocket') {
-      return new NextResponse('Expected websocket', { status: 400 })
-    }
-
-    return new NextResponse(null, {
-      status: 101,
-      headers: {
-        'Upgrade': 'websocket',
-        'Connection': 'Upgrade',
-      },
-    })
-    } catch (error) {
-    console.error('Socket server error:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
-}
+export async function GET() {
+ try {
+ initSocketServer(); // Initialize standalone Socket.IO server
+ return NextResponse.json({ message: "Socket.IO server initialized" }, { status: 200 });
+ } catch (error) {
+ console.error("Error initializing Socket.IO:", error);
+ return NextResponse.json({ error: "Failed to initialize Socket.IO" }, { status: 500 });
+ }
 }

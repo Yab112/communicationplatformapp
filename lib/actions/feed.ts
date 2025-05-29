@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache"
 import { db } from "@/lib/db"
 import { getCurrentUser } from "@/lib/get-session"
 import { postSchema, type PostFormValues } from "@/lib/validator/post"
+import { getSocketServer } from "../socket-server"
 
 export async function getPosts() {
   try {
@@ -103,6 +104,11 @@ export async function createPost(data: PostFormValues) {
       return { error: "Unauthorized" }
     }
 
+    // Only admins can create posts
+    if (user.role !== "ADMIN") {
+      return { error: "Only admins can create posts" };
+    }
+
     // Create post with department from form data
     const post = await db.post.create({
       data: {
@@ -130,6 +136,43 @@ export async function createPost(data: PostFormValues) {
         },
       },
     })
+
+    // Fetch all users to notify (excluding the creator)
+    const usersToNotify = await db.user.findMany({
+      where: {
+        id: { not: user.id },
+        notificationSettings: { postNotifications: true },
+      },
+      select: { id: true },
+    });
+
+    // Create notifications in a transaction
+    const notificationData = usersToNotify.map((u) => ({
+      userId: u.id,
+      type: "post",
+      content: `${user.name} (Admin) created a new post: ${validatedData.content.slice(0, 50)}...`,
+      relatedId: post.id,
+      isRead: false,
+    }));
+
+    await db.$transaction(
+      notificationData.map((data) => db.notification.create({ data }))
+    );
+
+    // Emit Socket.IO events
+    const io = getSocketServer();
+    usersToNotify.forEach((u) => {
+      io.to(`user:${u.id}`).emit("notification", {
+        id: post.id,
+        type: "post",
+        content: `${user.name} (Admin) created a new post: ${validatedData.content.slice(0, 50)}...`,
+        relatedId: post.id,
+        createdAt: new Date().toISOString(),
+        isRead: false,
+        userId: u.id,
+      });
+    });
+
 
     // Revalidate feeds page
     revalidatePath("/feeds")
@@ -218,7 +261,7 @@ export async function addComment(postId: string, content: string) {
 
     // Don't revalidate since we're using optimistic updates
     return { success: true, comment }
-  } catch (error) {
+  } catch {
     return { error: "Failed to add comment" }
   }
 }
@@ -253,7 +296,7 @@ export async function deletePost(postId: string) {
     // Revalidate since this is a destructive action
     revalidatePath("/feeds")
     return { success: true }
-  } catch (error) {
+  } catch {
     return { error: "Failed to delete post" }
   }
 }
@@ -300,7 +343,7 @@ export async function addCommentReaction(commentId: string, type: string) {
 
     // Don't revalidate since we're using optimistic updates
     return { success: true }
-  } catch (error) {
+  } catch {
     return { error: "Failed to react to comment" }
   }
 }
@@ -321,7 +364,7 @@ export async function getCommentReactions(commentId: string) {
     })
 
     return { reactions }
-  } catch (error) {
+  } catch {
     return { error: "Failed to fetch comment reactions" }
   }
 }
