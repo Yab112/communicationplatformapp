@@ -118,7 +118,7 @@ export function useChatNotifications() {
       if (socket && isConnected) {
         socket.emit("mark-all-notifications-read")
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to mark all notifications as read",

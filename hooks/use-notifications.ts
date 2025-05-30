@@ -29,11 +29,11 @@ export function useNotifications() {
       const result = await getNotifications();
 
       if ("error" in result) {
-        toast({
-          title: "Error",
-          description: result.error,
-          variant: "destructive",
-        });
+        // toast({
+        //   title: "Error",
+        //   description: result.error,
+        //   variant: "destructive",
+        // });
         setNotifications([]);
         setUnreadCount(0);
       } else if ("notifications" in result && Array.isArray(result.notifications)) {
@@ -50,11 +50,11 @@ export function useNotifications() {
         setUnreadCount(0);
       }
     } catch {
-      toast({
-        title: "Error",
-        description: "Failed to load notifications",
-        variant: "destructive",
-      });
+      // toast({
+      //   title: "Error",
+      //   description: "Failed to load notifications",
+      //   variant: "destructive",
+      // });
       setNotifications([]);
       setUnreadCount(0);
     } finally {

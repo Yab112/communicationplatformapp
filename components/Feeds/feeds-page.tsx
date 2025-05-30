@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 "use client"
 
 import { useEffect, useState, useMemo, useRef } from "react"
@@ -6,7 +7,7 @@ import { AdvertisementSidebar } from "@/components/Feeds/advertisement-sidebar"
 import { CreatePostModal } from "@/components/Feeds/create-post-modal"
 import { FeedFilters } from "@/components/Feeds/feed-filters"
 import { Button } from "@/components/ui/button"
-import { Plus, RefreshCw, Newspaper, TrendingUp, Flame, Clock, Sparkles, ExternalLink, Calendar, Briefcase, Gift } from "lucide-react"
+import { Plus, RefreshCw, TrendingUp, Flame, Clock, Sparkles, Calendar, Briefcase, Gift } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import type { Post } from "@/types/post"
 import { getPosts, createPost } from "@/lib/actions/feed"
@@ -197,7 +198,7 @@ export function FeedsPage() {
       // Optimistically add the new post
       setPosts(currentPosts => [newPost, ...currentPosts])
 
-      const { success, error } = await createPost({
+      const { error } = await createPost({
         content: newPost.content,
         department: newPost.department,
         media: newPost.media,

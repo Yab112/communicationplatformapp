@@ -1,10 +1,10 @@
-"use server"
+"use server";
 
-import { revalidatePath } from "next/cache"
-import { db } from "@/lib/db"
-import { getCurrentUser } from "@/lib/get-session"
-import { postSchema, type PostFormValues } from "@/lib/validator/post"
-import { getSocketServer } from "../socket-server"
+import { revalidatePath } from "next/cache";
+import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/get-session";
+import { postSchema, type PostFormValues } from "@/lib/validator/post";
+import { getSocketServer } from "../socket-server";
 
 export async function getPosts() {
   try {
@@ -17,8 +17,8 @@ export async function getPosts() {
         createdAt: true,
         media: {
           orderBy: {
-            order: 'asc'
-          }
+            order: "asc",
+          },
         },
         author: {
           select: {
@@ -63,16 +63,18 @@ export async function getPosts() {
       orderBy: {
         createdAt: "desc",
       },
-    })
+    });
 
     // Transform the data to match the expected format
-    const transformedPosts = posts.map(post => ({
+    const transformedPosts = posts.map((post) => ({
       ...post,
-      isLiked: user ? post.likes.some(like => like.userId === user.id) : false,
+      isLiked: user
+        ? post.likes.some((like) => like.userId === user.id)
+        : false,
       likes: post.likes.length,
-      comments: post.comments.map(comment => ({
+      comments: post.comments.map((comment) => ({
         ...comment,
-        reactions: comment.CommentReaction.map(reaction => ({
+        reactions: comment.CommentReaction.map((reaction) => ({
           id: reaction.id,
           type: reaction.type,
           author: {
@@ -84,28 +86,28 @@ export async function getPosts() {
           createdAt: reaction.createdAt.toISOString(),
         })),
       })),
-    }))
+    }));
 
-    return { posts: transformedPosts }
+    return { posts: transformedPosts };
   } catch (error) {
-    console.error('Error fetching posts:', error)
-    return { error: "Failed to fetch posts" }
+    console.error("Error fetching posts:", error);
+    return { error: "Failed to fetch posts" };
   }
 }
 
 export async function createPost(data: PostFormValues) {
   try {
     // Validate input
-    const validatedData = postSchema.parse(data)
+    const validatedData = postSchema.parse(data);
 
     // Get current user
-    const user = await getCurrentUser()
+    const user = await getCurrentUser();
     if (!user) {
-      return { error: "Unauthorized" }
+      return { error: "Unauthorized" };
     }
 
     // Only admins can create posts
-    if (user.role !== "ADMIN") {
+    if (user.role !== "admin") {
       return { error: "Only admins can create posts" };
     }
 
@@ -116,12 +118,13 @@ export async function createPost(data: PostFormValues) {
         authorId: user.id,
         department: validatedData.department,
         media: {
-          create: validatedData.media?.map((item, index) => ({
-            type: item.type,
-            url: item.url,
-            poster: item.poster,
-            order: index,
-          })) || [],
+          create:
+            validatedData.media?.map((item, index) => ({
+              type: item.type,
+              url: item.url,
+              poster: item.poster,
+              order: index,
+            })) || [],
         },
       },
       include: {
@@ -135,62 +138,67 @@ export async function createPost(data: PostFormValues) {
           },
         },
       },
-    })
+    });
 
-    // Fetch all users to notify (excluding the creator)
+    // Fetch users to notify
     const usersToNotify = await db.user.findMany({
       where: {
         id: { not: user.id },
-        notificationSettings: { postNotifications: true },
+        // notificationSettings: { postNotifications: true },
       },
       select: { id: true },
     });
 
-    // Create notifications in a transaction
+    // Create notifications
     const notificationData = usersToNotify.map((u) => ({
       userId: u.id,
       type: "post",
-      content: `${user.name} (Admin) created a new post: ${validatedData.content.slice(0, 50)}...`,
+      content: `${
+        user.name
+      } (Admin) created a new post: ${validatedData.content.slice(0, 50)}...`,
       relatedId: post.id,
       isRead: false,
     }));
 
-    await db.$transaction(
+    const savedNotifications = await db.$transaction(
       notificationData.map((data) => db.notification.create({ data }))
     );
 
-    // Emit Socket.IO events
-    const io = getSocketServer();
-    usersToNotify.forEach((u) => {
-      io.to(`user:${u.id}`).emit("notification", {
-        id: post.id,
-        type: "post",
-        content: `${user.name} (Admin) created a new post: ${validatedData.content.slice(0, 50)}...`,
-        relatedId: post.id,
-        createdAt: new Date().toISOString(),
-        isRead: false,
-        userId: u.id,
+    // Emit notifications via Socket.IO
+    try {
+      const io = getSocketServer();
+      savedNotifications.forEach((notification, index) => {
+        io.to(`user:${usersToNotify[index].id}`).emit("notification", {
+          id: notification.id,
+          type: notification.type,
+          content: notification.content,
+          relatedId: notification.relatedId,
+          createdAt: notification.createdAt.toISOString(),
+          isRead: notification.isRead,
+          userId: notification.userId,
+        });
       });
-    });
-
-
+    } catch (socketError) {
+      console.error("Socket.IO error:", socketError);
+      // Continue even if Socket.IO fails; notifications are still in DB
+    }
     // Revalidate feeds page
-    revalidatePath("/feeds")
+    revalidatePath("/feeds");
 
-    return { success: true, post }
+    return { success: true, post };
   } catch (error) {
     if (error instanceof Error) {
-      return { error: error.message }
+      return { error: error.message };
     }
-    return { error: "Failed to create post" }
+    return { error: "Failed to create post" };
   }
 }
 
 export async function likePost(postId: string) {
   try {
-    const user = await getCurrentUser()
+    const user = await getCurrentUser();
     if (!user) {
-      return { error: "Unauthorized" }
+      return { error: "Unauthorized" };
     }
 
     // Check if user already liked the post
@@ -201,7 +209,7 @@ export async function likePost(postId: string) {
           postId,
         },
       },
-    })
+    });
 
     if (existingLike) {
       // Unlike the post
@@ -212,8 +220,8 @@ export async function likePost(postId: string) {
             postId,
           },
         },
-      })
-      return { success: true, action: 'unliked' }
+      });
+      return { success: true, action: "unliked" };
     } else {
       // Like the post
       await db.like.create({
@@ -221,24 +229,24 @@ export async function likePost(postId: string) {
           userId: user.id,
           postId,
         },
-      })
-      return { success: true, action: 'liked' }
+      });
+      return { success: true, action: "liked" };
     }
   } catch (error) {
-    console.error('Like error:', error)
-    return { error: "Failed to like post" }
+    console.error("Like error:", error);
+    return { error: "Failed to like post" };
   }
 }
 
 export async function addComment(postId: string, content: string) {
   try {
-    const user = await getCurrentUser()
+    const user = await getCurrentUser();
     if (!user) {
-      return { error: "Unauthorized" }
+      return { error: "Unauthorized" };
     }
 
     if (!content.trim()) {
-      return { error: "Comment cannot be empty" }
+      return { error: "Comment cannot be empty" };
     }
 
     const comment = await db.comment.create({
@@ -257,55 +265,55 @@ export async function addComment(postId: string, content: string) {
           },
         },
       },
-    })
+    });
 
     // Don't revalidate since we're using optimistic updates
-    return { success: true, comment }
+    return { success: true, comment };
   } catch {
-    return { error: "Failed to add comment" }
+    return { error: "Failed to add comment" };
   }
 }
 
 export async function deletePost(postId: string) {
   try {
-    const user = await getCurrentUser()
+    const user = await getCurrentUser();
     if (!user) {
-      return { error: "Unauthorized" }
+      return { error: "Unauthorized" };
     }
 
     const post = await db.post.findUnique({
       where: { id: postId },
       select: { authorId: true },
-    })
+    });
 
     if (!post) {
-      return { error: "Post not found" }
+      return { error: "Post not found" };
     }
 
     if (post.authorId !== user.id && user.role !== "ADMIN") {
-      return { error: "Not authorized to delete this post" }
+      return { error: "Not authorized to delete this post" };
     }
 
     // Delete associated likes and comments first
-    await db.like.deleteMany({ where: { postId } })
-    await db.comment.deleteMany({ where: { postId } })
+    await db.like.deleteMany({ where: { postId } });
+    await db.comment.deleteMany({ where: { postId } });
 
     // Delete the post
-    await db.post.delete({ where: { id: postId } })
+    await db.post.delete({ where: { id: postId } });
 
     // Revalidate since this is a destructive action
-    revalidatePath("/feeds")
-    return { success: true }
+    revalidatePath("/feeds");
+    return { success: true };
   } catch {
-    return { error: "Failed to delete post" }
+    return { error: "Failed to delete post" };
   }
 }
 
 export async function addCommentReaction(commentId: string, type: string) {
   try {
-    const user = await getCurrentUser()
+    const user = await getCurrentUser();
     if (!user) {
-      return { error: "Unauthorized" }
+      return { error: "Unauthorized" };
     }
 
     // Check if user already reacted to the comment with this type
@@ -317,7 +325,7 @@ export async function addCommentReaction(commentId: string, type: string) {
           type,
         },
       },
-    })
+    });
 
     if (existingReaction) {
       // Remove the reaction
@@ -329,7 +337,7 @@ export async function addCommentReaction(commentId: string, type: string) {
             type,
           },
         },
-      })
+      });
     } else {
       // Add the reaction
       await db.commentReaction.create({
@@ -338,13 +346,13 @@ export async function addCommentReaction(commentId: string, type: string) {
           userId: user.id,
           commentId,
         },
-      })
+      });
     }
 
     // Don't revalidate since we're using optimistic updates
-    return { success: true }
+    return { success: true };
   } catch {
-    return { error: "Failed to react to comment" }
+    return { error: "Failed to react to comment" };
   }
 }
 
@@ -361,10 +369,10 @@ export async function getCommentReactions(commentId: string) {
           },
         },
       },
-    })
+    });
 
-    return { reactions }
+    return { reactions };
   } catch {
-    return { error: "Failed to fetch comment reactions" }
+    return { error: "Failed to fetch comment reactions" };
   }
 }

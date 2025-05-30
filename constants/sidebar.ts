@@ -41,7 +41,7 @@ export const navigationItems = [
         name: "Events",
         href: "/events",
         icon: Calendar,
-        badge: false
+        badge: "3"
       },
       {
         name: "Courses",
@@ -87,7 +87,7 @@ export const navigationItems = [
         name: "Notifications",
         href: "/notifications",
         icon: Bell,
-        badge: true
+        badge: "5"
       },
       {
         name: "Settings",

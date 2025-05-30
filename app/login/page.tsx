@@ -57,7 +57,7 @@ export default function LoginPage() {
       })
 
       router.push("/feeds")
-    } catch (error) {
+    } catch  {
       toast({
         title: "Error",
         description: "Something went wrong. Please try again.",
