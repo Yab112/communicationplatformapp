@@ -1,4 +1,3 @@
-import { departments } from './departments'
 
 export const departmentCourses: { [key: string]: string[] } = {
   "Biology": [

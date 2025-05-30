@@ -129,7 +129,7 @@ export function PostCard({ post, showFullContent: initialShowFullContent = false
         variant: "default",
         duration: 1500,
       });
-    } catch (error) {
+    } catch  {
       // Revert on error
       setLikesCount(likesCount);
       setIsLiked(isLiked);

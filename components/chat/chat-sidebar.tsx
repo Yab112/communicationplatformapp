@@ -63,7 +63,7 @@ export function ChatSidebar({ activeRoomId, onRoomChange, onClose }: ChatSidebar
           joinedAt: user.joinedAt.toISOString()
         }))
       })))
-    } catch (error) {
+    } catch  {
       toast({
         title: "Error",
         description: "Failed to fetch chat rooms",

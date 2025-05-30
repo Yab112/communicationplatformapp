@@ -7,7 +7,7 @@ export function UnderConstruction() {
         <Construction className="h-16 w-16 text-primary mb-4 animate-bounce" />
         <h1 className="text-2xl font-bold text-primary mb-2">Page Under Construction</h1>
         <p className="text-muted-foreground">
-          We're working hard to bring you an amazing experience. This page will be available soon!
+          We`&apos;`re working hard to bring you an amazing experience. This page will be available soon!
         </p>
       </div>
     </div>

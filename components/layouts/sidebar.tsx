@@ -8,6 +8,7 @@ import { Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { navigationItems } from "@/app/constants"
+import { useNotifications } from "@/hooks/use-notifications"
 
 interface SidebarProps {
   isMobile: boolean
@@ -16,10 +17,11 @@ interface SidebarProps {
 export function Sidebar({ isMobile }: SidebarProps) {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
+  const { unreadCount } = useNotifications()
 
   const toggleSidebar = () => setIsOpen(!isOpen)
 
-  const renderNavItem = (item: { name: string; href: string; icon: any; badge?: string }) => {
+  const renderNavItem = (item: { name: string; href: string; icon: React.ComponentType<{ className?: string }>; badge?: boolean }) => {
     const isActive = pathname === item.href
 
     return (
@@ -42,14 +44,14 @@ export function Sidebar({ isMobile }: SidebarProps) {
             <item.icon className="h-5 w-5" />
           </div>
           <span className="text-sm">{item.name}</span>
-          {item.badge && (
+          { item.badge && item.name === 'Notifications' && (
             <span className={cn(
               "ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs font-medium",
               isActive
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
             )}>
-              {item.badge}
+              {unreadCount}
             </span>
           )}
         </Link>
@@ -87,7 +89,7 @@ export function Sidebar({ isMobile }: SidebarProps) {
             </Button>
           </div>
           <nav className="mt-4 px-2">
-            {navigationItems.map((section, index) => (
+            {navigationItems.map((section) => (
               <div key={section.name} className="mb-6">
                 <h2 className="mb-2 px-4 text-xs font-semibold uppercase tracking-wider text-[var(--color-muted-foreground)]/70">
                   {section.name}
@@ -116,7 +118,7 @@ export function Sidebar({ isMobile }: SidebarProps) {
         </div>
 
         <nav className="flex-1 mt-6 px-2 overflow-y-auto feeds-scroll-hidden">
-          {navigationItems.map((section, index) => (
+          {navigationItems.map((section) => (
             <div key={section.name} className="mb-6">
               <h2 className="mb-2 px-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                 {section.name}
