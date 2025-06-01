@@ -1,16 +1,16 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 // import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
-import { Search, MessageSquare, User } from "lucide-react"
+import { Search, MessageSquare, User as UserIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { ProfileModal, type ProfileType } from "@/components/profile/profile-modal"
-import { createOrGetDMRoom } from "@/lib/actions/chat"
-import { useUsers } from "@/context/users-context"
-import type { User as UserType } from "@/context/user-context"
+import { createChatRoom } from "@/lib/actions/chat"
+import { getStudents } from "@/lib/actions/users"
+import type { User } from "@/types/user"
 // import type { ChatRoom } from "@/types/chat"
 
 interface StudentsListProps {
@@ -20,19 +20,57 @@ interface StudentsListProps {
 export function StudentsList({ onSelect }: StudentsListProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(false)
+  const [students, setStudents] = useState<User[]>([])
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
   const { toast } = useToast()
-  const { students, loadingStudents } = useUsers()
 
-  const filteredStudents = students.filter((student) => 
+  const fetchStudents = useCallback(async () => {
+    try {
+      setLoading(true)
+      const result = await getStudents()
+      if ("users" in result && Array.isArray(result.users)) {
+        setStudents(result.users)
+      } else if ("error" in result) {
+        toast({
+          title: "Error",
+          description: result.error,
+          variant: "destructive",
+        })
+        setStudents([])
+      } else {
+        console.error("Unexpected response format from getStudents:", result)
+        setStudents([])
+      }
+    } catch (error) {
+      console.error("Error fetching students:", error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch students",
+        variant: "destructive",
+      })
+      setStudents([])
+    } finally {
+      setLoading(false)
+    }
+  }, [toast])
+
+  useEffect(() => {
+    fetchStudents()
+  }, [fetchStudents])
+
+  const filteredStudents = students.filter(student => 
     student.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const handleCreateChatRoom = async (studentId: string) => {
     try {
       setLoading(true)
-      const result = await createOrGetDMRoom(studentId)
+      const memberIds = ["current-user-id", studentId]
+      const student = students.find(s => s.id === studentId)
+      const roomName = student?.name || "Direct Message"
+      
+      const result = await createChatRoom(roomName, memberIds)
 
       if ("error" in result) {
         toast({
@@ -40,12 +78,12 @@ export function StudentsList({ onSelect }: StudentsListProps) {
           description: result.error,
           variant: "destructive",
         })
-      } else if (result.room) {
+      } else if (result.chatRoom) {
         toast({
           title: "Chat created",
-          description: `Chat with ${result.room.name} created successfully.`, 
+          description: `Chat with ${student?.name || 'student'} created successfully.`, 
         })
-        onSelect(result.room.id)
+        onSelect(result.chatRoom.id)
       }
     } catch (error) {
       toast({
@@ -68,18 +106,7 @@ export function StudentsList({ onSelect }: StudentsListProps) {
     setIsProfileModalOpen(false)
   }
 
-  const getProfileType = (student: typeof students[0]): ProfileType => ({
-    id: student.id,
-    name: student.name,
-    email: student.email,
-    emailVerified: null,
-    image: student.image || null,
-    role: student.role,
-    department: student.department || null,
-    status: student.status || "offline",
-    createdAt: new Date(),
-    updatedAt: new Date()
-  })
+  const selectedStudent = students.find(s => s.id === selectedProfileId)
 
   return (
     <div className="flex h-full flex-col">
@@ -98,7 +125,7 @@ export function StudentsList({ onSelect }: StudentsListProps) {
 
       {/* Replace ScrollArea with a div with overflow-y-auto */}
       <div className="flex-1 overflow-y-auto -webkit-overflow-scrolling-touch">
-        {loadingStudents ? (
+        {loading ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-sm text-muted-foreground">Loading students...</p>
           </div>
@@ -130,7 +157,7 @@ export function StudentsList({ onSelect }: StudentsListProps) {
                 </div>
                 <div className="flex gap-2">
                   <Button variant="ghost" size="icon" onClick={() => handleOpenProfileModal(student.id)}>
-                    <User className="h-4 w-4" />
+                    <UserIcon className="h-4 w-4" />
                     <span className="sr-only">View Profile</span>
                   </Button>
                   <Button variant="ghost" size="icon" onClick={() => handleCreateChatRoom(student.id)} disabled={loading}>
@@ -144,11 +171,22 @@ export function StudentsList({ onSelect }: StudentsListProps) {
         )}
       </div>
 
-      {isProfileModalOpen && selectedProfileId && (
+      {isProfileModalOpen && selectedStudent && (
         <ProfileModal 
           isOpen={isProfileModalOpen} 
           onClose={handleCloseProfileModal} 
-          profile={students.find((s) => s.id === selectedProfileId) ? getProfileType(students.find((s) => s.id === selectedProfileId)!) : null}
+          profile={{
+            id: selectedStudent.id,
+            name: selectedStudent.name,
+            email: selectedStudent.email || "",
+            emailVerified: null,
+            image: selectedStudent.image || null,
+            role: selectedStudent.role,
+            status: selectedStudent.status,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            department: selectedStudent.department || null
+          }}
         />
       )}
     </div>

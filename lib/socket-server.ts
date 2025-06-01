@@ -82,6 +82,7 @@ export function initSocketServer(server?: NetServer): SocketIOServer {
 
     if (socket.data.userId) {
       socket.join(`user:${socket.data.userId}`);
+      console.log(`✅ User ${socket.data.userId} joined their room`);
     }
 
     socket.on("disconnect", (reason) => {
@@ -94,6 +95,8 @@ export function initSocketServer(server?: NetServer): SocketIOServer {
           socket.emit("error", "User not authenticated");
           return;
         }
+
+        console.log("📨 Received message:", { roomId: data.roomId, content: data.content });
 
         const isMember = await db.chatRoom.findFirst({
           where: {
@@ -128,6 +131,7 @@ export function initSocketServer(server?: NetServer): SocketIOServer {
         });
 
         io!.to(data.roomId).emit("new-message", message);
+        console.log("✅ Message sent to room:", data.roomId);
 
         const usersToNotify = await db.chatRoomUser.findMany({
           where: {
@@ -169,6 +173,8 @@ export function initSocketServer(server?: NetServer): SocketIOServer {
           return;
         }
 
+        console.log(`🔑 User ${socket.data.userId} attempting to join room:`, roomId);
+
         const isMember = await db.chatRoom.findFirst({
           where: {
             id: roomId,
@@ -206,7 +212,7 @@ export function initSocketServer(server?: NetServer): SocketIOServer {
   // Start standalone server if no server provided
   if (!server && port) {
     httpServer.listen(port, () => {
-      console.log(`Socket.IO server running on port ${port}`);
+      console.log(`🚀 Socket.IO server running on port ${port}`);
     });
   }
 
