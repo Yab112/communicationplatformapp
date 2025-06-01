@@ -1,155 +1,93 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Button } from "@/components/ui/button"
-import { MessageSquare, User as UserIcon, Search } from "lucide-react"
+// import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { motion } from "framer-motion"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Search, MessageSquare, User } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
-import { getTeachers } from "@/lib/actions/users"
-import { createDirectMessage } from "@/lib/actions/chat"
-import { User } from "@/types/user"
-import TeacherModalSkeleton from "../skeletons/teachermodal"
 import { ProfileModal, type ProfileType } from "@/components/profile/profile-modal"
+import { createChatRoom } from "@/lib/actions/chat"
+import { getTeachers } from "@/lib/actions/users"
+// import type { ChatRoom } from "@/types/chat"
 
 interface TeachersListProps {
-  roomId: string
-  onOpenProfile?: (userId: string) => void
-  onRoomCreated?: (roomId: string) => void
+  onSelect: (roomId: string) => void
 }
 
-export function TeachersList({ roomId, onOpenProfile, onRoomCreated }: TeachersListProps) {
+export function TeachersList({ onSelect }: TeachersListProps) {
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedTeacher, setSelectedTeacher] = useState<string | null>(null)
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
-  const [teachers, setTeachers] = useState<User[]>([])
-  const [loading, setLoading] = useState(true)
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
-  const [selectedProfile, setSelectedProfile] = useState<ProfileType | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [teachers, setTeachers] = useState<typeof mockTeachers>([])
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const { toast } = useToast()
 
-  useEffect(() => {
-    fetchTeachers()
-  }, [])
-
-  const fetchTeachers = async () => {
-    try {
-      const data = await getTeachers()
-      if ('error' in data) {
-        toast({
-          title: "Error",
-          description: data.error,
-          variant: "destructive",
-        })
-        return
-      }
-      setTeachers(data)
+  const handlefetchteacher = () =>{
+    try  {
+      const teachers = getTeachers()
+      setTeachers(teachers)
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to fetch teachers",
-        variant: "destructive",
-      })
+      console.error(error)
+    }
+  }
+
+  const filteredTeachers = teachers.filter(teacher=> 
+    teacher.name.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const handleCreateChatRoom = async (teacherId: string) => {
+    try {
+      setLoading(true)
+      // Use a placeholder for the current user's ID for now
+      const memberIds = ["current-user-id", teacherId];
+      const teacher = teachers.find(t => t.id === teacherId);
+      const roomName = teacher?.name || "Direct Message";
+      
+      const result = await createChatRoom(roomName, memberIds); 
+
+      if ("error" in result) {
+        toast({
+          title: "Error creating chat",
+          description: result.error,
+          variant: "destructive",
+        });
+      } else if (result.chatRoom) {
+         toast({
+            title: "Chat created",
+            description: `Chat with ${teacher?.name || 'teacher'} created successfully.`, 
+          });
+          // Signal to the parent (ChatSidebar) that a room was created
+          // The parent will refetch the room list and handle selecting the new room.
+          onSelect(result.chatRoom.id);
+      }
+    } catch (error) {
+       toast({
+          title: "Error",
+          description: "Failed to create chat room",
+          variant: "destructive",
+        });
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredTeachers = teachers.filter(
-    (teacher) =>
-      (teacher.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (teacher.department?.toLowerCase() || '').includes(searchQuery.toLowerCase()),
-  )
+  const handleOpenProfileModal = (teacherId: string) => {
+    setSelectedProfileId(teacherId);
+    setIsProfileModalOpen(true);
+  };
 
-  const container = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.05,
-      },
-    },
-  }
+  const handleCloseProfileModal = () => {
+    setSelectedProfileId(null);
+    setIsProfileModalOpen(false);
+  };
 
-  const item = {
-    hidden: { opacity: 0, y: 10 },
-    show: { opacity: 1, y: 0 },
-  }
-
-  const handleStartDM = (teacherId: string) => {
-    setSelectedTeacher(teacherId)
-    setShowConfirmDialog(true)
-  }
-
-  const handleViewProfile = (teacherId: string) => {
-    const teacher = teachers.find((t) => t.id === teacherId)
-    if (teacher) {
-      setSelectedProfile({
-        id: teacher.id,
-        name: teacher.name || "",
-        email: teacher.email || "",
-        emailVerified: null,
-        image: teacher.image || null,
-        role: teacher.role,
-        department: teacher.department || null,
-        status: teacher.status || "offline",
-        createdAt: new Date(),
-        updatedAt: new Date()
-      })
-      setIsProfileModalOpen(true)
-    }
-  }
-
-  const confirmStartDM = async () => {
-    if (!selectedTeacher) return
-
-    try {
-      const result = await createDirectMessage(selectedTeacher)
-
-      if ('error' in result) {
-        toast({
-          title: "Error",
-          description: result.error,
-          variant: "destructive",
-        })
-        return
-      }
-
-      const teacher = teachers.find((t) => t.id === selectedTeacher)
-      toast({
-        title: "Direct message created",
-        description: `You can now chat with ${teacher?.name}`,
-      })
-
-      if (onRoomCreated && result.chatRoom) {
-        onRoomCreated(result.chatRoom.id)
-      }
-
-      setShowConfirmDialog(false)
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to create direct message",
-        variant: "destructive",
-      })
-    }
-  }
-
-  if (loading) {
-    return (
-      <TeacherModalSkeleton />
-    )
-  }
 
   return (
-    <div className="py-4">
-      <h2 className="text-xl font-semibold mb-4">Teachers</h2>
-
-      <div className="mb-4">
-        <div className="relative">
+    <div className="flex h-full flex-col">
+      <div className="p-4">
+        <div className="relative mb-4">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
             type="search"
@@ -161,100 +99,54 @@ export function TeachersList({ roomId, onOpenProfile, onRoomCreated }: TeachersL
         </div>
       </div>
 
-      <ScrollArea className="h-[50vh]">
-        <motion.div className="space-y-3 pr-4" variants={container} initial="hidden" animate="show">
-          {filteredTeachers.length === 0 ? (
-            <div className="text-center p-4 text-muted-foreground">No teachers found</div>
-          ) : (
-            filteredTeachers.map((teacher) => (
-              <motion.div
+      {/* Replace ScrollArea with a div with overflow-y-auto */}
+      <div className="flex-1 overflow-y-auto">
+        {loading ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-sm text-muted-foreground">Loading teachers...</p>
+          </div>
+        ) : filteredTeachers.length === 0 ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-sm text-muted-foreground">No teachers found</p>
+          </div>
+        ) : (
+          <div className="space-y-2 px-4">
+            {filteredTeachers.map((teacher) => (
+              <div
                 key={teacher.id}
-                className="flex items-center gap-3 rounded-lg border border-primary/20 p-3"
-                variants={item}
-                whileHover={{ scale: 1.01 }}
+                className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50"
               >
                 <div className="flex items-center gap-3">
-                  <Avatar
-                    className="h-10 w-10 cursor-pointer hover:opacity-80"
-                    onClick={() => handleViewProfile(teacher.id)}
-                  >
-                    <AvatarImage src={teacher.image || "/placeholder.svg?height=40&width=40"} alt={teacher.name || "User"} />
-                    <AvatarFallback>{(teacher.name || "U").charAt(0)}</AvatarFallback>
+                  <Avatar className="h-10 w-10">
+                    <AvatarImage src={teacher.image || undefined} alt={teacher.name} />
+                    <AvatarFallback>{teacher.name[0]}</AvatarFallback>
                   </Avatar>
-
-                  <div className="flex-1">
-                    <h3
-                      className="font-medium cursor-pointer hover:underline"
-                      onClick={() => handleViewProfile(teacher.id)}
-                    >
-                      {teacher.name}
-                    </h3>
-                    <p className="text-xs text-muted-foreground">{teacher.department}</p>
-                    <div className="flex items-center mt-1">
-                      <span
-                        className={`h-2 w-2 rounded-full mr-1 ${teacher.status === "ONLINE" ? "bg-green-500" : "bg-gray-400"}`}
-                      />
-                      <span className="text-xs text-muted-foreground">
-                        {teacher.status === "ONLINE" ? "Online" : "Offline"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
-                      onClick={() => handleViewProfile(teacher.id)}
-                    >
-                      <UserIcon className="h-4 w-4" />
-                      <span className="sr-only">View profile</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8 hover:bg-primary/10 hover:text-primary"
-                      onClick={() => handleStartDM(teacher.id)}
-                    >
-                      <MessageSquare className="h-4 w-4" />
-                      <span className="sr-only">Send message</span>
-                    </Button>
+                  <div>
+                    <p className="font-medium">{teacher.name}</p>
+                    {teacher.department && (
+                      <p className="text-sm text-muted-foreground">{teacher.department}</p>
+                    )}
                   </div>
                 </div>
-              </motion.div>
-            ))
-          )}
-        </motion.div>
-      </ScrollArea>
-
-      <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Start new conversation</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p>
-              {selectedTeacher &&
-                `Start a direct message with ${teachers.find((t) => t.id === selectedTeacher)?.name}?`}
-            </p>
+                <div className="flex gap-2">
+                   <Button variant="ghost" size="icon" onClick={() => handleOpenProfileModal(teacher.id)}>
+                      <User className="h-4 w-4" />
+                      <span className="sr-only">View Profile</span>
+                    </Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleCreateChatRoom(teacher.id)} disabled={loading}>
+                    <MessageSquare className="h-4 w-4" />
+                    <span className="sr-only">Start Chat</span>
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setShowConfirmDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={confirmStartDM} className="bg-primary hover:bg-primary/90">
-              Start Conversation
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        )}
+      </div>
 
-      <ProfileModal
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-        profile={selectedProfile}
-        onStartDM={handleStartDM}
-      />
+      {isProfileModalOpen && selectedProfileId && (
+        <ProfileModal isOpen={isProfileModalOpen} onClose={handleCloseProfileModal} profile={{ id: selectedProfileId, name: "", email: "", emailVerified: null, image: null, role: "", status: "", createdAt: new Date(), updatedAt: new Date(), department: null }} />
+      )}
     </div>
   )
 }

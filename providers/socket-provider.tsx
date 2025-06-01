@@ -1,75 +1,97 @@
 // components/socket-provider.ts
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
-import { io as ClientIO, Socket } from "socket.io-client";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { io, Socket } from "socket.io-client";
 import { useSession } from "next-auth/react";
 import { useToast } from "@/hooks/use-toast";
 
-type SocketContextType = {
+interface SocketContextType {
   socket: Socket | null;
   isConnected: boolean;
-};
+}
 
 const SocketContext = createContext<SocketContextType>({
   socket: null,
   isConnected: false,
 });
 
-export const useSocket = () => {
-  return useContext(SocketContext);
-};
-
-export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
+export function SocketProvider({ children }: { children: React.ReactNode }) {
+  const { data: session } = useSession();
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const { data: session } = useSession();
+  const socketRef = useRef<Socket | null>(null);
   const { toast } = useToast();
+  const isMounted = useRef(true);
 
   useEffect(() => {
-    if (!session?.user) return;
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+    };
+  }, []);
 
-    const socketInstance = ClientIO(
-      process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001",
-      {
-        path: "/api/socket",
-        addTrailingSlash: false,
-        auth: {
-          token: `Bearer ${session.user.id}`,
-        },
+  useEffect(() => {
+    if (!session?.user?.id) {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+        if (isMounted.current) {
+          setSocket(null);
+          setIsConnected(false);
+        }
       }
-    );
+      return;
+    }
+
+    const socketInstance = io(process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:3001", {
+      auth: {
+        userId: session.user.id,
+      },
+    });
+
+    socketRef.current = socketInstance;
 
     socketInstance.on("connect", () => {
-      console.log("Socket connected");
-      setIsConnected(true);
-      socketInstance.emit("join", session.user.id);
+      if (isMounted.current) {
+        setSocket(socketInstance);
+        setIsConnected(true);
+      }
     });
 
     socketInstance.on("disconnect", () => {
-      console.log("Socket disconnected");
-      setIsConnected(false);
+      if (isMounted.current) {
+        setIsConnected(false);
+      }
     });
 
     socketInstance.on("error", (error) => {
-      console.error("Socket error:", error);
-      toast({
-        title: "Socket Error",
-        description: error.message || "Failed to connect to the server",
-        variant: "destructive",
-      });
+      if (isMounted.current) {
+        toast({
+          title: "Socket Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
     });
 
-    setSocket(socketInstance);
-
     return () => {
-      socketInstance.disconnect();
+      if (socketInstance) {
+        socketInstance.disconnect();
+        socketRef.current = null;
+        if (isMounted.current) {
+          setSocket(null);
+          setIsConnected(false);
+        }
+      }
     };
-  }, [session, toast]);
+  }, [session?.user?.id, toast]);
 
   return (
     <SocketContext.Provider value={{ socket, isConnected }}>
       {children}
     </SocketContext.Provider>
   );
-};
+}
+
+export const useSocket = () => useContext(SocketContext);

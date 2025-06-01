@@ -93,6 +93,7 @@ export async function getStudents() {
         role: true,
         status: true,
         department: true,
+        year: true,
         emailVerified: true,
         createdAt: true,
         updatedAt: true
@@ -109,7 +110,7 @@ export async function getStudents() {
       status: student.status as UserStatus
     }))
 
-    return transformedStudents
+    return { users: transformedStudents }
   } catch (error) {
     console.error("Error fetching students:", error)
     return { error: "Failed to fetch students" }

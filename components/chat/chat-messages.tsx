@@ -1,93 +1,73 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { motion } from "framer-motion"
-import { MessageItem } from "./message-item"
 import { Message } from "@/types/chat"
-import { MessageBubble } from "./message-bubble"
+import { cn } from "@/lib/utils"
+import { useSession } from "next-auth/react"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { format } from "date-fns"
 
 interface ChatMessagesProps {
   messages: Message[]
-  onOpenProfile: (userId: string) => void
-  messagesEndRef: React.RefObject<HTMLDivElement | null>
+  isLoading: boolean
 }
 
-export function ChatMessages({ messages, onOpenProfile, messagesEndRef }: ChatMessagesProps) {
-  const scrollAreaRef = useRef<HTMLDivElement>(null)
+export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
+  const { data: session } = useSession()
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Auto-scroll to bottom when new messages arrive
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
+
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
-    }
-  }, [messages, messagesEndRef])
+    scrollToBottom()
+  }, [messages])
 
-  // Group messages by date
-  const groupedMessages: { [key: string]: Message[] } = {}
-  messages.forEach((message) => {
-    const date = new Date(message.timestamp).toLocaleDateString()
-    if (!groupedMessages[date]) {
-      groupedMessages[date] = []
-    }
-    groupedMessages[date].push(message)
-  })
-
-  const hasMessages = Object.keys(groupedMessages).length > 0
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-sm text-muted-foreground">Loading messages...</p>
+      </div>
+    )
+  }
 
   return (
-    <div className="flex-1 overflow-hidden pt-2" ref={scrollAreaRef}>
-      <ScrollArea className="h-[calc(100vh-192px)]">
-        {!hasMessages ? (
-          <div className="flex h-full flex-col items-center justify-center text-center p-4">
-            <div className="rounded-full bg-primary/10 p-4 mb-4">
-              <motion.div
-                animate={{ rotate: [0, 10, -10, 0] }}
-                transition={{ repeat: Number.POSITIVE_INFINITY, duration: 2 }}
-              >
-                <span className="text-4xl">💬</span>
-              </motion.div>
-            </div>
-            <h3 className="text-xl font-medium mb-1">Start a conversation</h3>
-            <p className="text-muted-foreground">Send a message to begin chatting</p>
-          </div>
-        ) : (
-          <div className="space-y-6 p-4">
-            {Object.entries(groupedMessages).map(([date, dateMessages]) => (
-              <div key={date} className="space-y-4">
-                <div className="relative flex items-center py-2">
-                  <div className="flex-grow border-t border-border"></div>
-                  <span className="mx-4 flex-shrink-0 text-xs text-muted-foreground">{date}</span>
-                  <div className="flex-grow border-t border-border"></div>
-                </div>
+    <div className="flex-1 overflow-y-auto p-4">
+      <div className="space-y-4">
+        {messages.map((message) => {
+          const isOwnMessage = message.senderId === session?.user?.id
 
-                <motion.div
-                  initial="hidden"
-                  animate="visible"
-                  variants={{
-                    hidden: { opacity: 0 },
-                    visible: {
-                      opacity: 1,
-                      transition: {
-                        staggerChildren: 0.05,
-                      },
-                    },
-                  }}
-                >
-                  {dateMessages.map((message) => (
-                    <MessageBubble
-                      key={message.id}
-                      message={message}
-                      onOpenProfile={onOpenProfile}
-                    />
-                  ))}
-                </motion.div>
+          return (
+            <div
+              key={message.id}
+              className={cn(
+                "flex items-start gap-2",
+                isOwnMessage && "flex-row-reverse"
+              )}
+            >
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={message.senderImage} alt={message.senderName} />
+                <AvatarFallback>{message.senderName[0]}</AvatarFallback>
+              </Avatar>
+              <div
+                className={cn(
+                  "rounded-lg px-4 py-2 max-w-[80%]",
+                  isOwnMessage
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted"
+                )}
+              >
+                <p className="text-sm">{message.content}</p>
+                <p className="mt-1 text-xs opacity-70">
+                  {format(new Date(message.timestamp), "h:mm a")}
+                </p>
               </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
-      </ScrollArea>
+            </div>
+          )
+        })}
+        <div ref={messagesEndRef} />
+      </div>
     </div>
   )
 }

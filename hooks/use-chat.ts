@@ -1,136 +1,129 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { useToast } from "@/hooks/use-toast"
-import type { Message } from "@/types/chat"
-import { getMessages, sendMessage } from "@/lib/actions/chat"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useSession } from "next-auth/react"
 import { useSocket } from "@/providers/socket-provider"
+import { Message } from "@/types/chat"
+import { useToast } from "@/hooks/use-toast"
+import { sendMessage } from "@/lib/actions/chat"
 
-export function useChat(roomId: string) {
+// Helper to transform server message to client format
+const transformMessage = (message: any): Message => ({
+  id: message.id,
+  roomId: message.chatRoomId,
+  content: message.content,
+  senderId: message.senderId,
+  senderName: message.sender.name,
+  senderImage: message.sender.image || undefined,
+  timestamp: message.createdAt,
+})
+
+export function useChat(roomId?: string) {
   const [messages, setMessages] = useState<Message[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [typingUsers, setTypingUsers] = useState<string[]>([])
+  const [isLoading, setIsLoading] = useState(false)
+  const { data: session } = useSession()
   const { socket, isConnected } = useSocket()
   const { toast } = useToast()
-  const { data: session } = useSession()
 
-  // Fetch initial messages
+  const isMounted = useRef(true)
+  const messagesRef = useRef<Message[]>([])
+  const toastRef = useRef(toast)
+
+  // Keep messagesRef in sync with messages
   useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
+
+  // Keep toastRef updated
+  useEffect(() => {
+    toastRef.current = toast
+  }, [toast])
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      isMounted.current = false
+    }
+  }, [])
+
+  // Effect to fetch messages when roomId changes
+  useEffect(() => {
+    if (!roomId) {
+      setMessages([])
+      messagesRef.current = []
+      setIsLoading(false)
+      return
+    }
+
     const fetchMessages = async () => {
       try {
         setIsLoading(true)
-        const result = await getMessages(roomId)
+        const response = await fetch(`/api/chat/rooms/${roomId}/messages`)
+        if (!response.ok) throw new Error("Failed to fetch messages")
 
-        if ("error" in result) {
-          toast({
-            title: "Error",
-            description: result.error,
-            variant: "destructive",
-          })
-        } else {
-          setMessages(result as Message[])
+        const data = await response.json()
+        if (isMounted.current) {
+          const transformed = data.messages.map(transformMessage)
+          setMessages(transformed)
+          messagesRef.current = transformed
         }
       } catch (error) {
-        toast({
-          title: "Error",
-          description: "Failed to load messages",
-          variant: "destructive",
-        })
+        if (isMounted.current) {
+          toastRef.current({
+            title: "Error",
+            description: "Failed to load messages",
+            variant: "destructive",
+          })
+        }
       } finally {
-        setIsLoading(false)
-      }
-    }
-
-    if (roomId) {
-      fetchMessages()
-    }
-  }, [roomId, toast])
-
-  // Join room when socket connects or room changes
-  useEffect(() => {
-    if (socket && isConnected && roomId) {
-      // Join the room
-      socket.emit("join-room", roomId)
-
-      // Notify that user is online
-      if (session?.user?.id) {
-        socket.emit("user-online", session.user.id)
-      }
-
-      // Cleanup: leave room when component unmounts or room changes
-      return () => {
-        socket.emit("leave-room", roomId)
-      }
-    }
-  }, [socket, isConnected, roomId, session?.user?.id])
-
-  // Listen for new messages
-  useEffect(() => {
-    if (socket && isConnected) {
-      const handleNewMessage = (message: Message) => {
-        if (message.roomId === roomId) {
-          setMessages((prev) => [...prev, message])
+        if (isMounted.current) {
+          setIsLoading(false)
         }
       }
-
-      socket.on("new-message", handleNewMessage)
-
-      return () => {
-        socket.off("new-message", handleNewMessage)
-      }
     }
-  }, [socket, isConnected, roomId])
 
-  // Listen for typing indicators
+    fetchMessages()
+  }, [roomId])
+
+  // Handle incoming socket message
+  const handleNewMessage = useCallback((message: any) => {
+    if (!isMounted.current) return
+    setMessages(prev => [...prev, transformMessage(message)])
+  }, [])
+
+  // Setup socket listeners
   useEffect(() => {
-    if (socket && isConnected) {
-      const handleUserTyping = (user: string) => {
-        setTypingUsers((prev) => {
-          if (!prev.includes(user)) {
-            return [...prev, user]
-          }
-          return prev
-        })
-      }
+    if (!socket || !roomId) return
 
-      const handleUserStopTyping = (user: string) => {
-        setTypingUsers((prev) => prev.filter((u) => u !== user))
-      }
+    socket.on(`message:${roomId}`, handleNewMessage)
 
-      socket.on("user-typing", handleUserTyping)
-      socket.on("user-stop-typing", handleUserStopTyping)
-
-      return () => {
-        socket.off("user-typing", handleUserTyping)
-        socket.off("user-stop-typing", handleUserStopTyping)
-      }
+    return () => {
+      socket.off(`message:${roomId}`, handleNewMessage)
     }
-  }, [socket, isConnected])
+  }, [socket, roomId, handleNewMessage])
 
-  // Send message function
+  // Send message handler
   const sendMessageHandler = useCallback(
     async (content: string) => {
-      if (!session?.user) {
-        toast({
+      if (!session?.user || !roomId) {
+        toastRef.current({
           title: "Error",
-          description: "You must be logged in to send messages",
+          description: !session?.user
+            ? "You must be logged in to send messages"
+            : "No chat room selected",
           variant: "destructive",
         })
         return
       }
 
       try {
-        // Create form data
-        const formData = new FormData()
-        formData.append("content", content)
-        formData.append("roomId", roomId)
-
-        // Send to server
-        const result = await sendMessage(formData)
+        const result = await sendMessage({
+          content,
+          chatRoomId: roomId,
+        })
 
         if ("error" in result) {
-          toast({
+          toastRef.current({
             title: "Error",
             description: result.error,
             variant: "destructive",
@@ -138,45 +131,28 @@ export function useChat(roomId: string) {
           return
         }
 
-        // Add the message to the local state
-        setMessages((prev) => [...prev, result])
+        const transformed = transformMessage(result.message)
+        setMessages(prev => [...prev, transformed])
 
-        // Emit to socket for real-time updates
         if (socket && isConnected) {
-          socket.emit("send-message", result)
+          socket.emit("send-message", result.message)
         }
 
-        return result
-      } catch (error) {
-        toast({
+        return transformed
+      } catch {
+        toastRef.current({
           title: "Error",
           description: "Failed to send message",
           variant: "destructive",
         })
       }
     },
-    [roomId, socket, isConnected, session?.user, toast],
+    [roomId, socket, isConnected, session?.user]
   )
-
-  // Typing indicator functions
-  const startTyping = useCallback(() => {
-    if (socket && isConnected && session?.user) {
-      socket.emit("typing", { roomId, user: session.user.name })
-    }
-  }, [socket, isConnected, roomId, session?.user])
-
-  const stopTyping = useCallback(() => {
-    if (socket && isConnected && session?.user) {
-      socket.emit("stop-typing", { roomId, user: session.user.name })
-    }
-  }, [socket, isConnected, roomId, session?.user])
 
   return {
     messages,
     isLoading,
-    typingUsers,
     sendMessage: sendMessageHandler,
-    startTyping,
-    stopTyping,
   }
 }

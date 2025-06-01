@@ -1,8 +1,11 @@
-// hooks/use-notifications.ts
 "use client";
 
-import { useState, useEffect } from "react";
-import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from "@/lib/actions/notifications";
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  getNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+} from "@/lib/actions/notifications";
 import { useToast } from "@/hooks/use-toast";
 import { useSocket } from "@/providers/socket-provider";
 
@@ -22,73 +25,87 @@ export function useNotifications() {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
   const { socket } = useSocket();
+  const isMounted = useRef(true);
 
-  const fetchNotifications = async () => {
+  // Fetch notifications
+  const fetchNotifications = useCallback(async () => {
+    if (!isMounted.current) return;
+
+    setIsLoading(true);
     try {
-      setIsLoading(true);
       const result = await getNotifications();
 
+      if (!isMounted.current) return;
+
       if ("error" in result) {
-        // toast({
-        //   title: "Error",
-        //   description: result.error,
-        //   variant: "destructive",
-        // });
         setNotifications([]);
         setUnreadCount(0);
       } else if ("notifications" in result && Array.isArray(result.notifications)) {
-        setNotifications(
-          result.notifications.map((n) => ({
-            ...n,
-            createdAt: n.createdAt instanceof Date ? n.createdAt.toISOString() : n.createdAt,
-            relatedId: n.relatedId || undefined,
-          }))
-        );
-        setUnreadCount(result.notifications.filter((n) => !n.isRead).length);
+        const parsed = result.notifications.map((n) => ({
+          ...n,
+          createdAt: n.createdAt instanceof Date ? n.createdAt.toISOString() : n.createdAt,
+          relatedId: n.relatedId || undefined,
+        }));
+        setNotifications(parsed);
+        setUnreadCount(parsed.filter((n) => !n.isRead).length);
       } else {
         setNotifications([]);
         setUnreadCount(0);
       }
     } catch {
-      // toast({
-      //   title: "Error",
-      //   description: "Failed to load notifications",
-      //   variant: "destructive",
-      // });
-      setNotifications([]);
-      setUnreadCount(0);
+      if (isMounted.current) {
+        setNotifications([]);
+        setUnreadCount(0);
+      }
     } finally {
-      setIsLoading(false);
+      if (isMounted.current) {
+        setIsLoading(false);
+      }
     }
-  };
+  }, []);
 
+  // Handle real-time socket notification
+  const handleNewNotification = useCallback(
+    (notification: Notification) => {
+      if (!isMounted.current) return;
+
+      setNotifications((prev) => [notification, ...prev]);
+
+      if (!notification.isRead) {
+        setUnreadCount((prev) => prev + 1);
+      }
+
+      toast({
+        title: "New Notification",
+        description: notification.content,
+      });
+    },
+    [toast]
+  );
+
+  // Setup effect
   useEffect(() => {
+    isMounted.current = true;
+
     fetchNotifications();
 
     if (socket) {
-      socket.on("notification", (notification: Notification) => {
-        setNotifications((prev) => [notification, ...prev]);
-        if (!notification.isRead) {
-          setUnreadCount((prev) => prev + 1);
-        }
-        toast({
-          title: "New Notification",
-          description: notification.content,
-        });
-      });
-
-      return () => {
-        socket.off("notification");
-      };
+      socket.on("notification", handleNewNotification);
     }
-  }, [socket, toast]);
 
-  const markAsRead = async (notificationId: string) => {
+    return () => {
+      isMounted.current = false;
+      if (socket) {
+        socket.off("notification", handleNewNotification);
+      }
+    };
+  }, [fetchNotifications, socket, handleNewNotification]);
+
+  // Mark individual notification as read
+  const markAsRead = useCallback(async (notificationId: string) => {
     try {
       const result = await markNotificationAsRead(notificationId);
-      if ("error" in result) {
-        throw new Error(result.error);
-      }
+      if ("error" in result) throw new Error(result.error);
 
       setNotifications((prev) =>
         prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
@@ -101,14 +118,13 @@ export function useNotifications() {
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
 
-  const markAllAsRead = async () => {
+  // Mark all as read
+  const markAllAsRead = useCallback(async () => {
     try {
       const result = await markAllNotificationsAsRead();
-      if ("error" in result) {
-        throw new Error(result.error);
-      }
+      if ("error" in result) throw new Error(result.error);
 
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
       setUnreadCount(0);
@@ -119,7 +135,7 @@ export function useNotifications() {
         variant: "destructive",
       });
     }
-  };
+  }, [toast]);
 
   return {
     notifications,

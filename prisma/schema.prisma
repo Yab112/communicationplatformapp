@@ -20,6 +20,7 @@ model User {
   image         String?
   role          String    @default("student") // student, teacher, admin
   department    String?
+  year          String?   // Added year field
   status        String    @default("offline") // online, offline
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -79,7 +80,7 @@ model Post {
   department String?
   tags       String[]  @default([])
   createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  updatedAt  DateTime @updatedAt
   authorId   String
   author     User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
   comments   Comment[]
