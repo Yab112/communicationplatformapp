@@ -211,36 +211,36 @@ export function ResourcesTabs({ roomId, initialResources = [] }: ResourcesTabsPr
   )
 
   return (
-    <div className="py-4">
-      <h2 className="text-xl font-semibold mb-4">Section Resources</h2>
-
-      <div className="relative mb-4">
-        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
-        <Input
-          type="search"
-          placeholder="Search by topic, title, or uploader..."
-          className="pl-8"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
+    <div className="flex flex-col h-full">
+      <div className="p-4">
+        <div className="relative mb-4">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            type="search"
+            placeholder="Search resources..."
+            className="pl-8"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
       </div>
 
-      <Tabs defaultValue="assignment" onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="assignment">Assignment</TabsTrigger>
-          <TabsTrigger value="homeexam">Home Exam</TabsTrigger>
-          <TabsTrigger value="resource">Resource</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1">
+        <TabsList className="w-full justify-start px-4">
+          <TabsTrigger value="assignment">Assignments</TabsTrigger>
+          <TabsTrigger value="homeexam">Home Exams</TabsTrigger>
+          <TabsTrigger value="material">Materials</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="assignment" className="mt-4">
+        <TabsContent value="assignment" className="flex-1">
           {renderResourceList(resources)}
         </TabsContent>
 
-        <TabsContent value="homeexam" className="mt-4">
+        <TabsContent value="homeexam" className="flex-1">
           {renderResourceList(resources)}
         </TabsContent>
 
-        <TabsContent value="resource" className="mt-4">
+        <TabsContent value="material" className="flex-1">
           {renderResourceList(resources)}
         </TabsContent>
       </Tabs>

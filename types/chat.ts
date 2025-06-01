@@ -1,5 +1,6 @@
+import { UserStatus } from "@/types/user"
+
 export interface Message {
-    sender: any
     id: string
     roomId: string
     content: string
@@ -26,8 +27,8 @@ export interface Message {
       id: string
       name: string
       image: string | null
-      status: string
-      role: string
+      status: UserStatus
+      role: "teacher" | "student" | "admin"
     }
   }
   
@@ -42,15 +43,9 @@ export interface Message {
       timestamp: string
     }
     unreadCount: number
-    users?: ChatRoomUser[]
+    users: ChatRoomUser[]
     createdAt: string
     updatedAt: string
-    participants?: {
-      id: string
-      name: string
-      image: string | null
-      status: string
-    }[]
   }
   
   export interface Resource {

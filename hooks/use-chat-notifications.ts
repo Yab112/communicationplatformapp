@@ -24,10 +24,16 @@ export function useChatNotifications() {
 
   // Fetch initial notifications
   useEffect(() => {
+    let isMounted = true;
+
     const fetchNotifications = async () => {
+      if (!isMounted) return;
+      
       try {
         setIsLoading(true)
         const result = await getNotifications()
+
+        if (!isMounted) return;
 
         if ("error" in result) {
           toast({
@@ -35,43 +41,54 @@ export function useChatNotifications() {
             description: result.error,
             variant: "destructive",
           })
-        } else {
-          setNotifications(result as Notification[])
-          setUnreadCount(result.filter((n: Notification) => !n.isRead).length)
+        } else if ("notifications" in result) {
+          setNotifications(result.notifications.map(n => ({
+            ...n,
+            createdAt: n.createdAt instanceof Date ? n.createdAt.toISOString() : n.createdAt,
+            relatedId: n.relatedId || undefined
+          })))
+          setUnreadCount(result.notifications.filter(n => !n.isRead).length)
         }
       } catch (error) {
+        if (!isMounted) return;
         toast({
           title: "Error",
           description: "Failed to load notifications",
           variant: "destructive",
         })
       } finally {
-        setIsLoading(false)
+        if (isMounted) {
+          setIsLoading(false)
+        }
       }
     }
 
     fetchNotifications()
+
+    return () => {
+      isMounted = false;
+    }
   }, [toast])
 
   // Listen for new notifications via socket
   useEffect(() => {
-    if (socket && isConnected) {
-      const handleNewNotification = (notification: Notification) => {
-        setNotifications(prev => [notification, ...prev])
-        setUnreadCount(prev => prev + 1)
+    if (!socket || !isConnected) return;
 
-        // Show toast for new notification
-        toast({
-          title: notification.type.charAt(0).toUpperCase() + notification.type.slice(1),
-          description: notification.content,
-        })
-      }
+    const handleNewNotification = (notification: Notification) => {
+      setNotifications(prev => [notification, ...prev])
+      setUnreadCount(prev => prev + 1)
 
-      socket.on("notification", handleNewNotification)
+      // Show toast for new notification
+      toast({
+        title: notification.type.charAt(0).toUpperCase() + notification.type.slice(1),
+        description: notification.content,
+      })
+    }
 
-      return () => {
-        socket.off("notification", handleNewNotification)
-      }
+    socket.on("notification", handleNewNotification)
+
+    return () => {
+      socket.off("notification", handleNewNotification)
     }
   }, [socket, isConnected, toast])
 

@@ -4,14 +4,13 @@ import { useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { mockStudents, mockTeachers } from "@/data/mock/users"
-import type { User } from "@/types/user"
+import { useUser } from "@/context/user-context"
 
 export function UsersSidebar() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [activeTab, setActiveTab] = useState("students")
+  const { teachers, students, loadingTeachers, loadingStudents } = useUser()
 
-  const renderUserList = (users: User[]) => (
+  const renderUserList = (users: typeof teachers) => (
     <ScrollArea className="h-[calc(100vh-180px)]">
       <div className="space-y-2 p-4">
         {users.map((user) => (
@@ -23,6 +22,9 @@ export function UsersSidebar() {
             <div className="flex-1 truncate">
               <p className="text-sm font-medium leading-none">{user.name}</p>
               <p className="text-xs text-[var(--color-muted-fg)]">{user.department}</p>
+              {user.year && (
+                <p className="text-xs text-[var(--color-muted-fg)]">Year {user.year}</p>
+              )}
             </div>
             <div
               className={`h-2 w-2 rounded-full ${user.status === "online" ? "bg-[var(--color-success)]" : "bg-[var(--color-muted-fg)]/30"}`}
@@ -39,11 +41,27 @@ export function UsersSidebar() {
         <h3 className="mb-4 text-lg font-semibold">Community</h3>
         <Tabs defaultValue="students" onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-2 bg-blue-100/50 data-[state=active]:bg-blue-500/40">
-            <TabsTrigger value="students" >Students</TabsTrigger>
+            <TabsTrigger value="students">Students</TabsTrigger>
             <TabsTrigger value="teachers">Teachers</TabsTrigger>
           </TabsList>
-          <TabsContent value="students">{renderUserList(mockStudents)}</TabsContent>
-          <TabsContent value="teachers">{renderUserList(mockTeachers)}</TabsContent>
+          <TabsContent value="students">
+            {loadingStudents ? (
+              <div className="flex items-center justify-center h-[calc(100vh-180px)]">
+                <p className="text-sm text-muted-foreground">Loading students...</p>
+              </div>
+            ) : (
+              renderUserList(students)
+            )}
+          </TabsContent>
+          <TabsContent value="teachers">
+            {loadingTeachers ? (
+              <div className="flex items-center justify-center h-[calc(100vh-180px)]">
+                <p className="text-sm text-muted-foreground">Loading teachers...</p>
+              </div>
+            ) : (
+              renderUserList(teachers)
+            )}
+          </TabsContent>
         </Tabs>
       </div>
     </div>

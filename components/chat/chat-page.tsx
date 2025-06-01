@@ -1,178 +1,145 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { AnimatePresence, motion } from "framer-motion"
-import { MessageCircle, Users } from "lucide-react"
+import { useState, useCallback, useMemo } from "react"
+import { MessageCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import useMobile from "@/hooks/use-mobile"
 import { ChatRoom } from "@/types/chat"
-import { useChat } from "@/hooks/use-chat"
-import { ProfileModal, ProfileType } from "../profile/profile-modal"
 import { ChatRoomHeader } from "./chat-room-header"
 import { ChatMessages } from "./chat-messages"
 import { MessageInput } from "./message-input"
 import { ChatSidebar } from "./chat-sidebar"
+import { useChat } from "@/hooks/use-chat"
 import { useToast } from "@/hooks/use-toast"
-import { createOrGetDMRoom } from "@/lib/actions/chat"
-import { useSession } from "next-auth/react"
-import { TeachersList } from "./teachers-list"
-import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { useRouter } from "next/navigation"
 
 export function ChatPage() {
   const [activeRoom, setActiveRoom] = useState<ChatRoom | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [showTeachersList, setShowTeachersList] = useState(false)
-  const { messages, sendMessage } = useChat(activeRoom?.id || "")
   const isMobile = useMobile()
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const { toast } = useToast()
-  const { data: session } = useSession()
+  const router = useRouter()
 
-  // Profile modal state
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
-  const [selectedProfile, setSelectedProfile] = useState<ProfileType | null>(null)
+  // Use the useChat hook when a room is selected
+  const {
+    messages,
+    isLoading,
+    sendMessage
+  } = useChat(activeRoom?.id || "")
 
-  const handleRoomChange = (room: ChatRoom) => {
+  const handleRoomChange = useCallback((room: ChatRoom) => {
     setActiveRoom(room)
-    if (isMobile) setSidebarOpen(false)
-  }
-
-  const handleOpenProfile = (userId: string) => {
-    // In a real app, you would fetch the user's profile from the API
-    // For now, we'll just set a basic profile
-    const profile: ProfileType = {
-      id: userId,
-      name: "User", // This should be fetched from the API
-      image: "",
-      role: "user",
-      department: "",
-      status: "offline",
-      email: "",
-      emailVerified: null,
-      createdAt: new Date(),
-      updatedAt: new Date()
+    if (isMobile) {
+      setSidebarOpen(false)
     }
+  }, [isMobile])
 
-    setSelectedProfile(profile)
-    setIsProfileModalOpen(true)
-  }
-
-  const handleStartDM = async (profileId: string) => {
-    if (!session?.user) {
-      toast({
-        title: "Error",
-        description: "You must be logged in to start a conversation",
-        variant: "destructive",
-      })
-      return
-    }
+  const handleSendMessage = useCallback(async (content: string) => {
+    if (!activeRoom?.id) return
 
     try {
-      const result = await createOrGetDMRoom(profileId)
-
-      if ("error" in result) {
-        toast({
-          title: "Error",
-          description: result.error,
-          variant: "destructive",
-        })
-        return
-      }
-
-      handleRoomChange(result.room)
-      setIsProfileModalOpen(false)
+      await sendMessage(content)
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to start conversation",
+        description: "Failed to send message",
         variant: "destructive",
       })
     }
-  }
+  }, [activeRoom?.id, sendMessage, toast])
 
-  useEffect(() => {
-    // Scroll to bottom on new messages or room change
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
+  const handleOpenProfile = useCallback((userId: string) => {
+    router.push(`/profile/${userId}`)
+  }, [router])
+
+  const handleDeleteRoom = useCallback(async () => {
+    if (!activeRoom?.id) return
+
+    try {
+      // TODO: Implement room deletion
+      toast({
+        title: "Success",
+        description: "Room deleted successfully",
+      })
+      setActiveRoom(null)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete room",
+        variant: "destructive",
+      })
     }
-  }, [messages.length, activeRoom?.id])
+  }, [activeRoom?.id, toast])
+
+  const toggleSidebar = useCallback(() => {
+    setSidebarOpen(prev => !prev)
+  }, [])
+
+  const closeSidebar = useCallback(() => {
+    setSidebarOpen(false)
+  }, [])
+
+  const sidebarClasses = useMemo(() => cn(
+    "fixed inset-y-0 left-0 z-10 h-full w-80 flex-shrink-0 overflow-hidden border-r bg-background transition-transform duration-200 ease-in-out md:relative md:translate-x-0",
+    isMobile && !sidebarOpen && "-translate-x-full"
+  ), [isMobile, sidebarOpen])
 
   return (
-    <div className="flex h-[calc(100vh-var(--spacing-header))]">
-      {/* Main content area with proper spacing */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* Mobile toggle button */}
-        {isMobile && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute left-4 top-20 z-20 md:hidden"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-          >
-            <MessageCircle className="h-5 w-5" />
-            <span className="sr-only">Toggle chat sidebar</span>
-          </Button>
-        )}
+    <div className="flex h-[calc(100vh-var(--spacing-header))] bg-background">
+      {isMobile && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="fixed left-4 top-20 z-20 md:hidden"
+          onClick={toggleSidebar}
+        >
+          <MessageCircle className="h-5 w-5" />
+          <span className="sr-only">Toggle chat sidebar</span>
+        </Button>
+      )}
 
-        {/* Left sidebar with chat rooms */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            initial={isMobile ? { x: "-100%" } : false}
-            animate={isMobile ? { x: sidebarOpen ? 0 : "-100%" } : {}}
-            exit={{ x: "-100%" }}
-            transition={{ duration: 0.2 }}
-            className={cn(
-              "absolute inset-y-0 left-0 z-10 h-full w-80 flex-shrink-0 overflow-hidden border-r border-[var(--color-border)] bg-[var(--color-card)] md:relative md:block",
-              isMobile && !sidebarOpen && "hidden",
-            )}
-          >
-            <div className="flex flex-col h-full">
-              <ChatSidebar
-                activeRoomId={activeRoom?.id}
-                onRoomChange={handleRoomChange}
-                onClose={() => setSidebarOpen(false)}
-              />
-            </div>
-          </motion.div>
-        </AnimatePresence>
-
-        {/* Main chat area with message bubbles */}
-        <div className="flex flex-col flex-1 overflow-hidden">
-          {activeRoom ? (
-            <>
-              <ChatRoomHeader room={activeRoom} onOpenProfile={handleOpenProfile} />
-              <div className="relative flex-1 overflow-hidden">
-                <ChatMessages messages={messages} onOpenProfile={handleOpenProfile} messagesEndRef={messagesEndRef} />
-                <div ref={messagesEndRef} />
-                <MessageInput roomId={activeRoom.id} onSendMessage={sendMessage} />
-              </div>
-            </>
-          ) : (
-            <div className="flex h-full items-center justify-center">
-              <div className="text-center">
-                <h3 className="text-lg font-medium">No chat selected</h3>
-                <p className="text-sm text-muted-foreground">Select a chat from the sidebar to start messaging</p>
-              </div>
-            </div>
-          )}
-        </div>
+      <div className={sidebarClasses}>
+        <ChatSidebar
+          activeRoomId={activeRoom?.id}
+          onRoomChange={handleRoomChange}
+          onClose={closeSidebar}
+        />
       </div>
 
-      {/* Profile Modal */}
-      <ProfileModal
-        isOpen={isProfileModalOpen}
-        onClose={() => setIsProfileModalOpen(false)}
-        profile={selectedProfile}
-        onStartDM={handleStartDM}
-      />
-
-      {/* Teachers List Dialog */}
-      <Dialog open={showTeachersList} onOpenChange={setShowTeachersList}>
-        <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-hidden">
-          <TeachersList roomId={activeRoom?.id || ""} onOpenProfile={handleOpenProfile} />
-        </DialogContent>
-      </Dialog>
+      <div className="flex flex-1 flex-col">
+        {activeRoom ? (
+          <>
+            <ChatRoomHeader 
+              room={activeRoom} 
+              onOpenProfile={handleOpenProfile}
+              onDelete={handleDeleteRoom}
+            />
+            <div className="relative flex-1 overflow-hidden">
+              <ChatMessages 
+                messages={messages} 
+                isLoading={isLoading}
+              />
+              <div className="absolute bottom-0 left-0 right-0 border-t bg-background p-4">
+                <MessageInput 
+                  onSendMessage={handleSendMessage}
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex h-full items-center justify-center p-4">
+            <div className="text-center">
+              <MessageCircle className="mx-auto h-12 w-12 text-muted-foreground/50" />
+              <h3 className="mt-4 text-lg font-medium">No chat selected</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Select a chat from the sidebar to start messaging
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
