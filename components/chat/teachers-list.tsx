@@ -1,15 +1,16 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 // import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
-import { Search, MessageSquare, User } from "lucide-react"
+import { Search, MessageSquare, User as UserIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 import { ProfileModal, type ProfileType } from "@/components/profile/profile-modal"
 import { createChatRoom } from "@/lib/actions/chat"
 import { getTeachers } from "@/lib/actions/users"
+import type { User } from "@/types/user"
 // import type { ChatRoom } from "@/types/chat"
 
 interface TeachersListProps {
@@ -19,70 +20,93 @@ interface TeachersListProps {
 export function TeachersList({ onSelect }: TeachersListProps) {
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(false)
-  const [teachers, setTeachers] = useState<typeof mockTeachers>([])
-  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [teachers, setTeachers] = useState<User[]>([])
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
   const { toast } = useToast()
 
-  const handlefetchteacher = () =>{
-    try  {
-      const teachers = getTeachers()
-      setTeachers(teachers)
+  const fetchTeachers = useCallback(async () => {
+    try {
+      setLoading(true)
+      const result = await getTeachers()
+      if ("users" in result && Array.isArray(result.users)) {
+        setTeachers(result.users)
+      } else if ("error" in result) {
+        toast({
+          title: "Error",
+          description: result.error,
+          variant: "destructive",
+        })
+        setTeachers([])
+      } else {
+        console.error("Unexpected response format from getTeachers:", result)
+        setTeachers([])
+      }
     } catch (error) {
-      console.error(error)
+      console.error("Error fetching teachers:", error)
+      toast({
+        title: "Error",
+        description: "Failed to fetch teachers",
+        variant: "destructive",
+      })
+      setTeachers([])
+    } finally {
+      setLoading(false)
     }
-  }
+  }, [toast])
 
-  const filteredTeachers = teachers.filter(teacher=> 
+  useEffect(() => {
+    fetchTeachers()
+  }, [fetchTeachers])
+
+  const filteredTeachers = teachers.filter(teacher => 
     teacher.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const handleCreateChatRoom = async (teacherId: string) => {
     try {
       setLoading(true)
-      // Use a placeholder for the current user's ID for now
-      const memberIds = ["current-user-id", teacherId];
-      const teacher = teachers.find(t => t.id === teacherId);
-      const roomName = teacher?.name || "Direct Message";
+      const memberIds = ["current-user-id", teacherId]
+      const teacher = teachers.find(t => t.id === teacherId)
+      const roomName = teacher?.name || "Direct Message"
       
-      const result = await createChatRoom(roomName, memberIds); 
+      const result = await createChatRoom(roomName, memberIds)
 
       if ("error" in result) {
         toast({
           title: "Error creating chat",
           description: result.error,
           variant: "destructive",
-        });
+        })
       } else if (result.chatRoom) {
-         toast({
-            title: "Chat created",
-            description: `Chat with ${teacher?.name || 'teacher'} created successfully.`, 
-          });
-          // Signal to the parent (ChatSidebar) that a room was created
-          // The parent will refetch the room list and handle selecting the new room.
-          onSelect(result.chatRoom.id);
+        toast({
+          title: "Chat created",
+          description: `Chat with ${teacher?.name || 'teacher'} created successfully.`, 
+        })
+        onSelect(result.chatRoom.id)
       }
     } catch (error) {
-       toast({
-          title: "Error",
-          description: "Failed to create chat room",
-          variant: "destructive",
-        });
+      toast({
+        title: "Error",
+        description: "Failed to create chat room",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
   }
 
   const handleOpenProfileModal = (teacherId: string) => {
-    setSelectedProfileId(teacherId);
-    setIsProfileModalOpen(true);
-  };
+    setSelectedProfileId(teacherId)
+    setIsProfileModalOpen(true)
+  }
 
   const handleCloseProfileModal = () => {
-    setSelectedProfileId(null);
-    setIsProfileModalOpen(false);
-  };
+    setSelectedProfileId(null)
+    setIsProfileModalOpen(false)
+  }
 
+  const selectedTeacher = teachers.find(t => t.id === selectedProfileId)
 
   return (
     <div className="flex h-full flex-col">
@@ -129,10 +153,10 @@ export function TeachersList({ onSelect }: TeachersListProps) {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                   <Button variant="ghost" size="icon" onClick={() => handleOpenProfileModal(teacher.id)}>
-                      <User className="h-4 w-4" />
-                      <span className="sr-only">View Profile</span>
-                    </Button>
+                  <Button variant="ghost" size="icon" onClick={() => handleOpenProfileModal(teacher.id)}>
+                    <UserIcon className="h-4 w-4" />
+                    <span className="sr-only">View Profile</span>
+                  </Button>
                   <Button variant="ghost" size="icon" onClick={() => handleCreateChatRoom(teacher.id)} disabled={loading}>
                     <MessageSquare className="h-4 w-4" />
                     <span className="sr-only">Start Chat</span>
@@ -144,8 +168,23 @@ export function TeachersList({ onSelect }: TeachersListProps) {
         )}
       </div>
 
-      {isProfileModalOpen && selectedProfileId && (
-        <ProfileModal isOpen={isProfileModalOpen} onClose={handleCloseProfileModal} profile={{ id: selectedProfileId, name: "", email: "", emailVerified: null, image: null, role: "", status: "", createdAt: new Date(), updatedAt: new Date(), department: null }} />
+      {isProfileModalOpen && selectedTeacher && (
+        <ProfileModal 
+          isOpen={isProfileModalOpen} 
+          onClose={handleCloseProfileModal} 
+          profile={{
+            id: selectedTeacher.id,
+            name: selectedTeacher.name,
+            email: selectedTeacher.email || "",
+            emailVerified: null,
+            image: selectedTeacher.image || null,
+            role: selectedTeacher.role,
+            status: selectedTeacher.status,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            department: selectedTeacher.department || null
+          }}
+        />
       )}
     </div>
   )

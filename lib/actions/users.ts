@@ -36,12 +36,14 @@ export async function getTeachers() {
   try {
     const currentUser = await getCurrentUser()
     if (!currentUser) {
+      console.log("No current user found in getTeachers")
       return { error: "Unauthorized" }
     }
 
+    console.log("Fetching teachers for user:", currentUser.id)
     const teachers = await db.user.findMany({
       where: {
-        role: "teacher" as const
+        role: "teacher"
       },
       select: {
         id: true,
@@ -60,6 +62,13 @@ export async function getTeachers() {
       },
     })
 
+    console.log("Found teachers:", teachers)
+
+    if (!teachers || teachers.length === 0) {
+      console.log("No teachers found in database")
+      return { users: [] }
+    }
+
     // Transform the data to match User type
     const transformedTeachers = teachers.map(teacher => ({
       ...teacher,
@@ -67,9 +76,10 @@ export async function getTeachers() {
       status: teacher.status as UserStatus
     }))
 
-    return transformedTeachers
+    console.log("Transformed teachers:", transformedTeachers)
+    return { users: transformedTeachers }
   } catch (error) {
-    console.error("Error fetching teachers:", error)
+    console.error("Error in getTeachers:", error)
     return { error: "Failed to fetch teachers" }
   }
 }

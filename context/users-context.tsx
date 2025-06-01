@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react"
 import { getStudents, getTeachers } from "@/lib/actions/users"
-import type { User } from "@/context/user-context"
+import type { User } from "@/types/user"
 import type { UserRole, UserStatus } from "@/types/user"
 
 type UsersContextType = {
@@ -42,19 +42,9 @@ export function UsersProvider({ children }: { children: React.ReactNode }) {
       setLoadingStudents(true)
       const result = await getStudents()
       if ("users" in result && Array.isArray(result.users)) {
-        const transformedUsers: User[] = result.users.map(user => ({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          image: user.image,
-          role: user.role === "STUDENT" ? "Student" : user.role === "TEACHER" ? "Teacher" : "Admin",
-          department: user.department,
-          year: user.year,
-          status: user.status.toLowerCase() as "online" | "offline",
-          bio: null
-        }))
-        setStudents(transformedUsers)
+        setStudents(result.users)
       } else {
+        console.error("Unexpected response format from getStudents:", result)
         setStudents([])
       }
     } catch (error) {
@@ -70,19 +60,9 @@ export function UsersProvider({ children }: { children: React.ReactNode }) {
       setLoadingTeachers(true)
       const result = await getTeachers()
       if ("users" in result && Array.isArray(result.users)) {
-        const transformedUsers: User[] = result.users.map(user => ({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          image: user.image,
-          role: user.role === "STUDENT" ? "Student" : user.role === "TEACHER" ? "Teacher" : "Admin",
-          department: user.department,
-          year: user.year,
-          status: user.status.toLowerCase() as "online" | "offline",
-          bio: null
-        }))
-        setTeachers(transformedUsers)
+        setTeachers(result.users)
       } else {
+        console.error("Unexpected response format from getTeachers:", result)
         setTeachers([])
       }
     } catch (error) {
