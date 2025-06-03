@@ -40,7 +40,7 @@ export function ChatPage() {
 
     try {
       await sendMessage(content)
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to send message",
@@ -63,7 +63,7 @@ export function ChatPage() {
         description: "Room deleted successfully",
       })
       setActiveRoom(null)
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to delete room",

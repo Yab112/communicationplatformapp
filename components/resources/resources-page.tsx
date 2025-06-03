@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { ResourceList } from "@/components/resources/resource-list";
 import { ResourceFilters } from "@/components/resources/resource-filters";
 import { CreateResourceModal } from "@/components/resources/create-resource-modal";
