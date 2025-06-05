@@ -1,9 +1,91 @@
-"use server"
+"use server";
 
-import { db } from "@/lib/db"
-import { getCurrentUser } from "@/lib/get-session"
-import { Prisma } from "@prisma/client"
+import { db } from "@/lib/db";
+import { getCurrentUser } from "@/lib/get-session";
+import { Prisma } from "@prisma/client";
 import { getSocketServer } from "../socket-server";
+
+// Get all folders for the current user
+export async function getResourceFolders() {
+  const user = await getCurrentUser();
+  if (!user) return { folders: [], error: "Unauthorized" };
+  try {
+    const folders = await db.resourceFolder.findMany({
+      where: { authorId: user.id },
+      orderBy: { createdAt: "desc" },
+    });
+    return { folders, error: null };
+  } catch  {
+    return { folders: [], error: "Failed to fetch folders" };
+  }
+}
+
+// Create a new folder for the current user
+export async function createResourceFolder(name: string, description?: string) {
+  const user = await getCurrentUser();
+  if (!user) return { folder: null, error: "Unauthorized" };
+  try {
+    const folder = await db.resourceFolder.create({
+      data: { name, description, authorId: user.id },
+    });
+    return { folder, error: null };
+  } catch  {
+    return { folder: null, error: "Failed to create folder" };
+  }
+}
+
+// Delete a folder (and remove folderId from resources)
+export async function deleteResourceFolder(folderId: string) {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Unauthorized" };
+  try {
+    // Remove folderId from resources in this folder
+    await db.resource.updateMany({
+      where: { folderId, authorId: user.id },
+      data: { folderId: null },
+    });
+    // Delete the folder
+    await db.resourceFolder.delete({
+      where: { id: folderId, authorId: user.id },
+    });
+    return { success: true };
+  } catch {
+    return { error: "Failed to delete folder" };
+  }
+}
+
+// Add a resource to a folder
+export async function addResourceToFolder(
+  resourceId: string,
+  folderId: string
+) {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Unauthorized" };
+  try {
+    await db.resource.update({
+      where: { id: resourceId, authorId: user.id },
+      data: { folderId },
+    });
+    return { success: true };
+  } catch  {
+    return { error: "Failed to add resource to folder" };
+  }
+}
+
+// Remove a resource from a folder
+export async function removeResourceFromFolder(resourceId: string) {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Unauthorized" };
+  try {
+    await db.resource.update({
+      where: { id: resourceId, authorId: user.id },
+      data: { folderId: null },
+    });
+    return { success: true };
+  } catch  {
+    return { error: "Failed to remove resource from folder" };
+  }
+}
 
 export async function getResources(filters?: {
   teacherName?: string;
@@ -11,6 +93,7 @@ export async function getResources(filters?: {
   courseId?: string;
   fileType?: string;
   search?: string;
+  folderId?: string;
 }) {
   try {
     // Only include filters that have values
@@ -19,7 +102,7 @@ export async function getResources(filters?: {
         author: {
           name: {
             contains: filters.teacherName,
-            mode: 'insensitive' as Prisma.QueryMode,
+            mode: "insensitive" as Prisma.QueryMode,
           },
         },
       }),
@@ -37,16 +120,19 @@ export async function getResources(filters?: {
           {
             title: {
               contains: filters.search,
-              mode: 'insensitive' as Prisma.QueryMode,
+              mode: "insensitive" as Prisma.QueryMode,
             },
           },
           {
             description: {
               contains: filters.search,
-              mode: 'insensitive' as Prisma.QueryMode,
+              mode: "insensitive" as Prisma.QueryMode,
             },
           },
         ],
+      }),
+      ...(filters?.folderId && {
+        folderId: filters.folderId,
       }),
     };
 
@@ -73,6 +159,7 @@ export async function getResources(filters?: {
             role: true,
           },
         },
+        folderId: true,
       },
       orderBy: {
         createdAt: "desc",
@@ -83,7 +170,10 @@ export async function getResources(filters?: {
     return { resources, error: null };
   } catch (error) {
     if (error instanceof Error) {
-      return { resources: [], error: `Failed to fetch resources: ${error.message}` };
+      return {
+        resources: [],
+        error: `Failed to fetch resources: ${error.message}`,
+      };
     }
     return { resources: [], error: "Failed to fetch resources" };
   }
@@ -95,55 +185,62 @@ export async function getCourses() {
       orderBy: {
         name: "asc",
       },
-    })
+    });
 
-    return { courses }
+    return { courses };
   } catch {
-    return { error: "Failed to fetch courses" }
+    return { error: "Failed to fetch courses" };
   }
 }
 
 export async function createResource(formData: FormData) {
   try {
-    const user = await getCurrentUser()
+    const user = await getCurrentUser();
     if (!user) {
-      console.error("No authenticated user found")
-      return { resource: null, error: "Unauthorized" }
+      console.error("No authenticated user found");
+      return { resource: null, error: "Unauthorized" };
     }
 
-    const title = formData.get("title") as string
-    const description = formData.get("description") as string
-    const type = formData.get("type") as string
-    const department = formData.get("department") as string
-    const fileType = formData.get("fileType") as string
-    const courseName = formData.get("courseId") as string
-    const tags = JSON.parse(formData.get("tags") as string) as string[]
-    const url = formData.get("url") as string
-    const fileSize = parseInt(formData.get("fileSize") as string, 10)
+    const title = formData.get("title") as string;
+    const description = formData.get("description") as string;
+    const type = formData.get("type") as string;
+    const department = formData.get("department") as string;
+    const fileType = formData.get("fileType") as string;
+    const courseName = formData.get("courseId") as string;
+    const tags = JSON.parse(formData.get("tags") as string) as string[];
+    const url = formData.get("url") as string;
+    const fileSize = parseInt(formData.get("fileSize") as string, 10);
 
     // Validate required fields
     if (!title || !description || !type || !department || !fileType || !url) {
-      console.error("Missing required fields:", { title, description, type, department, fileType, url })
-      return { resource: null, error: "All required fields must be filled" }
+      console.error("Missing required fields:", {
+        title,
+        description,
+        type,
+        department,
+        fileType,
+        url,
+      });
+      return { resource: null, error: "All required fields must be filled" };
     }
 
-    let courseId = null
+    let courseId = null;
     if (courseName) {
       // Find or create the course
       const existingCourse = await db.course.findFirst({
-        where: { name: courseName }
-      })
+        where: { name: courseName },
+      });
 
       if (existingCourse) {
-        courseId = existingCourse.id
+        courseId = existingCourse.id;
       } else {
         const newCourse = await db.course.create({
           data: {
             name: courseName,
-            description: `${courseName} course in ${department} department`
-          }
-        })
-        courseId = newCourse.id
+            description: `${courseName} course in ${department} department`,
+          },
+        });
+        courseId = newCourse.id;
       }
     }
 
@@ -169,9 +266,8 @@ export async function createResource(formData: FormData) {
           },
         },
       },
-    })
+    });
 
-    
     // Fetch all users to notify (excluding the creator)
     const usersToNotify = await db.user.findMany({
       where: {
@@ -226,45 +322,45 @@ export async function createResource(formData: FormData) {
         avatar: resource.author.image || "",
       },
       dueDate: null,
-    }
+    };
 
     // No need to revalidate since we're using client-side state management
-    return { resource: transformedResource, error: null }
+    return { resource: transformedResource, error: null };
   } catch (error) {
-    console.error("Error creating resource:", error)
+    console.error("Error creating resource:", error);
     if (error instanceof Error) {
-      return { resource: null, error: error.message }
+      return { resource: null, error: error.message };
     }
-    return { resource: null, error: "Failed to create resource" }
+    return { resource: null, error: "Failed to create resource" };
   }
 }
 
 export async function deleteResource(resourceId: string) {
   try {
-    const user = await getCurrentUser()
+    const user = await getCurrentUser();
     if (!user) {
-      return { error: "Unauthorized" }
+      return { error: "Unauthorized" };
     }
 
     const resource = await db.resource.findUnique({
       where: { id: resourceId },
       select: { authorId: true },
-    })
+    });
 
     if (!resource) {
-      return { error: "Resource not found" }
+      return { error: "Resource not found" };
     }
 
     if (resource.authorId !== user.id && user.role !== "ADMIN") {
-      return { error: "Not authorized to delete this resource" }
+      return { error: "Not authorized to delete this resource" };
     }
 
     // Delete the resource
-    await db.resource.delete({ where: { id: resourceId } })
+    await db.resource.delete({ where: { id: resourceId } });
 
     // No need to revalidate since we're using client-side state management
-    return { success: true }
+    return { success: true };
   } catch {
-    return { error: "Failed to delete resource" }
+    return { error: "Failed to delete resource" };
   }
 }
