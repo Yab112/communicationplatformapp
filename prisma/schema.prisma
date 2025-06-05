@@ -9,6 +9,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
 model User {
@@ -37,6 +38,7 @@ model User {
   resources            Resource[]
   notificationSettings NotificationSettings?
   commentReactions     CommentReaction[]
+  resourceFolders      ResourceFolder[]
 }
 
 model Account {
@@ -203,6 +205,19 @@ model Notification {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model ResourceFolder {
+  id          String     @id @default(cuid())
+  name        String
+  description String?    @db.Text
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  authorId    String
+
+  // Relations
+  author      User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  resources   Resource[]
+}
+
 model Resource {
   id          String   @id @default(cuid())
   title       String
@@ -219,10 +234,12 @@ model Resource {
   department  String?
   fileType    String?
   uploadDate  DateTime?
+  folderId    String?
 
   // Relations
   author User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
   course Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+  folder ResourceFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 }
 
 model Course {

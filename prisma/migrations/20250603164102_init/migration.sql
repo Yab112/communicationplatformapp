@@ -8,6 +8,7 @@ CREATE TABLE "User" (
     "image" TEXT,
     "role" TEXT NOT NULL DEFAULT 'student',
     "department" TEXT,
+    "year" TEXT,
     "status" TEXT NOT NULL DEFAULT 'offline',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -55,6 +56,7 @@ CREATE TABLE "Post" (
     "id" TEXT NOT NULL,
     "content" TEXT NOT NULL,
     "department" TEXT,
+    "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
     "authorId" TEXT NOT NULL,
@@ -166,6 +168,18 @@ CREATE TABLE "Notification" (
 );
 
 -- CreateTable
+CREATE TABLE "ResourceFolder" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "authorId" TEXT NOT NULL,
+
+    CONSTRAINT "ResourceFolder_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Resource" (
     "id" TEXT NOT NULL,
     "title" TEXT NOT NULL,
@@ -182,6 +196,7 @@ CREATE TABLE "Resource" (
     "department" TEXT,
     "fileType" TEXT,
     "uploadDate" TIMESTAMP(3),
+    "folderId" TEXT,
 
     CONSTRAINT "Resource_pkey" PRIMARY KEY ("id")
 );
@@ -288,10 +303,16 @@ ALTER TABLE "Message" ADD CONSTRAINT "Message_chatRoomId_fkey" FOREIGN KEY ("cha
 ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "ResourceFolder" ADD CONSTRAINT "ResourceFolder_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Resource" ADD CONSTRAINT "Resource_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Resource" ADD CONSTRAINT "Resource_courseId_fkey" FOREIGN KEY ("courseId") REFERENCES "Course"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Resource" ADD CONSTRAINT "Resource_folderId_fkey" FOREIGN KEY ("folderId") REFERENCES "ResourceFolder"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "NotificationSettings" ADD CONSTRAINT "NotificationSettings_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

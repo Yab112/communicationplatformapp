@@ -22,5 +22,5 @@ export interface ResourceUploader {
       avatar: string
     }
     dueDate: string | null
+    folderId?: string | null
   }
-  
