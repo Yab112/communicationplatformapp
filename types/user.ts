@@ -1,4 +1,4 @@
-export type UserRole = "ADMIN" | "STUDENT" | "TEACHER"
+export type UserRole = "admin" | "student" | "teacher"
 export type UserStatus = "online" | "offline" | "away"
 
 export interface User {
@@ -12,5 +12,7 @@ export interface User {
     status: UserStatus
     createdAt: Date
     updatedAt: Date
+    year?: string 
+    bio?: string | null
 }
   

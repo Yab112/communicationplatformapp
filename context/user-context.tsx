@@ -3,18 +3,8 @@
 import { createContext, useContext, useEffect, useState } from "react"
 import { useSession } from "next-auth/react"
 import { updateUserStatus } from "@/lib/actions/users"
+import { User } from "@/types/user"
 
-export type User = {
-  id: string
-  name: string
-  email: string
-  image?: string | null
-  role: "Student" | "Teacher" | "Admin"
-  department?: string | null
-  year?: string | null
-  status?: "online" | "offline"
-  bio?: string | null
-}
 
 type UserContextType = {
   user: User | null
@@ -72,11 +62,14 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         name: userData.name,
         email: userData.email,
         image: userData.image,
-        role: userData.role as "Student" | "Teacher" | "Admin",
+        role: userData.role as "student" | "teacher" | "admin",
         department: userData.department,
         year: userData.year,
         status: userData.status as "online" | "offline",
         bio: userData.bio,
+        emailVerified: userData.emailVerified,
+        createdAt: userData.createdAt,
+        updatedAt: userData.updatedAt,
       }
 
       setUser(transformedUser)
