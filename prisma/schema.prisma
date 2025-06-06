@@ -206,16 +206,17 @@ model Notification {
 }
 
 model ResourceFolder {
-  id          String     @id @default(cuid())
-  name        String
-  description String?    @db.Text
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  authorId    String
+  id            String     @id @default(cuid())
+  name          String
+  description   String?    @db.Text
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  authorId      String
+  resourceCount Int        @default(0) // Track number of resources
 
   // Relations
-  author      User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  resources   Resource[]
+  author        User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  resources     ResourceFolderResource[] // Many-to-many via junction table
 }
 
 model Resource {
@@ -234,12 +235,20 @@ model Resource {
   department  String?
   fileType    String?
   uploadDate  DateTime?
-  folderId    String?
 
   // Relations
   author User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
   course Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
-  folder ResourceFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  folders ResourceFolderResource[] // Many-to-many via junction table
+}
+
+model ResourceFolderResource {
+  resourceId String
+  folderId   String
+  createdAt  DateTime @default(now())
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  folder     ResourceFolder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  @@id([resourceId, folderId])
 }
 
 model Course {

@@ -1,19 +1,28 @@
+// @/components/resources/resources-page.tsx
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
 import { ResourceList } from "@/components/resources/resource-list";
 import { ResourceFilters } from "@/components/resources/resource-filters";
 import { CreateResourceModal } from "@/components/resources/create-resource-modal";
+import { CreateFolderModal } from "@/components/resources/Preview/CreateFolderModal";
 import { Button } from "@/components/ui/button";
 import { Plus, Grid, List, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Resource } from "@/types/resource";
 import type { ResourceFolder } from "@/types/resource-folder";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getResources, getResourceFolders, createResourceFolder, deleteResourceFolder } from "@/lib/actions/resources";
+import {
+  getResources,
+  getResourceFolders,
+  createResourceFolder,
+  deleteResourceFolder,
+  addResourceToFolder,
+} from "@/lib/actions/resources";
 import { Loader2 } from "lucide-react";
 import { useUser } from "@/context/user-context";
 import { ResourceSkeletonGrid } from "@/components/skeletons/resource-skeleton";
+import { motion, AnimatePresence } from "framer-motion";
 
 export function ResourcesPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -24,8 +33,6 @@ export function ResourcesPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [newFolderName, setNewFolderName] = useState("");
-  const [newFolderDesc, setNewFolderDesc] = useState("");
   const { toast } = useToast();
   const { user } = useUser();
 
@@ -49,13 +56,31 @@ export function ResourcesPage() {
 
   // Fetch folders
   const fetchFolders = async () => {
-    const { folders, error } = await getResourceFolders();
-    if (!error) setFolders(folders.map(f => ({
-      ...f,
-      description: f.description ?? undefined,
-      createdAt: typeof f.createdAt === 'string' ? f.createdAt : f.createdAt.toISOString(),
-      updatedAt: typeof f.updatedAt === 'string' ? f.updatedAt : f.updatedAt.toISOString(),
-    })));
+    try {
+      const { folders, error } = await getResourceFolders();
+      if (error) throw new Error(error);
+      setFolders(
+        folders.map((f) => ({
+          ...f,
+          authorId: f.authorId,
+          description: f.description ?? undefined,
+          createdAt:
+            typeof f.createdAt === "string"
+              ? f.createdAt
+              : f.createdAt.toISOString(),
+          updatedAt:
+            typeof f.updatedAt === "string"
+              ? f.updatedAt
+              : f.updatedAt.toISOString(),
+        }))
+      );
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to fetch folders",
+        variant: "destructive",
+      });
+    }
   };
 
   useEffect(() => {
@@ -75,8 +100,7 @@ export function ResourcesPage() {
       });
       if (error) throw new Error(error);
 
-      // Transform the database response to match Resource type
-      const transformedResources = fetchedResources.map(resource => ({
+      const transformedResources = fetchedResources.map((resource) => ({
         id: resource.id,
         title: resource.title,
         description: resource.description,
@@ -86,22 +110,23 @@ export function ResourcesPage() {
         department: resource.department || "",
         courseId: resource.courseId || "",
         fileType: resource.fileType || "",
-        uploadDate: resource.createdAt.toISOString(),
+        uploadDate: resource.uploadDate,
         tags: resource.tags || [],
         uploadedBy: {
-          id: resource.author.id,
-          name: resource.author.name,
-          avatar: resource.author.image || "",
+          id: resource.uploadedBy.id,
+          name: resource.uploadedBy.name,
+          avatar: resource.uploadedBy.avatar || "",
         },
         dueDate: null,
-        folderId: resource.folderId || null,
+        folderIds: resource.folderIds || [],
       }));
 
       setResources(transformedResources);
     } catch (err) {
       toast({
         title: "Error",
-        description: err instanceof Error ? err.message : "Failed to fetch resources",
+        description:
+          err instanceof Error ? err.message : "Failed to fetch resources",
         variant: "destructive",
       });
     } finally {
@@ -110,41 +135,61 @@ export function ResourcesPage() {
     }
   };
 
-  // Initial fetch only
   useEffect(() => {
     fetchResources(true);
-  }, [selectedFolder]);
-  // Refetch resources when folder changes
-  useEffect(() => {
-    fetchResources(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedFolder]);
 
   // Apply all filters locally
   const filteredResources = useMemo(() => {
     return resources
       .filter((resource) => {
-        // Apply all filters locally
-        if (filters.search && !resource.title.toLowerCase().includes(filters.search.toLowerCase()) &&
-          !resource.description?.toLowerCase().includes(filters.search.toLowerCase())) {
+        if (
+          filters.search &&
+          !resource.title
+            .toLowerCase()
+            .includes(filters.search.toLowerCase()) &&
+          !resource.description
+            ?.toLowerCase()
+            .includes(filters.search.toLowerCase())
+        ) {
           return false;
         }
-        if (filters.teacherName && !resource.uploadedBy.name.toLowerCase().includes(filters.teacherName.toLowerCase())) {
+        if (
+          filters.teacherName &&
+          !resource.uploadedBy.name
+            .toLowerCase()
+            .includes(filters.teacherName.toLowerCase())
+        ) {
           return false;
         }
-        if (filters.department && resource.department.toLowerCase() !== filters.department.toLowerCase()) {
+        if (
+          filters.department &&
+          resource.department.toLowerCase() !== filters.department.toLowerCase()
+        ) {
           return false;
         }
-        if (filters.courseId && resource.courseId.toLowerCase() !== filters.courseId.toLowerCase()) {
+        if (
+          filters.courseId &&
+          resource.courseId.toLowerCase() !== filters.courseId.toLowerCase()
+        ) {
           return false;
         }
-        if (filters.fileType && resource.fileType.toLowerCase() !== filters.fileType.toLowerCase()) {
+        if (
+          filters.fileType &&
+          resource.fileType.toLowerCase() !== filters.fileType.toLowerCase()
+        ) {
           return false;
         }
-        if (filters.dateRange.from && new Date(resource.uploadDate) < filters.dateRange.from) {
+        if (
+          filters.dateRange.from &&
+          new Date(resource.uploadDate) < filters.dateRange.from
+        ) {
           return false;
         }
-        if (filters.dateRange.to && new Date(resource.uploadDate) > filters.dateRange.to) {
+        if (
+          filters.dateRange.to &&
+          new Date(resource.uploadDate) > filters.dateRange.to
+        ) {
           return false;
         }
         if (filters.year && !resource.tags.includes(filters.year)) {
@@ -154,9 +199,13 @@ export function ResourcesPage() {
       })
       .sort((a, b) => {
         if (sortBy === "newest") {
-          return new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime();
+          return (
+            new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
+          );
         } else if (sortBy === "oldest") {
-          return new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime();
+          return (
+            new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime()
+          );
         }
         return a.title.localeCompare(b.title);
       });
@@ -164,9 +213,7 @@ export function ResourcesPage() {
 
   const handleCreateResource = async (newResource: Resource) => {
     setIsCreateModalOpen(false);
-    // Add the new resource to the local state
-    setResources(currentResources => [newResource, ...currentResources]);
-
+    setResources((currentResources) => [newResource, ...currentResources]);
     toast({
       title: "Success",
       description: "Resource has been created successfully.",
@@ -177,8 +224,135 @@ export function ResourcesPage() {
     fetchResources(false);
   };
 
-  // Get user role from context
-  const isTeacher = user?.role?.toLowerCase() === "teacher" || user?.role?.toLowerCase() === "admin";
+  // Optimistic folder creation
+  const handleCreateFolder = async (name: string, description: string) => {
+    if (!user?.id) {
+      toast({
+        title: "Error",
+        description: "User not authenticated",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const tempId = `temp-${Date.now()}`; // Temporary ID for optimistic update
+    const optimisticFolder: ResourceFolder = {
+      id: tempId,
+      name,
+      description,
+      authorId: user.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Optimistically update the folders state
+    setFolders((prev) => [...prev, optimisticFolder]);
+    setIsFolderModalOpen(false);
+
+    try {
+      const { folder, error } = await createResourceFolder(name, description);
+      if (error || !folder) {
+        throw new Error(
+          error || "Failed to create folder: No folder data returned"
+        );
+      }
+
+      // Replace the optimistic folder with the real one from the server
+      setFolders((prev) =>
+        prev.map((f) =>
+          f.id === tempId
+            ? {
+                ...f,
+                id: folder.id,
+                authorId: folder.authorId,
+                description: folder.description ?? undefined,
+                createdAt:
+                  typeof folder.createdAt === "string"
+                    ? folder.createdAt
+                    : folder.createdAt.toISOString(),
+                updatedAt:
+                  typeof folder.updatedAt === "string"
+                    ? folder.updatedAt
+                    : folder.updatedAt.toISOString(),
+              }
+            : f
+        )
+      );
+      toast({
+        title: "Success",
+        description: "Folder created successfully.",
+      });
+    } catch (err) {
+      // Rollback on error
+      setFolders((prev) => prev.filter((f) => f.id !== tempId));
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error ? err.message : "Failed to create folder",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle adding a resource to a folder
+  const handleAddToFolder = async (resourceId: string, folderId: string) => {
+    try {
+      // Optimistically update the resource's folderIds
+      setResources((prev) =>
+        prev.map((r) =>
+          r.id === resourceId
+            ? {
+                ...r,
+                folderIds: Array.from(
+                  new Set([...(r.folderIds || []), folderId])
+                ),
+              }
+            : r
+        )
+      );
+      // If the selected folder is set and the resource is not in that folder after the update, remove it from the list
+      if (
+        selectedFolder &&
+        ![
+          ...(resources.find((r) => r.id === resourceId)?.folderIds || []),
+          folderId,
+        ].includes(selectedFolder)
+      ) {
+        setResources((prev) => prev.filter((r) => r.id !== resourceId));
+      }
+      await addResourceToFolder(resourceId, folderId);
+      toast({
+        title: "Success",
+        description: `Resource added to ${
+          folders.find((f) => f.id === folderId)?.name || "folder"
+        }`,
+      });
+    } catch (err) {
+      // Rollback optimistic update
+      setResources((prev) =>
+        prev.map((r) =>
+          r.id === resourceId
+            ? {
+                ...r,
+                folderIds: (r.folderIds || []).filter((id) => id !== folderId),
+              }
+            : r
+        )
+      );
+      toast({
+        title: "Error",
+        description:
+          err instanceof Error
+            ? err.message
+            : "Failed to add resource to folder",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const isTeacher =
+    user?.role?.toLowerCase() === "teacher" ||
+    user?.role?.toLowerCase() === "admin";
 
   return (
     <div className="flex flex-col h-screen">
@@ -188,79 +362,94 @@ export function ResourcesPage() {
             {/* Folder Dropdown */}
             <div className="mb-4 flex items-center gap-4">
               <select
-                className="rounded-md border px-3 py-1 text-sm"
+                className="rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 transition-colors focus:ring-2 focus:ring-blue-500"
                 value={selectedFolder || ""}
-                onChange={e => setSelectedFolder(e.target.value || null)}
+                onChange={(e) => setSelectedFolder(e.target.value || null)}
               >
-                <option value="">All Resources</option>
-                {folders.map(folder => (
-                  <option key={folder.id} value={folder.id}>{folder.name}</option>
+                <option
+                  value=""
+                  className="bg-background dark:bg-zinc-800 dark:text-zinc-100"
+                >
+                  All Resources
+                </option>
+                {folders.map((folder) => (
+                  <option
+                    key={folder.id}
+                    value={folder.id}
+                    className="bg-background dark:bg-zinc-800 dark:text-zinc-100"
+                  >
+                    {folder.name}
+                  </option>
                 ))}
               </select>
-              {isTeacher && (
-                <Button size="sm" onClick={() => setIsFolderModalOpen(true)}>
-                  + New Folder
-                </Button>
-              )}
+              <Button
+                size="sm"
+                onClick={() => setIsFolderModalOpen(true)}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+              >
+                + New Folder
+              </Button>
+
               {selectedFolder && isTeacher && (
-                <Button size="sm" variant="destructive" onClick={async () => {
-                  await deleteResourceFolder(selectedFolder);
-                  setSelectedFolder(null);
-                  fetchFolders();
-                  fetchResources(true);
-                }}>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  onClick={async () => {
+                    try {
+                      await deleteResourceFolder(selectedFolder);
+                      setSelectedFolder(null);
+                      await fetchFolders();
+                      await fetchResources(true);
+                      toast({
+                        title: "Success",
+                        description: "Folder deleted successfully.",
+                      });
+                    } catch (err) {
+                      toast({
+                        title: "Error",
+                        description:
+                          err instanceof Error
+                            ? err.message
+                            : "Failed to delete folder",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
                   Delete Folder
                 </Button>
               )}
             </div>
-            {/* New Folder Modal */}
-            {isFolderModalOpen && (
-              <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-                <div className="bg-white p-6 rounded shadow w-full max-w-sm">
-                  <h2 className="font-bold mb-2">Create New Folder</h2>
-                  <input
-                    className="w-full border rounded px-2 py-1 mb-2"
-                    placeholder="Folder name"
-                    value={newFolderName}
-                    onChange={e => setNewFolderName(e.target.value)}
-                  />
-                  <textarea
-                    className="w-full border rounded px-2 py-1 mb-2"
-                    placeholder="Description (optional)"
-                    value={newFolderDesc}
-                    onChange={e => setNewFolderDesc(e.target.value)}
-                  />
-                  <div className="flex gap-2 justify-end">
-                    <Button size="sm" variant="outline" onClick={() => setIsFolderModalOpen(false)}>Cancel</Button>
-                    <Button size="sm" onClick={async () => {
-                      if (!newFolderName) return;
-                      await createResourceFolder(newFolderName, newFolderDesc);
-                      setIsFolderModalOpen(false);
-                      setNewFolderName("");
-                      setNewFolderDesc("");
-                      fetchFolders();
-                    }}>Create</Button>
-                  </div>
-                </div>
-              </div>
-            )}
+
+            {/* Folder Creation Modal */}
+            <CreateFolderModal
+              isOpen={isFolderModalOpen}
+              onClose={() => setIsFolderModalOpen(false)}
+              onSubmit={handleCreateFolder}
+            />
 
             <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <h1 className="text-2xl font-bold">Resources</h1>
+                <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+                  Resources
+                </h1>
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={handleRefresh}
                   disabled={isRefreshing}
+                  className="border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                 >
-                  <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <RefreshCw
+                    className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
+                  />
                 </Button>
                 {isTeacher && (
                   <Button
                     variant="outline"
                     size="icon"
                     onClick={() => setIsCreateModalOpen(true)}
+                    className="border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -268,18 +457,23 @@ export function ResourcesPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2 md:gap-4">
-                <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as "grid" | "list")}>
-                  <TabsList className="grid w-[160px] grid-cols-2 bg-transparent rounded-md p-1 border border-blue-100/50 mb-1">
+                <Tabs
+                  value={viewMode}
+                  onValueChange={(value) =>
+                    setViewMode(value as "grid" | "list")
+                  }
+                >
+                  <TabsList className="grid w-[160px] grid-cols-2 bg-transparent rounded-md p-1 border border-blue-100/50 dark:border-blue-900/50 mb-1">
                     <TabsTrigger
                       value="grid"
-                      className="hover:bg-blue-100/50 data-[state=active]:bg-blue-500/40"
+                      className="hover:bg-blue-100/50 dark:hover:bg-blue-900/50 data-[state=active]:bg-blue-500/40 dark:data-[state=active]:bg-blue-700/40"
                     >
                       <Grid className="h-4 w-4 mr-1" />
                       Grid
                     </TabsTrigger>
                     <TabsTrigger
                       value="list"
-                      className="hover:bg-blue-100/50 data-[state=active]:bg-blue-500/40"
+                      className="hover:bg-blue-100/50 dark:hover:bg-blue-900/50 data-[state=active]:bg-blue-500/40 dark:data-[state=active]:bg-blue-700/40"
                     >
                       <List className="h-4 w-4 mr-1" />
                       List
@@ -288,7 +482,7 @@ export function ResourcesPage() {
                 </Tabs>
 
                 <select
-                  className="rounded-md border border-input bg-background px-3 py-1 text-sm"
+                  className="rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
                   value={sortBy}
                   onChange={(e) =>
                     setSortBy(e.target.value as "newest" | "oldest" | "a-z")
@@ -324,20 +518,68 @@ export function ResourcesPage() {
             <div className="mt-6">
               {isLoading ? (
                 <ResourceSkeletonGrid />
+              ) : filteredResources.length === 0 && selectedFolder ? (
+                <AnimatePresence>
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    transition={{ duration: 0.3 }}
+                    className="flex flex-col items-center justify-center py-16 text-center"
+                  >
+                    <motion.div
+                      animate={{
+                        y: [0, -10, 0],
+                        transition: { repeat: Infinity, duration: 2 },
+                      }}
+                    >
+                      <svg
+                        className="w-24 h-24 text-zinc-400 dark:text-zinc-600"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth="2"
+                          d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
+                        />
+                      </svg>
+                    </motion.div>
+                    <h2 className="mt-4 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
+                      This Folder is Empty
+                    </h2>
+                    <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                      No resources have been added to this folder yet.
+                    </p>
+                    <Button
+                      onClick={() => setSelectedFolder(null)}
+                      className="mt-4 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                    >
+                      View All Resources
+                    </Button>
+                  </motion.div>
+                </AnimatePresence>
               ) : (
-                <ResourceList resources={filteredResources} viewMode={viewMode} />
+                <ResourceList
+                  resources={filteredResources}
+                  viewMode={viewMode}
+                  folders={folders} // Pass folders to ResourceList
+                  onAddToFolder={handleAddToFolder} // Pass callback for adding to folder
+                />
               )}
 
               {isRefreshing && (
                 <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-600 dark:text-blue-500" />
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* Right spacer for balance */}
         <div className="hidden lg:block w-0 xl:w-24 2xl:w-48 flex-shrink-0" />
       </div>
 
