@@ -11,7 +11,6 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from "@/components/ui/dropdown-menu";
-import { useUser } from "@/context/user-context";
 import type { Resource } from "@/types/resource";
 import type { ResourceFolder } from "@/types/resource-folder";
 import type { FileTypeStyle } from "@/types/resource";
@@ -36,15 +35,10 @@ interface ResourceActionsProps {
 
 export function ResourceActions({
   resource,
-  styling,
   onPreview,
   onDownload,
   isDownloading,
-  user,
   folders,
-  showFolderMenu,
-  setShowFolderMenu,
-  optimisticFolderId,
   loadingFolder,
   handleAddToFolder,
   onRemoveFromFolder,
@@ -54,10 +48,31 @@ export function ResourceActions({
 
   const handleFolderSelect = async (folderId: string) => {
     try {
+      // Find the folder to validate it exists
+      const selectedFolder = folders.find(f => f.id === folderId);
+      if (!selectedFolder) {
+        throw new Error("Selected folder not found");
+      }
+
+      console.log("ResourceActions: Adding resource to folder:", { 
+        resourceId: resource.id, 
+        folderId,
+        resourceTitle: resource.title,
+        folderName: selectedFolder.name,
+        currentFolderIds: resource.folderIds
+      });
+
+      // Check if resource is already in this folder
+      if (resource.folderIds?.includes(folderId)) {
+        throw new Error(`Resource "${resource.title}" is already in folder "${selectedFolder.name}"`);
+      }
+
       await handleAddToFolder(resource.id, folderId);
       setIsOpen(false);
     } catch (error) {
-      console.error("Failed to add resource to folder:", error);
+      console.error("ResourceActions: Failed to add resource to folder:", error);
+      // Re-throw the error to be handled by the parent component
+      throw error;
     }
   };
 

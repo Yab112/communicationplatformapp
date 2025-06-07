@@ -129,11 +129,30 @@ export function ResourceCard({
 
   // Folder assignment handler for UI
   const handleAddToFolder = async (folderId: string) => {
-    setOptimisticFolderId(folderId);
-    setLoadingFolder(true);
-    setShowFolderMenu(false);
-    await onAddToFolder(resource.id, folderId);
-    setLoadingFolder(false);
+    try {
+      console.log("ResourceCard: Adding resource to folder:", { 
+        resourceId: resource.id, 
+        folderId,
+        resourceTitle: resource.title 
+      });
+      
+      setOptimisticFolderId(folderId);
+      setLoadingFolder(true);
+      setShowFolderMenu(false);
+      
+      await onAddToFolder(resource.id, folderId);
+      
+      setLoadingFolder(false);
+    } catch (error) {
+      console.error("ResourceCard: Failed to add resource to folder:", error);
+      setLoadingFolder(false);
+      setOptimisticFolderId(null);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to add resource to folder",
+        variant: "destructive",
+      });
+    }
   };
 
   useEffect(() => {

@@ -26,13 +26,11 @@ import {
   addResourceToFolder,
   removeResourceFromFolder,
 } from "@/lib/actions/resources";
-import { Loader2 } from "lucide-react";
 import { useUser } from "@/context/user-context";
 import { ResourceSkeletonGrid } from "@/components/skeletons/resource-skeleton";
 import { motion, AnimatePresence } from "framer-motion";
 import { FolderView } from "./folder-view";
 import { cn } from "@/lib/utils";
-import { Input } from "@/components/ui/input";
 
 export function ResourcesPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -47,7 +45,6 @@ export function ResourcesPage() {
   const { toast } = useToast();
   const { user } = useUser();
   const [showFoldersDropdown, setShowFoldersDropdown] = useState(false);
-  const [showResourceSearch, setShowResourceSearch] = useState(false);
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -109,9 +106,19 @@ export function ResourcesPage() {
       } else {
         setIsRefreshing(true);
       }
+
+      // If we're in a folder view, we can use the optimistic state to show resources immediately
+      if (selectedFolder) {
+        const folderResources = resources.filter(resource => 
+          resource.folderIds?.includes(selectedFolder.id)
+        );
+        setResources(folderResources);
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+
       const { resources: fetchedResources, error } = await getResources({
         ...(selectedFolder ? { folderId: selectedFolder.id } : {}),
-        // Apply search query only when not in a specific folder view
         ...(!selectedFolder && searchQuery ? { search: searchQuery } : {}),
       });
       if (error) throw new Error(error);
@@ -316,15 +323,11 @@ export function ResourcesPage() {
           resource.id === resourceId
             ? {
                 ...resource,
-                folderIds: [...(resource.folderIds || []), folderId]
+                folderIds: Array.from(new Set([...(resource.folderIds || []), folderId]))
               }
             : resource
         )
       );
-
-      // Make the API call
-      const { error } = await addResourceToFolder(resourceId, folderId);
-      if (error) throw new Error(error);
 
       // Update folder counts optimistically
       setFolders(prevFolders =>
@@ -334,6 +337,21 @@ export function ResourcesPage() {
             : folder
         )
       );
+
+      // Make the API call
+      const { error } = await addResourceToFolder(resourceId, folderId);
+      if (error) throw new Error(error);
+
+      // If we're in the folder view, update the displayed resources
+      if (selectedFolder?.id === folderId) {
+        setResources(prevResources => {
+          const resourceToAdd = prevResources.find(r => r.id === resourceId);
+          if (resourceToAdd) {
+            return [...prevResources, resourceToAdd];
+          }
+          return prevResources;
+        });
+      }
 
       toast({
         title: "Success",
@@ -355,6 +373,14 @@ export function ResourcesPage() {
                 folderIds: resource.folderIds?.filter(id => id !== folderId) || []
               }
             : resource
+        )
+      );
+
+      setFolders(prevFolders =>
+        prevFolders.map(folder =>
+          folder.id === folderId
+            ? { ...folder, resourceCount: Math.max(0, (folder.resourceCount || 0) - 1) }
+            : folder
         )
       );
 
@@ -438,7 +464,17 @@ export function ResourcesPage() {
     user?.role?.toLowerCase() === "admin";
 
   const handleFolderClick = (folder: ResourceFolder) => {
+    // Optimistically update the UI
     setSelectedFolder(folder);
+    
+    // Immediately filter resources for the selected folder
+    const folderResources = resources.filter(resource => 
+      resource.folderIds?.includes(folder.id)
+    );
+    setResources(folderResources);
+    
+    // Then fetch the complete data
+    fetchResources(true);
   };
 
   const handleBackToResources = () => {
