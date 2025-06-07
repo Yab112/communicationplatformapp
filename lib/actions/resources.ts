@@ -83,82 +83,122 @@ export async function deleteResourceFolder(folderId: string) {
 
 // Add a resource to a folder
 export async function addResourceToFolder(resourceId: string, folderId: string) {
-  console.log(`[addResourceToFolder] Attempting to add resource ${resourceId} to folder ${folderId}`);
   const user = await getCurrentUser();
-  if (!user) {
-    console.log("[addResourceToFolder] Unauthorized: No user found");
-    return { error: "Unauthorized" };
-  }
-  console.log(`[addResourceToFolder] User authenticated: ${user.id}`);
+  if (!user) return { error: "Unauthorized" };
 
   try {
-    // Validate resource existence
-    console.log(`[addResourceToFolder] Validating resource ${resourceId}`);
-    const resource = await db.resource.findUnique({
-      where: { id: resourceId },
-    });
-    if (!resource) {
-      console.log(`[addResourceToFolder] Resource not found: ${resourceId}`);
-      return { error: "Resource not found" };
+    // Validate input parameters
+    if (!resourceId || !folderId) {
+      throw new Error("Resource ID and Folder ID are required");
     }
-    console.log("[addResourceToFolder] Resource found");
 
-    // Validate folder existence and ownership
-    console.log(`[addResourceToFolder] Validating folder ${folderId} for user ${user.id}`);
-    const folder = await db.resourceFolder.findUnique({
-      where: { id: folderId, authorId: user.id },
-    });
-    if (!folder) {
-      console.log(`[addResourceToFolder] Folder not found or not authorized: ${folderId}`);
-      return { error: "Folder not found or not authorized" };
+    if (resourceId === folderId) {
+      throw new Error("Resource ID and Folder ID cannot be the same");
     }
-    console.log("[addResourceToFolder] Folder found and authorized");
 
-    // Check for duplicate relation
-    console.log(`[addResourceToFolder] Checking for existing relation for resource ${resourceId} and folder ${folderId}`);
-    const existingRelation = await db.resourceFolderResource.findUnique({
-      where: { resourceId_folderId: { resourceId, folderId } },
+    console.log("Server: Adding resource to folder:", { 
+      resourceId, 
+      folderId, 
+      userId: user.id,
+      timestamp: new Date().toISOString()
     });
-    if (existingRelation) {
-      console.log("[addResourceToFolder] Resource is already in this folder");
-      return { error: "Resource is already in this folder" };
-    }
-    console.log("[addResourceToFolder] No existing relation found, proceeding with transaction");
 
-    // Create relation and update folder in a transaction
-    await db.$transaction([
-      db.resourceFolderResource.create({
-        data: { resourceId, folderId },
-      }),
-      db.resourceFolder.update({
+    // Single transaction to handle everything
+    await db.$transaction(async (tx) => {
+      // First verify both resource and folder exist
+      const [resource, folder] = await Promise.all([
+        tx.resource.findFirst({
+          where: { id: resourceId },
+          select: {
+            id: true,
+            title: true,
+            authorId: true
+          }
+        }),
+        tx.resourceFolder.findFirst({
+          where: { id: folderId },
+          select: {
+            id: true,
+            name: true,
+            authorId: true
+          }
+        })
+      ]);
+
+      console.log("Server: Found resource and folder:", { 
+        resourceExists: !!resource, 
+        folderExists: !!folder,
+        resourceId: resource?.id,
+        resourceTitle: resource?.title,
+        folderId: folder?.id,
+        folderName: folder?.name
+      });
+
+      if (!resource) {
+        throw new Error(`Resource not found with ID: ${resourceId}`);
+      }
+
+      if (!folder) {
+        throw new Error(`Folder not found with ID: ${folderId}`);
+      }
+
+      // Check if the relation already exists
+      const existingRelation = await tx.resourceFolderResource.findFirst({
+        where: {
+          AND: [
+            { resourceId },
+            { folderId }
+          ]
+        }
+      });
+
+      console.log("Server: Existing relation check:", { 
+        exists: !!existingRelation,
+        resourceId,
+        folderId
+      });
+
+      if (existingRelation) {
+        throw new Error(`Resource "${resource.title}" is already in folder "${folder.name}"`);
+      }
+
+      // Create the relation
+      const relation = await tx.resourceFolderResource.create({
+        data: {
+          resourceId,
+          folderId
+        }
+      });
+
+      console.log("Server: Created relation:", {
+        relation,
+        resourceId,
+        folderId
+      });
+
+      // Update folder count
+      const updatedFolder = await tx.resourceFolder.update({
         where: { id: folderId },
         data: {
-          updatedAt: new Date(),
-          resourceCount: { increment: 1 },
-        },
-      }),
-    ]);
-    console.log("[addResourceToFolder] Database transaction successful");
+          resourceCount: { increment: 1 }
+        }
+      });
 
-    // Emit Socket.IO notification
-    // console.log("[addResourceToFolder] Emitting Socket.IO notification");
-    // const io = getSocketServer();
-    // io.to(`user:${user.id}`).emit("notification", {
-    //   id: `folder-${folderId}`,
-    //   type: "folder",
-    //   content: `Resource "${resource.title}" added to folder ${folder.name}`,
-    //   relatedId: folderId,
-    //   createdAt: new Date().toISOString(),
-    //   isRead: false,
-    //   userId: user.id,
-    // });
+      console.log("Server: Updated folder:", {
+        folderId: updatedFolder.id,
+        newCount: updatedFolder.resourceCount
+      });
+    });
 
-    console.log("[addResourceToFolder] Returning success");
     return { success: true };
-  } catch (error) {
-    console.error("[addResourceToFolder] Caught error:", error);
-    // Consider more specific error handling based on Prisma error types if needed
-    return { error: "Failed to add resource to folder" };
+  } catch (error: any) {
+    console.error("Server: Failed to add resource to folder:", {
+      error: error.message,
+      resourceId,
+      folderId,
+      userId: user.id
+    });
+    return { error: error.message || "Failed to add resource to folder" };
   }
 }
 
