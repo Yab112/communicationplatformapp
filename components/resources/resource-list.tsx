@@ -12,9 +12,18 @@ interface ResourceListProps {
   viewMode: "grid" | "list";
   folders: ResourceFolder[];
   onAddToFolder: (resourceId: string, folderId: string) => Promise<void>;
+  onRemoveFromFolder?: (resourceId: string) => Promise<void>;
+  showRemoveOption?: boolean;
 }
 
-export function ResourceList({ resources, viewMode, folders, onAddToFolder }: ResourceListProps) {
+export function ResourceList({
+  resources,
+  viewMode,
+  folders,
+  onAddToFolder,
+  onRemoveFromFolder,
+  showRemoveOption = false,
+}: ResourceListProps) {
   if (resources.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
@@ -26,37 +35,49 @@ export function ResourceList({ resources, viewMode, folders, onAddToFolder }: Re
     );
   }
 
-  const container = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.05,
-      },
-    },
-  };
+  if (viewMode === "grid") {
+    return (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {resources.map((resource) => (
+          <motion.div
+            key={resource.id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.2 }}
+          >
+            <ResourceCard
+              resource={resource}
+              folders={folders}
+              onAddToFolder={onAddToFolder}
+              onRemoveFromFolder={onRemoveFromFolder}
+              showRemoveOption={showRemoveOption}
+            />
+          </motion.div>
+        ))}
+      </div>
+    );
+  }
 
   return (
-    <motion.div
-      variants={container}
-      initial="hidden"
-      animate="show"
-      className={
-        viewMode === "grid" ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" : "flex flex-col space-y-3"
-      }
-    >
-      {resources.map((resource) =>
-        viewMode === "grid" ? (
-          <ResourceCard
-            key={resource.id}
+    <div className="space-y-4">
+      {resources.map((resource) => (
+        <motion.div
+          key={resource.id}
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 20 }}
+          transition={{ duration: 0.2 }}
+        >
+          <ResourceRow
             resource={resource}
             folders={folders}
             onAddToFolder={onAddToFolder}
+            onRemoveFromFolder={onRemoveFromFolder}
+            showRemoveOption={showRemoveOption}
           />
-        ) : (
-          <ResourceRow key={resource.id} resource={resource} />
-        )
-      )}
-    </motion.div>
+        </motion.div>
+      ))}
+    </div>
   );
 }

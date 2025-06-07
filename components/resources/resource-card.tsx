@@ -26,12 +26,16 @@ import type { ResourceFolder } from "@/types/resource-folder";
 export interface ExtendedResourceCardProps extends ResourceCardProps {
   folders: ResourceFolder[];
   onAddToFolder: (resourceId: string, folderId: string) => Promise<void>;
+  onRemoveFromFolder?: (resourceId: string) => Promise<void>;
+  showRemoveOption?: boolean;
 }
 
 export function ResourceCard({
   resource,
   folders,
   onAddToFolder,
+  onRemoveFromFolder,
+  showRemoveOption = false,
 }: ExtendedResourceCardProps) {
   // State management
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -156,8 +160,9 @@ export function ResourceCard({
 
       dialogRef.current.focus();
       dialogRef.current.addEventListener("keydown", handleKeyDown);
-      return () =>
+      return () => {
         dialogRef.current?.removeEventListener("keydown", handleKeyDown);
+      };
     }
   }, [isPreviewOpen]);
 
@@ -175,7 +180,7 @@ export function ResourceCard({
       window.addEventListener("keydown", handleKeyDown);
       return () => window.removeEventListener("keydown", handleKeyDown);
     }
-  }, [isPreviewOpen, zoomLevel]);
+  }, [isPreviewOpen]);
 
   useEffect(() => {
     if (isPreviewOpen) {
@@ -184,13 +189,33 @@ export function ResourceCard({
       const timer = setTimeout(() => {
         setIsInitialLoading(false);
       }, 1000);
-      return () => clearTimeout(timer);
-    } else {
+      return () => {
+        clearTimeout(timer);
+        // These states should ideally be reset when isPreviewOpen becomes false,
+        // not just on effect cleanup (which happens on unmount or dependency change).
+        // We'll handle reset explicitly when isPreviewOpen changes below.
+      };
+    }
+  }, [isPreviewOpen]);
+
+  // Reset preview states when the dialog is closed
+  useEffect(() => {
+    if (!isPreviewOpen) {
       setIsInitialLoading(false);
       setError(null);
       setZoomLevel(1);
+      setIsFullScreen(false); // Also reset fullscreen state
+      // Any other preview-specific states should be reset here
     }
   }, [isPreviewOpen]);
+
+  // Clean up resources when component unmounts - this is for the card itself
+  useEffect(() => {
+    return () => {
+      // Any cleanup specific to the card component unmounting can go here
+      // Dialog state reset is handled by the effect above watching isPreviewOpen
+    };
+  }, []);
 
   const formattedDate =
     typeof window !== "undefined"
@@ -238,6 +263,8 @@ export function ResourceCard({
               optimisticFolderId={optimisticFolderId}
               loadingFolder={loadingFolder}
               handleAddToFolder={handleAddToFolder}
+              onRemoveFromFolder={onRemoveFromFolder}
+              showRemoveOption={showRemoveOption}
             />
           </div>
           <div className="flex flex-wrap gap-1.5">

@@ -7,34 +7,47 @@ import { ResourceFilters } from "@/components/resources/resource-filters";
 import { CreateResourceModal } from "@/components/resources/create-resource-modal";
 import { CreateFolderModal } from "@/components/resources/Preview/CreateFolderModal";
 import { Button } from "@/components/ui/button";
-import { Plus, Grid, List, RefreshCw } from "lucide-react";
+import { Plus, Grid, List, RefreshCw, Folder, Search, X, ChevronDown, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { Resource } from "@/types/resource";
 import type { ResourceFolder } from "@/types/resource-folder";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   getResources,
   getResourceFolders,
   createResourceFolder,
   deleteResourceFolder,
   addResourceToFolder,
+  removeResourceFromFolder,
 } from "@/lib/actions/resources";
 import { Loader2 } from "lucide-react";
 import { useUser } from "@/context/user-context";
 import { ResourceSkeletonGrid } from "@/components/skeletons/resource-skeleton";
 import { motion, AnimatePresence } from "framer-motion";
+import { FolderView } from "./folder-view";
+import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 
 export function ResourcesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [resources, setResources] = useState<Resource[]>([]);
   const [folders, setFolders] = useState<ResourceFolder[]>([]);
-  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const [selectedFolder, setSelectedFolder] = useState<ResourceFolder | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [searchQuery, setSearchQuery] = useState("");
   const { toast } = useToast();
   const { user } = useUser();
+  const [showFoldersDropdown, setShowFoldersDropdown] = useState(false);
+  const [showResourceSearch, setShowResourceSearch] = useState(false);
 
   // Filter states
   const [filters, setFilters] = useState({
@@ -53,6 +66,11 @@ export function ResourcesPage() {
 
   // Sort state
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "a-z">("newest");
+
+  // Optimistic state for folder operations
+  const [optimisticFolderOperations, setOptimisticFolderOperations] = useState<{
+    [key: string]: { folderId: string; operation: 'add' | 'remove' }
+  }>({});
 
   // Fetch folders
   const fetchFolders = async () => {
@@ -83,11 +101,7 @@ export function ResourcesPage() {
     }
   };
 
-  useEffect(() => {
-    fetchFolders();
-  }, []);
-
-  // Fetch resources with folder filter
+  // Fetch resources with folder and search filters
   const fetchResources = async (showFullLoading = false) => {
     try {
       if (showFullLoading) {
@@ -96,7 +110,9 @@ export function ResourcesPage() {
         setIsRefreshing(true);
       }
       const { resources: fetchedResources, error } = await getResources({
-        ...(selectedFolder ? { folderId: selectedFolder } : {}),
+        ...(selectedFolder ? { folderId: selectedFolder.id } : {}),
+        // Apply search query only when not in a specific folder view
+        ...(!selectedFolder && searchQuery ? { search: searchQuery } : {}),
       });
       if (error) throw new Error(error);
 
@@ -135,85 +151,94 @@ export function ResourcesPage() {
     }
   };
 
+  // Initial data fetch
+  useEffect(() => {
+    Promise.all([fetchFolders(), fetchResources(true)]);
+  }, []);
+
+  // Fetch resources when folder selection or search changes
   useEffect(() => {
     fetchResources(true);
-  }, [selectedFolder]);
+  }, [selectedFolder, searchQuery]);
 
-  // Apply all filters locally
+  // Apply local filters (excluding search which is now backend filtered)
   const filteredResources = useMemo(() => {
-    return resources
-      .filter((resource) => {
-        if (
-          filters.search &&
-          !resource.title
-            .toLowerCase()
-            .includes(filters.search.toLowerCase()) &&
-          !resource.description
-            ?.toLowerCase()
-            .includes(filters.search.toLowerCase())
-        ) {
-          return false;
-        }
-        if (
-          filters.teacherName &&
-          !resource.uploadedBy.name
-            .toLowerCase()
-            .includes(filters.teacherName.toLowerCase())
-        ) {
-          return false;
-        }
-        if (
-          filters.department &&
-          resource.department.toLowerCase() !== filters.department.toLowerCase()
-        ) {
-          return false;
-        }
-        if (
-          filters.courseId &&
-          resource.courseId.toLowerCase() !== filters.courseId.toLowerCase()
-        ) {
-          return false;
-        }
-        if (
-          filters.fileType &&
-          resource.fileType.toLowerCase() !== filters.fileType.toLowerCase()
-        ) {
-          return false;
-        }
-        if (
-          filters.dateRange.from &&
-          new Date(resource.uploadDate) < filters.dateRange.from
-        ) {
-          return false;
-        }
-        if (
-          filters.dateRange.to &&
-          new Date(resource.uploadDate) > filters.dateRange.to
-        ) {
-          return false;
-        }
-        if (filters.year && !resource.tags.includes(filters.year)) {
-          return false;
-        }
-        return true;
-      })
-      .sort((a, b) => {
-        if (sortBy === "newest") {
-          return (
-            new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
-          );
-        } else if (sortBy === "oldest") {
-          return (
-            new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime()
-          );
-        }
-        return a.title.localeCompare(b.title);
-      });
-  }, [resources, filters, sortBy]);
+    let currentResources = resources;
+
+    // Apply local filters only when not in a folder view, or apply filters WITHIN the folder view
+    // Based on requirement, filters apply to the currently viewed set of resources.
+    currentResources = currentResources.filter((resource) => {
+      // Search filter is now handled in fetchResources when not in a folder view
+      // When in a folder view, search should likely be handled here, but for now
+      // the requirement is search on ALL resources OR resources in a folder, not both simultaneously.
+      // We keep local filters for other criteria like subject, year, etc.
+      if (
+        filters.teacherName &&
+        !resource.uploadedBy.name
+          .toLowerCase()
+          .includes(filters.teacherName.toLowerCase())
+      ) {
+        return false;
+      }
+      if (
+        filters.department &&
+        resource.department.toLowerCase() !== filters.department.toLowerCase()
+      ) {
+        return false;
+      }
+      if (
+        filters.courseId &&
+        resource.courseId.toLowerCase() !== filters.courseId.toLowerCase()
+      ) {
+        return false;
+      }
+      if (
+        filters.fileType &&
+        resource.fileType.toLowerCase() !== filters.fileType.toLowerCase()
+      ) {
+        return false;
+      }
+      if (
+        filters.dateRange.from &&
+        new Date(resource.uploadDate) < filters.dateRange.from
+      ) {
+        return false;
+      }
+      if (
+        filters.dateRange.to &&
+        new Date(resource.uploadDate) > filters.dateRange.to
+      ) {
+        return false;
+      }
+      if (filters.year && !resource.tags.includes(filters.year)) {
+        return false;
+      }
+      // Only include resources that are in the selected folder if a folder is selected
+      if (selectedFolder && !resource.folderIds?.includes(selectedFolder.id)) {
+        return false;
+      }
+      return true;
+    });
+
+    // Apply sort
+    return currentResources.sort((a, b) => {
+      if (sortBy === "newest") {
+        return (
+          new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime()
+        );
+      } else if (sortBy === "oldest") {
+        return (
+          new Date(a.uploadDate).getTime() - new Date(b.uploadDate).getTime()
+        );
+      }
+      return a.title.localeCompare(b.title);
+    });
+  }, [resources, filters, sortBy, selectedFolder]);
 
   const handleCreateResource = async (newResource: Resource) => {
     setIsCreateModalOpen(false);
-    setResources((currentResources) => [newResource, ...currentResources]);
+    // Re-fetch resources to include the new resource, especially if in a folder view
+    fetchResources(false);
     toast({
       title: "Success",
       description: "Resource has been created successfully.",
@@ -224,8 +249,7 @@ export function ResourcesPage() {
     fetchResources(false);
   };
 
-  // Optimistic folder creation
-  const handleCreateFolder = async (name: string, description: string) => {
+  const handleCreateFolder = async (name: string, description?: string) => {
     if (!user?.id) {
       toast({
         title: "Error",
@@ -235,7 +259,7 @@ export function ResourcesPage() {
       return;
     }
 
-    const tempId = `temp-${Date.now()}`; // Temporary ID for optimistic update
+    const tempId = `temp-${Date.now()}`;
     const optimisticFolder: ResourceFolder = {
       id: tempId,
       name,
@@ -243,108 +267,167 @@ export function ResourcesPage() {
       authorId: user.id,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
+      resourceCount: 0,
     };
 
-    // Optimistically update the folders state
     setFolders((prev) => [...prev, optimisticFolder]);
     setIsFolderModalOpen(false);
 
     try {
       const { folder, error } = await createResourceFolder(name, description);
-      if (error || !folder) {
-        throw new Error(
-          error || "Failed to create folder: No folder data returned"
-        );
-      }
+      if (error) throw new Error(error);
+      if (!folder) throw new Error("No folder data returned");
 
-      // Replace the optimistic folder with the real one from the server
       setFolders((prev) =>
-        prev.map((f) =>
-          f.id === tempId
-            ? {
-                ...f,
-                id: folder.id,
-                authorId: folder.authorId,
-                description: folder.description ?? undefined,
-                createdAt:
-                  typeof folder.createdAt === "string"
-                    ? folder.createdAt
-                    : folder.createdAt.toISOString(),
-                updatedAt:
-                  typeof folder.updatedAt === "string"
-                    ? folder.updatedAt
-                    : folder.updatedAt.toISOString(),
-              }
-            : f
-        )
+        prev.map((f) => (f.id === tempId ? {
+          ...folder,
+          createdAt: typeof folder.createdAt === 'string' ? folder.createdAt : folder.createdAt.toISOString(),
+          updatedAt: typeof folder.updatedAt === 'string' ? folder.updatedAt : folder.updatedAt.toISOString(),
+          description: folder.description ?? undefined,
+        } : f))
       );
+
       toast({
         title: "Success",
-        description: "Folder created successfully.",
+        description: "Folder created successfully",
       });
-    } catch (err) {
-      // Rollback on error
+    } catch (error) {
       setFolders((prev) => prev.filter((f) => f.id !== tempId));
       toast({
         title: "Error",
-        description:
-          err instanceof Error ? err.message : "Failed to create folder",
+        description: "Failed to create folder",
         variant: "destructive",
       });
     }
   };
 
-  // Handle adding a resource to a folder
+  // Handle adding resource to folder with optimistic update
   const handleAddToFolder = async (resourceId: string, folderId: string) => {
     try {
-      // Optimistically update the resource's folderIds
-      setResources((prev) =>
-        prev.map((r) =>
-          r.id === resourceId
+      // Optimistically update the UI
+      setOptimisticFolderOperations(prev => ({
+        ...prev,
+        [resourceId]: { folderId, operation: 'add' }
+      }));
+
+      // Update the resources state optimistically
+      setResources(prevResources =>
+        prevResources.map(resource =>
+          resource.id === resourceId
             ? {
-                ...r,
-                folderIds: Array.from(
-                  new Set([...(r.folderIds || []), folderId])
-                ),
+                ...resource,
+                folderIds: [...(resource.folderIds || []), folderId]
               }
-            : r
+            : resource
         )
       );
-      // If the selected folder is set and the resource is not in that folder after the update, remove it from the list
-      if (
-        selectedFolder &&
-        ![
-          ...(resources.find((r) => r.id === resourceId)?.folderIds || []),
-          folderId,
-        ].includes(selectedFolder)
-      ) {
-        setResources((prev) => prev.filter((r) => r.id !== resourceId));
-      }
-      await addResourceToFolder(resourceId, folderId);
+
+      // Make the API call
+      const { error } = await addResourceToFolder(resourceId, folderId);
+      if (error) throw new Error(error);
+
+      // Update folder counts optimistically
+      setFolders(prevFolders =>
+        prevFolders.map(folder =>
+          folder.id === folderId
+            ? { ...folder, resourceCount: (folder.resourceCount || 0) + 1 }
+            : folder
+        )
+      );
+
       toast({
         title: "Success",
-        description: `Resource added to ${
-          folders.find((f) => f.id === folderId)?.name || "folder"
-        }`,
+        description: "Resource added to folder successfully",
       });
     } catch (err) {
-      // Rollback optimistic update
-      setResources((prev) =>
-        prev.map((r) =>
-          r.id === resourceId
+      // Revert optimistic updates on error
+      setOptimisticFolderOperations(prev => {
+        const newState = { ...prev };
+        delete newState[resourceId];
+        return newState;
+      });
+
+      setResources(prevResources =>
+        prevResources.map(resource =>
+          resource.id === resourceId
             ? {
-                ...r,
-                folderIds: (r.folderIds || []).filter((id) => id !== folderId),
+                ...resource,
+                folderIds: resource.folderIds?.filter(id => id !== folderId) || []
               }
-            : r
+            : resource
         )
       );
+
       toast({
         title: "Error",
-        description:
-          err instanceof Error
-            ? err.message
-            : "Failed to add resource to folder",
+        description: err instanceof Error ? err.message : "Failed to add resource to folder",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle removing resource from folder with optimistic update
+  const handleRemoveFromFolder = async (resourceId: string) => {
+    if (!selectedFolder) return;
+
+    try {
+      // Optimistically update the UI
+      setOptimisticFolderOperations(prev => ({
+        ...prev,
+        [resourceId]: { folderId: selectedFolder.id, operation: 'remove' }
+      }));
+
+      // Update the resources state optimistically
+      setResources(prevResources =>
+        prevResources.map(resource =>
+          resource.id === resourceId
+            ? {
+                ...resource,
+                folderIds: resource.folderIds?.filter(id => id !== selectedFolder.id) || []
+              }
+            : resource
+        )
+      );
+
+      // Make the API call
+      const { error } = await removeResourceFromFolder(resourceId, selectedFolder.id);
+      if (error) throw new Error(error);
+
+      // Update folder counts optimistically
+      setFolders(prevFolders =>
+        prevFolders.map(folder =>
+          folder.id === selectedFolder.id
+            ? { ...folder, resourceCount: Math.max(0, (folder.resourceCount || 0) - 1) }
+            : folder
+        )
+      );
+
+      toast({
+        title: "Success",
+        description: "Resource removed from folder successfully",
+      });
+    } catch (err) {
+      // Revert optimistic updates on error
+      setOptimisticFolderOperations(prev => {
+        const newState = { ...prev };
+        delete newState[resourceId];
+        return newState;
+      });
+
+      setResources(prevResources =>
+        prevResources.map(resource =>
+          resource.id === resourceId
+            ? {
+                ...resource,
+                folderIds: [...(resource.folderIds || []), selectedFolder.id]
+              }
+            : resource
+        )
+      );
+
+      toast({
+        title: "Error",
+        description: err instanceof Error ? err.message : "Failed to remove resource from folder",
         variant: "destructive",
       });
     }
@@ -354,242 +437,215 @@ export function ResourcesPage() {
     user?.role?.toLowerCase() === "teacher" ||
     user?.role?.toLowerCase() === "admin";
 
-  return (
-    <div className="flex flex-col h-screen">
-      <div className="flex flex-1 overflow-hidden">
-        <div className="flex-1 overflow-y-auto feeds-scroll-hidden p-4 md:p-6">
-          <div className="mx-auto max-w-6xl w-full">
-            {/* Folder Dropdown */}
-            <div className="mb-4 flex items-center gap-4">
-              <select
-                className="rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 transition-colors focus:ring-2 focus:ring-blue-500"
-                value={selectedFolder || ""}
-                onChange={(e) => setSelectedFolder(e.target.value || null)}
-              >
-                <option
-                  value=""
-                  className="bg-background dark:bg-zinc-800 dark:text-zinc-100"
-                >
-                  All Resources
-                </option>
-                {folders.map((folder) => (
-                  <option
-                    key={folder.id}
-                    value={folder.id}
-                    className="bg-background dark:bg-zinc-800 dark:text-zinc-100"
-                  >
-                    {folder.name}
-                  </option>
-                ))}
-              </select>
-              <Button
-                size="sm"
-                onClick={() => setIsFolderModalOpen(true)}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-              >
-                + New Folder
-              </Button>
+  const handleFolderClick = (folder: ResourceFolder) => {
+    setSelectedFolder(folder);
+  };
 
-              {selectedFolder && isTeacher && (
+  const handleBackToResources = () => {
+    setSelectedFolder(null);
+  };
+
+  // Filter resources based on the selected folder locally for display in ResourceList
+  // This is important because fetchResources might bring in resources not just for the selected folder
+  // if selectedFolder is null (main view). When selectedFolder is not null, fetchResources
+  // already filters by folderId.
+  const resourcesToDisplay = useMemo(() => {
+    if (!selectedFolder) {
+      return filteredResources; // Use locally filtered resources in main view
+    } else {
+      // When in a folder view, the resources state should already be filtered by fetchResources
+      // but we still apply local filters (except search) and sorting.
+      return filteredResources;
+    }
+  }, [filteredResources, selectedFolder]);
+
+  return (
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-bold tracking-tight">Resources</h2>
+          <p className="text-sm text-muted-foreground">
+            Manage and organize your learning resources
+          </p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <DropdownMenu open={showFoldersDropdown} onOpenChange={setShowFoldersDropdown}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Folder className="h-4 w-4 mr-2" />
+                Folders
+                <ChevronDown className="h-4 w-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[300px] p-0">
+              <ScrollArea className="h-[300px]">
+                <div className="p-2 space-y-2">
+                  {folders.length > 0 ? (
+                    folders.map((folder) => (
+                      <div
+                        key={folder.id}
+                        className={cn(
+                          "flex items-center justify-between p-2 rounded-md cursor-pointer hover:bg-accent",
+                          selectedFolder?.id === folder.id && "bg-accent"
+                        )}
+                        onClick={() => {
+                          handleFolderClick(folder);
+                          setShowFoldersDropdown(false);
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Folder className="h-4 w-4 text-primary" />
+                          <div>
+                            <p className="font-medium">{folder.name}</p>
+                            {folder.description && (
+                              <p className="text-sm text-muted-foreground line-clamp-1">
+                                {folder.description}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-sm text-muted-foreground">
+                          {folder.resourceCount}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-4 text-center text-muted-foreground">
+                      No folders found.
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+              <div className="p-2 border-t">
                 <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={async () => {
-                    try {
-                      await deleteResourceFolder(selectedFolder);
-                      setSelectedFolder(null);
-                      await fetchFolders();
-                      await fetchResources(true);
-                      toast({
-                        title: "Success",
-                        description: "Folder deleted successfully.",
-                      });
-                    } catch (err) {
-                      toast({
-                        title: "Error",
-                        description:
-                          err instanceof Error
-                            ? err.message
-                            : "Failed to delete folder",
-                        variant: "destructive",
-                      });
-                    }
+                  variant="ghost"
+                  className="w-full justify-start"
+                  onClick={() => {
+                    setIsFolderModalOpen(true);
+                    setShowFoldersDropdown(false);
                   }}
                 >
-                  Delete Folder
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create New Folder
                 </Button>
-              )}
-            </div>
-
-            {/* Folder Creation Modal */}
-            <CreateFolderModal
-              isOpen={isFolderModalOpen}
-              onClose={() => setIsFolderModalOpen(false)}
-              onSubmit={handleCreateFolder}
-            />
-
-            <div className="mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-                  Resources
-                </h1>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={handleRefresh}
-                  disabled={isRefreshing}
-                  className="border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                >
-                  <RefreshCw
-                    className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`}
-                  />
-                </Button>
-                {isTeacher && (
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setIsCreateModalOpen(true)}
-                    className="border-zinc-300 dark:border-zinc-700 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                )}
               </div>
-
-              <div className="flex flex-wrap items-center gap-2 md:gap-4">
-                <Tabs
-                  value={viewMode}
-                  onValueChange={(value) =>
-                    setViewMode(value as "grid" | "list")
-                  }
-                >
-                  <TabsList className="grid w-[160px] grid-cols-2 bg-transparent rounded-md p-1 border border-blue-100/50 dark:border-blue-900/50 mb-1">
-                    <TabsTrigger
-                      value="grid"
-                      className="hover:bg-blue-100/50 dark:hover:bg-blue-900/50 data-[state=active]:bg-blue-500/40 dark:data-[state=active]:bg-blue-700/40"
-                    >
-                      <Grid className="h-4 w-4 mr-1" />
-                      Grid
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="list"
-                      className="hover:bg-blue-100/50 dark:hover:bg-blue-900/50 data-[state=active]:bg-blue-500/40 dark:data-[state=active]:bg-blue-700/40"
-                    >
-                      <List className="h-4 w-4 mr-1" />
-                      List
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-
-                <select
-                  className="rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-100 focus:ring-2 focus:ring-blue-500"
-                  value={sortBy}
-                  onChange={(e) =>
-                    setSortBy(e.target.value as "newest" | "oldest" | "a-z")
-                  }
-                >
-                  <option value="newest">Newest First</option>
-                  <option value="oldest">Oldest First</option>
-                  <option value="a-z">A-Z</option>
-                </select>
-              </div>
-            </div>
-
-            <ResourceFilters
-              filters={filters}
-              onFilterChange={setFilters}
-              onClearFilters={() => {
-                setFilters({
-                  search: "",
-                  subject: "",
-                  year: "",
-                  fileType: "",
-                  department: "",
-                  courseId: "",
-                  teacherName: "",
-                  dateRange: {
-                    from: undefined,
-                    to: undefined,
-                  },
-                });
-              }}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsCreateModalOpen(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Upload Resource
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+          >
+            <RefreshCw
+              className={cn("h-4 w-4", isRefreshing && "animate-spin")}
             />
-
-            <div className="mt-6">
-              {isLoading ? (
-                <ResourceSkeletonGrid />
-              ) : filteredResources.length === 0 && selectedFolder ? (
-                <AnimatePresence>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: 20 }}
-                    transition={{ duration: 0.3 }}
-                    className="flex flex-col items-center justify-center py-16 text-center"
-                  >
-                    <motion.div
-                      animate={{
-                        y: [0, -10, 0],
-                        transition: { repeat: Infinity, duration: 2 },
-                      }}
-                    >
-                      <svg
-                        className="w-24 h-24 text-zinc-400 dark:text-zinc-600"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth="2"
-                          d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-                        />
-                      </svg>
-                    </motion.div>
-                    <h2 className="mt-4 text-xl font-semibold text-zinc-900 dark:text-zinc-100">
-                      This Folder is Empty
-                    </h2>
-                    <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-                      No resources have been added to this folder yet.
-                    </p>
-                    <Button
-                      onClick={() => setSelectedFolder(null)}
-                      className="mt-4 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
-                    >
-                      View All Resources
-                    </Button>
-                  </motion.div>
-                </AnimatePresence>
-              ) : (
-                <ResourceList
-                  resources={filteredResources}
-                  viewMode={viewMode}
-                  folders={folders} // Pass folders to ResourceList
-                  onAddToFolder={handleAddToFolder} // Pass callback for adding to folder
-                />
-              )}
-
-              {isRefreshing && (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-6 w-6 animate-spin text-blue-600 dark:text-blue-500" />
-                </div>
-              )}
-            </div>
-          </div>
+          </Button>
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "grid" | "list")}>
+            <TabsList>
+              <TabsTrigger value="grid">
+                <Grid className="h-4 w-4" />
+              </TabsTrigger>
+              <TabsTrigger value="list">
+                <List className="h-4 w-4" />
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
-
-        <div className="hidden lg:block w-0 xl:w-24 2xl:w-48 flex-shrink-0" />
       </div>
 
-      {isTeacher && (
-        <CreateResourceModal
-          isOpen={isCreateModalOpen}
-          onClose={() => setIsCreateModalOpen(false)}
-          onSubmit={handleCreateResource}
+      {/* Breadcrumbs */}
+      {selectedFolder && (
+        <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-auto p-0 hover:bg-transparent"
+            onClick={handleBackToResources}
+          >
+            Resources
+          </Button>
+          <ChevronRight className="h-4 w-4" />
+          <div className="flex items-center space-x-2">
+            <Folder className="h-4 w-4" />
+            <span className="font-medium text-foreground">{selectedFolder.name}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Resource Filters - Show only in main view */}
+      {!selectedFolder && (
+        <ResourceFilters
+          filters={filters}
+          onFilterChange={setFilters}
+          onClearFilters={() => {
+            setFilters({
+              search: "",
+              subject: "",
+              year: "",
+              fileType: "",
+              department: "",
+              courseId: "",
+              teacherName: "",
+              dateRange: {
+                from: undefined,
+                to: undefined,
+              },
+            });
+          }}
         />
       )}
+
+      {/* Resource List or Folder View */}
+      {isLoading ? (
+        <ResourceSkeletonGrid />
+      ) : selectedFolder ? (
+        <FolderView
+          folder={selectedFolder}
+          resources={resourcesToDisplay} // resources state is already filtered by fetchResources when selectedFolder is set
+          viewMode={viewMode}
+          onBack={handleBackToResources}
+          onRefresh={handleRefresh}
+          onAddToFolder={handleAddToFolder}
+          onRemoveFromFolder={handleRemoveFromFolder}
+        />
+      ) : (
+        <ResourceList
+          resources={resourcesToDisplay} // resources state is all resources, filtered locally
+          viewMode={viewMode}
+          folders={folders}
+          onAddToFolder={handleAddToFolder}
+          onRemoveFromFolder={handleRemoveFromFolder} // Pass remove handler for main view if needed (e.g., remove from ANY folder)
+          showRemoveOption={false} // Hide remove from folder option in main view list
+        />
+      )}
+
+      {/* Empty state for main resource list */}
+      {!isLoading && !selectedFolder && filteredResources.length === 0 && searchQuery && (
+         <div className="p-4 text-center text-muted-foreground">
+           No resources found matching your search criteria.
+         </div>
+       )}
+
+      <CreateResourceModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateResource}
+      />
+
+      <CreateFolderModal
+        isOpen={isFolderModalOpen}
+        onClose={() => setIsFolderModalOpen(false)}
+        onSubmit={handleCreateFolder}
+      />
     </div>
   );
 }

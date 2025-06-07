@@ -10,12 +10,23 @@ import { getFileIcon } from "@/lib/file-utils"
 import { motion } from "framer-motion"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
+import type { ResourceFolder } from "@/types/resource-folder"
 
 interface ResourceRowProps {
   resource: Resource
+  folders: ResourceFolder[]
+  onAddToFolder: (resourceId: string, folderId: string) => Promise<void>
+  onRemoveFromFolder?: (resourceId: string) => Promise<void>
+  showRemoveOption?: boolean
 }
 
-export function ResourceRow({ resource }: ResourceRowProps) {
+export function ResourceRow({
+  resource,
+  folders,
+  onAddToFolder,
+  onRemoveFromFolder,
+  showRemoveOption = false,
+}: ResourceRowProps) {
   const [showPreview, setShowPreview] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const { toast } = useToast()
