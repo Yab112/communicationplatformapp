@@ -67,6 +67,11 @@ export function ResourcesPage() {
   // Sort state
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "a-z">("newest");
 
+  // Optimistic state for folder operations
+  const [optimisticFolderOperations, setOptimisticFolderOperations] = useState<{
+    [key: string]: { folderId: string; operation: 'add' | 'remove' }
+  }>({});
+
   // Fetch folders
   const fetchFolders = async () => {
     try {
@@ -296,119 +301,133 @@ export function ResourcesPage() {
     }
   };
 
+  // Handle adding resource to folder with optimistic update
   const handleAddToFolder = async (resourceId: string, folderId: string) => {
     try {
-      // Optimistic update
-      setResources((prev) =>
-        prev.map((r) =>
-          r.id === resourceId
+      // Optimistically update the UI
+      setOptimisticFolderOperations(prev => ({
+        ...prev,
+        [resourceId]: { folderId, operation: 'add' }
+      }));
+
+      // Update the resources state optimistically
+      setResources(prevResources =>
+        prevResources.map(resource =>
+          resource.id === resourceId
             ? {
-                ...r,
-                folderIds: Array.from(
-                  new Set([...(r.folderIds || []), folderId])
-                ),
+                ...resource,
+                folderIds: [...(resource.folderIds || []), folderId]
               }
-            : r
+            : resource
         )
       );
 
-      // Update folder count optimistically
-      setFolders((prev) =>
-        prev.map((f) =>
-          f.id === folderId
-            ? { ...f, resourceCount: f.resourceCount + 1 }
-            : f
-        )
-      );
-
-      // Call backend action
-      const { success, error } = await addResourceToFolder(resourceId, folderId);
+      // Make the API call
+      const { error } = await addResourceToFolder(resourceId, folderId);
       if (error) throw new Error(error);
-      if (!success) throw new Error("Failed to add resource to folder");
 
-      // Re-fetch resources to ensure UI is in sync with backend
-      fetchResources(false);
+      // Update folder counts optimistically
+      setFolders(prevFolders =>
+        prevFolders.map(folder =>
+          folder.id === folderId
+            ? { ...folder, resourceCount: (folder.resourceCount || 0) + 1 }
+            : folder
+        )
+      );
 
       toast({
         title: "Success",
-        description: `Resource added to ${folders.find((f) => f.id === folderId)?.name || "folder"}`,
+        description: "Resource added to folder successfully",
       });
     } catch (err) {
       // Revert optimistic updates on error
-      setResources((prev) =>
-        prev.map((r) =>
-          r.id === resourceId
-            ? {
-                ...r,
-                folderIds: (r.folderIds || []).filter((id) => id !== folderId),
-              }
-            : r
-        )
-      );
+      setOptimisticFolderOperations(prev => {
+        const newState = { ...prev };
+        delete newState[resourceId];
+        return newState;
+      });
 
-      setFolders((prev) =>
-        prev.map((f) =>
-          f.id === folderId
-            ? { ...f, resourceCount: f.resourceCount - 1 }
-            : f
+      setResources(prevResources =>
+        prevResources.map(resource =>
+          resource.id === resourceId
+            ? {
+                ...resource,
+                folderIds: resource.folderIds?.filter(id => id !== folderId) || []
+              }
+            : resource
         )
       );
 
       toast({
         title: "Error",
-        description:
-          err instanceof Error
-            ? err.message
-            : "Failed to add resource to folder",
+        description: err instanceof Error ? err.message : "Failed to add resource to folder",
         variant: "destructive",
       });
     }
   };
 
+  // Handle removing resource from folder with optimistic update
   const handleRemoveFromFolder = async (resourceId: string) => {
-    if (!selectedFolder) return; // Should only be called from within a folder view
+    if (!selectedFolder) return;
 
     try {
-      const folderId = selectedFolder.id;
-      // Optimistic update: remove resource from the current view and update folder count
-      setResources((prev) => prev.filter((r) => r.id !== resourceId));
-      setFolders((prev) =>
-        prev.map((f) =>
-          f.id === folderId
-            ? { ...f, resourceCount: f.resourceCount - 1 }
-            : f
+      // Optimistically update the UI
+      setOptimisticFolderOperations(prev => ({
+        ...prev,
+        [resourceId]: { folderId: selectedFolder.id, operation: 'remove' }
+      }));
+
+      // Update the resources state optimistically
+      setResources(prevResources =>
+        prevResources.map(resource =>
+          resource.id === resourceId
+            ? {
+                ...resource,
+                folderIds: resource.folderIds?.filter(id => id !== selectedFolder.id) || []
+              }
+            : resource
         )
       );
 
-      // Call backend action
-      const { success, error } = await removeResourceFromFolder(resourceId, folderId);
+      // Make the API call
+      const { error } = await removeResourceFromFolder(resourceId, selectedFolder.id);
       if (error) throw new Error(error);
-      if (!success) throw new Error("Failed to remove resource from folder");
+
+      // Update folder counts optimistically
+      setFolders(prevFolders =>
+        prevFolders.map(folder =>
+          folder.id === selectedFolder.id
+            ? { ...folder, resourceCount: Math.max(0, (folder.resourceCount || 0) - 1) }
+            : folder
+        )
+      );
 
       toast({
         title: "Success",
-        description: "Resource removed from folder",
+        description: "Resource removed from folder successfully",
       });
     } catch (err) {
-      const folderId = selectedFolder.id;
-      // Revert optimistic updates on error: add resource back and revert folder count
-      // Note: finding the resource to add back requires either keeping a copy of the original
-      // resources list or re-fetching. Re-fetching is simpler here.
-      fetchResources(false); // Re-fetch resources for the current folder
-      setFolders((prev) =>
-        prev.map((f) =>
-          f.id === folderId
-            ? { ...f, resourceCount: f.resourceCount + 1 }
-            : f
+      // Revert optimistic updates on error
+      setOptimisticFolderOperations(prev => {
+        const newState = { ...prev };
+        delete newState[resourceId];
+        return newState;
+      });
+
+      setResources(prevResources =>
+        prevResources.map(resource =>
+          resource.id === resourceId
+            ? {
+                ...resource,
+                folderIds: [...(resource.folderIds || []), selectedFolder.id]
+              }
+            : resource
         )
       );
 
       toast({
         title: "Error",
-        description:
-          err instanceof Error
-            ? err.message
-            : "Failed to remove resource from folder",
+        description: err instanceof Error ? err.message : "Failed to remove resource from folder",
         variant: "destructive",
       });
     }
@@ -559,49 +578,6 @@ export function ResourcesPage() {
             <Folder className="h-4 w-4" />
             <span className="font-medium text-foreground">{selectedFolder.name}</span>
           </div>
-        </div>
-      )}
-
-      {/* Resource Search Bar */}
-      {!selectedFolder && (
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setShowResourceSearch(!showResourceSearch)}
-            className={cn(showResourceSearch && "bg-accent")}
-          >
-            <Search className="h-4 w-4" />
-          </Button>
-          <AnimatePresence>
-            {showResourceSearch && (
-              <motion.div
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: "100%", opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                className="relative"
-              >
-                <Input
-                  type="search"
-                  placeholder="Search resources..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full"
-                />
-                {searchQuery && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-0 top-0 h-9 w-9 p-0"
-                    onClick={() => setSearchQuery("")}
-                  >
-                    <X className="h-4 w-4" />
-                    <span className="sr-only">Clear search</span>
-                  </Button>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
       )}
 
