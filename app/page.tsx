@@ -3,8 +3,6 @@ import { redirect } from "next/navigation"
 import { getSession } from "@/lib/get-session"
 import { Button } from "@/components/ui/button"
 import { MessageSquare } from "lucide-react"
-import { CreatePost } from '@/components/create-post'
-import { Feed } from '@/components/feed'
 
 export default async function LandingPage() {
   // Check if user is already authenticated

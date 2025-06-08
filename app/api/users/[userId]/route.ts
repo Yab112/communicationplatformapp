@@ -1,46 +1,88 @@
-import { NextResponse } from "next/server"
-import { db } from "@/lib/db"
-import { getCurrentUser } from "@/lib/get-session"
+// context/user-context.tsx (The Final, Corrected Version)
+"use client";
 
-export async function GET(
-  request: Request,
-  { params }: { params: { userId: string } }
-) {
-  try {
-    const currentUser = await getCurrentUser()
-    
-    if (!currentUser) {
-      return new NextResponse("Unauthorized", { status: 401 })
-    }
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { useSession } from "next-auth/react";
+import { updateUserStatus } from "@/lib/actions/users";
+import { User } from "@/types/user";
 
-    const userId = params.userId
+type UserContextType = {
+  user: User | null;
+  loading: boolean;
+  refreshUser: () => Promise<void>;
+};
 
-    // Only allow users to access their own data unless they're an admin
-    if (currentUser.id !== userId && currentUser.role !== "Admin") {
-      return new NextResponse("Forbidden", { status: 403 })
-    }
+export const UserContext = createContext<UserContextType>({
+  user: null,
+  loading: true,
+  refreshUser: async () => {},
+});
 
-    const user = await db.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        name: true,
-        image: true,
-        role: true,
-        email: true,
-        status: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-    })
-
-    if (!user) {
-      return new NextResponse("User not found", { status: 404 })
-    }
-
-    return NextResponse.json(user)
-  } catch (error) {
-    console.error("[USER_GET]", error)
-    return new NextResponse("Internal Error", { status: 500 })
+export const useUser = () => {
+  const context = useContext(UserContext);
+  if (context === undefined) {
+    throw new Error("useUser must be used within a UserProvider");
   }
-} 
+  return context;
+};
+
+export function UserProvider({ children }: { children: React.ReactNode }) {
+  const { data: session, status } = useSession();
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // This function is now wrapped in useCallback to be stable
+  const fetchUserData = useCallback(async () => {
+    if (!session?.user?.id) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/users/${session.user.id}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch user data");
+      }
+      const userData = await response.json();
+      setUser(userData);
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [session?.user?.id]); // It only gets a new identity if the user ID changes
+
+  // Effect for fetching data. Runs only when the session status changes.
+  useEffect(() => {
+    if (status === "authenticated") {
+      fetchUserData();
+    } else if (status === "unauthenticated") {
+      setUser(null);
+      setLoading(false);
+    }
+  }, [status, fetchUserData]);
+
+  // Effect for managing online/offline status. Runs only when the user logs in or out.
+  useEffect(() => {
+    if (!session?.user?.id) {
+      return;
+    }
+
+    const updateStatusSafe = (newStatus: "online" | "offline") => {
+      updateUserStatus(newStatus).catch((err) =>
+        console.error("Failed to update status:", err)
+      );
+    };
+
+    const handleVisibilityChange = () => {
+      updateStatusSafe(document.visibilityState === "visible" ? "online" : "offline");
+    };
+    
+    // Set initial status and add listeners
+    updateStatusSafe("online");
+    window.addEventListener("visibilitychange", handleVisibilityChange);
+
+    // This function will run when the component unmounts or the user logs out

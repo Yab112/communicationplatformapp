@@ -27,6 +27,28 @@ export function useNotifications() {
   const { socket } = useSocket();
   const isMounted = useRef(true);
 
+  const prevSocketRef = useRef<typeof socket | null>(null);
+
+  useEffect(() => {
+    // This effect deliberately runs after every single render
+    if (prevSocketRef.current && prevSocketRef.current === socket) {
+      console.log(
+        "%c✅ Socket reference is STABLE.",
+        "color: green; font-weight: bold;"
+      );
+    } else {
+      console.error(
+        "%c❌ Socket reference has CHANGED.",
+        "color: red; font-weight: bold;"
+      );
+      console.log("PREVIOUS socket instance:", prevSocketRef.current);
+      console.log("CURRENT socket instance:", socket);
+    }
+
+    // Update the ref with the current socket for the next render's comparison
+    prevSocketRef.current = socket;
+  });
+
   // Fetch notifications
   const fetchNotifications = useCallback(async () => {
     if (!isMounted.current) return;
@@ -40,10 +62,16 @@ export function useNotifications() {
       if ("error" in result) {
         setNotifications([]);
         setUnreadCount(0);
-      } else if ("notifications" in result && Array.isArray(result.notifications)) {
+      } else if (
+        "notifications" in result &&
+        Array.isArray(result.notifications)
+      ) {
         const parsed = result.notifications.map((n) => ({
           ...n,
-          createdAt: n.createdAt instanceof Date ? n.createdAt.toISOString() : n.createdAt,
+          createdAt:
+            n.createdAt instanceof Date
+              ? n.createdAt.toISOString()
+              : n.createdAt,
           relatedId: n.relatedId || undefined,
         }));
         setNotifications(parsed);
@@ -102,23 +130,28 @@ export function useNotifications() {
   }, [fetchNotifications, socket, handleNewNotification]);
 
   // Mark individual notification as read
-  const markAsRead = useCallback(async (notificationId: string) => {
-    try {
-      const result = await markNotificationAsRead(notificationId);
-      if ("error" in result) throw new Error(result.error);
+  const markAsRead = useCallback(
+    async (notificationId: string) => {
+      try {
+        const result = await markNotificationAsRead(notificationId);
+        if ("error" in result) throw new Error(result.error);
 
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === notificationId ? { ...n, isRead: true } : n))
-      );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
-    } catch {
-      toast({
-        title: "Error",
-        description: "Failed to mark notification as read",
-        variant: "destructive",
-      });
-    }
-  }, [toast]);
+        setNotifications((prev) =>
+          prev.map((n) =>
+            n.id === notificationId ? { ...n, isRead: true } : n
+          )
+        );
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to mark notification as read",
+          variant: "destructive",
+        });
+      }
+    },
+    [toast]
+  );
 
   // Mark all as read
   const markAllAsRead = useCallback(async () => {

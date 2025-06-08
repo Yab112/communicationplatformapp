@@ -1,4 +1,5 @@
 // hooks/use-toast.ts
+import { useCallback } from 'react';
 import { toast as sonnerToast } from 'sonner';
 import type { ToasterProps } from 'sonner';
 
@@ -18,8 +19,9 @@ type LocalToasterProps = {
   toasts: ToasterToast[];
 };
 
+
 export const useToast = (): LocalToasterProps => {
-  const toast = ({ title, description, action, variant, type, ...props }: Omit<ToasterToast, 'id'>) => {
+  const toast = useCallback(({ title, description, action, variant, type, ...props }: Omit<ToasterToast, 'id'>) => {
     const id = sonnerToast(title, {
       description,
       action,
@@ -27,17 +29,17 @@ export const useToast = (): LocalToasterProps => {
       ...props,
     });
     return id as string;
-  };
+  }, []);
 
-  const dismiss = (toastId?: string) => {
+  const dismiss = useCallback((toastId?: string) => {
     if (toastId) {
       sonnerToast.dismiss(toastId);
     } else {
       sonnerToast.dismiss();
     }
-  };
+  }, []);
 
-  const update = ({ id, title, description, action, variant, type, ...props }: ToasterToast) => {
+  const update = useCallback(({ id, title, description, action, variant, type, ...props }: ToasterToast) => {
     if (id) {
       sonnerToast(title, {
         id,
@@ -47,10 +49,10 @@ export const useToast = (): LocalToasterProps => {
         ...props,
       });
     }
-  };
+  }, []);
 
   return {
-    toasts: [],
+    toasts: [], // This is likely unused, keeping for type consistency
     toast,
     dismiss,
     update,

@@ -30,7 +30,7 @@ interface RoomOptionsMenuProps {
 
 type ActivePanel = "teachers" | "students" | "resources" | null
 
-export function RoomOptionsMenu({ room, onOpenProfile, onDelete, onSelect }: RoomOptionsMenuProps) {
+export function RoomOptionsMenu({ room, onDelete, onSelect }: RoomOptionsMenuProps) {
   const [activePanel, setActivePanel] = useState<ActivePanel>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -55,7 +55,7 @@ export function RoomOptionsMenu({ room, onOpenProfile, onDelete, onSelect }: Roo
         title: "Success",
         description: "Room deleted successfully",
       })
-    } catch (error) {
+    } catch  {
       toast({
         title: "Error",
         description: "Failed to delete room",
