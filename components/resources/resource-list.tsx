@@ -6,6 +6,7 @@ import { ResourceRow } from "@/components/resources/resource-row";
 import type { Resource } from "@/types/resource";
 import type { ResourceFolder } from "@/types/resource-folder";
 import { motion } from "framer-motion";
+import { useResourceStore } from "@/store/resource-store";
 
 interface ResourceListProps {
   resources: Resource[];
@@ -19,17 +20,28 @@ interface ResourceListProps {
 export function ResourceList({
   resources,
   viewMode,
-  folders,
+  folders: propFolders,
   onAddToFolder,
   onRemoveFromFolder,
   showRemoveOption = false,
 }: ResourceListProps) {
+  const store = useResourceStore();
+  const folders = propFolders ?? store.folders;
+  const addToFolder = onAddToFolder ?? store.addToFolder;
+  const removeFromFolder =
+    onRemoveFromFolder ??
+    ((id: string) =>
+      store.selectedFolder
+        ? store.removeFromFolder(id, store.selectedFolder.id)
+        : Promise.resolve());
+
   if (resources.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-8 text-center">
         <h3 className="mb-2 text-lg font-medium">No resources found</h3>
         <p className="text-muted-foreground">
-          There are no resources matching your filters or no resources have been uploaded yet.
+          There are no resources matching your filters or no resources have been
+          uploaded yet.
         </p>
       </div>
     );
@@ -49,8 +61,8 @@ export function ResourceList({
             <ResourceCard
               resource={resource}
               folders={folders}
-              onAddToFolder={onAddToFolder}
-              onRemoveFromFolder={onRemoveFromFolder}
+              onAddToFolder={addToFolder}
+              onRemoveFromFolder={removeFromFolder}
               showRemoveOption={showRemoveOption}
             />
           </motion.div>
@@ -72,8 +84,8 @@ export function ResourceList({
           <ResourceRow
             resource={resource}
             folders={folders}
-            onAddToFolder={onAddToFolder}
-            onRemoveFromFolder={onRemoveFromFolder}
+            onAddToFolder={addToFolder}
+            onRemoveFromFolder={removeFromFolder}
             showRemoveOption={showRemoveOption}
           />
         </motion.div>

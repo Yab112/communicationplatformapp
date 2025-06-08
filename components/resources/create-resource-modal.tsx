@@ -1,48 +1,75 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { UploadIcon as FileUpload, X, Upload, Loader2, Sparkles } from "lucide-react"
-import type { z } from "zod"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import type { Resource } from "@/types/resource"
-import { years, fileTypes } from "@/data/mock/resources"
-import { departments } from "@/constants/departments"
-import { resourceSchema } from "@/lib/validator/resource"
-import { useToast } from "@/hooks/use-toast"
-import { createResource } from "@/lib/actions/resources"
-import { getCoursesForDepartment } from "@/constants/courses"
+import { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  UploadIcon as FileUpload,
+  X,
+  Upload,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
+import type { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { years, fileTypes } from "@/data/mock/resources";
+import { departments } from "@/constants/departments";
+import { resourceFormSchema} from "@/lib/validator/resource";
+import { useToast } from "@/hooks/use-toast";
+import { useResourceStore } from "@/store/resource-store";
+import { getCoursesForDepartment } from "@/constants/courses";
 
-type ResourceFormValues = z.infer<typeof resourceSchema>
+type ResourceFormValues = z.infer<typeof resourceFormSchema>;
 
 interface CreateResourceModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onSubmit: (resource: Resource) => void
+  isOpen: boolean;
+  onClose: () => void;
 }
 
-export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourceModalProps) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [selectedDepartment, setSelectedDepartment] = useState<string>("")
-  const [availableCourses, setAvailableCourses] = useState<string[]>([])
-  const [isUploading, setIsUploading] = useState(false)
-  const [isEnhancingTitle, setIsEnhancingTitle] = useState(false)
-  const [isEnhancingDescription, setIsEnhancingDescription] = useState(false)
-  const { toast } = useToast()
+export function CreateResourceModal({
+  isOpen,
+  onClose,
+}: CreateResourceModalProps) {
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedDepartment, setSelectedDepartment] = useState<string>("");
+  const [availableCourses, setAvailableCourses] = useState<string[]>([]);
+
+  const [isEnhancingTitle, setIsEnhancingTitle] = useState(false);
+  const [isEnhancingDescription, setIsEnhancingDescription] = useState(false);
+  const { toast } = useToast();
+  const { createResourceWithFile, enhanceText, isUploading } =
+    useResourceStore();
 
   const form = useForm<ResourceFormValues>({
-    resolver: zodResolver(resourceSchema),
+    resolver: zodResolver(resourceFormSchema),
     defaultValues: {
       title: "",
       description: "",
@@ -51,366 +78,202 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
       type: "",
       courseId: "",
     },
-  })
+  });
 
   // Update available courses when department changes
   useEffect(() => {
     if (selectedDepartment) {
-      const courses = getCoursesForDepartment(selectedDepartment)
-      setAvailableCourses(courses)
+      const courses = getCoursesForDepartment(selectedDepartment);
+      setAvailableCourses(courses);
     } else {
-      setAvailableCourses([])
+      setAvailableCourses([]);
     }
-  }, [selectedDepartment])
+  }, [selectedDepartment]);
 
   const handleSubmit = async (values: ResourceFormValues) => {
+    event?.stopPropagation();
+    console.log("Form submitted with values:", values);
     if (!selectedFile) {
-      form.setError("fileUpload", {
-        type: "manual",
-        message: "Please upload a file",
-      })
-      return
-    }
-
-    // Validate file size (10MB limit)
-    if (selectedFile.size > 10 * 1024 * 1024) {
-      form.setError("fileUpload", {
-        type: "manual",
-        message: "File size must be less than 10MB",
-      })
-      return
-    }
-
-    // Validate file type
-    const allowedTypes = [".pdf", ".docx", ".pptx", ".xlsx", ".zip"]
-    const fileExtension = selectedFile.name.split(".").pop()?.toLowerCase()
-    if (!fileExtension || !allowedTypes.includes(`.${fileExtension}`)) {
-      form.setError("fileUpload", {
-        type: "manual",
-        message: "Invalid file type. Allowed types: PDF, DOCX, PPTX, XLSX, ZIP",
-      })
-      return
-    }
-
-    // Validate required fields
-    if (!values.title || !values.description || !values.type || !values.department || !values.fileType) {
       toast({
-        title: "Error",
-        description: "Please fill in all required fields",
+        title: "File Required",
+        description: "Please select a file.",
         variant: "destructive",
-      })
-      return
+      });
+      return;
     }
-
-    setIsUploading(true)
     try {
-      // First, upload the file to blob storage
-      const uploadFormData = new FormData()
-      uploadFormData.append("file", selectedFile)
-
-      const uploadResponse = await fetch("/api/upload", {
-        method: "POST",
-        body: uploadFormData,
-      })
-
-      if (!uploadResponse.ok) {
-        const error = await uploadResponse.json()
-        throw new Error(error.error || "Failed to upload file")
-      }
-
-      const { url: fileUrl, fileSize } = await uploadResponse.json()
-
-      // Then create the resource with the blob URL
-      const formData = new FormData()
-      formData.append("title", values.title)
-      formData.append("description", values.description)
-      formData.append("type", values.type)
-      formData.append("department", values.department)
-      formData.append("fileType", values.fileType)
-      formData.append("courseId", values.courseId || "")
-      formData.append("tags", JSON.stringify(selectedTags))
-      formData.append("url", fileUrl)
-      formData.append("fileSize", fileSize)
-
-      const { resource, error } = await createResource(formData)
-
-      if (error) {
-        console.error("Resource creation error:", error)
+      const result = await createResourceWithFile(
+        values,
+        selectedFile,
+        selectedTags
+      );
+      if (result.error) {
         toast({
           title: "Error",
-          description: error,
+          description: result.error,
           variant: "destructive",
-        })
-        return
+        });
+        return;
       }
-
-      if (resource) {
-        onSubmit(resource)
-        form.reset()
-        setSelectedFile(null)
-        setSelectedTags([])
-        setSelectedDepartment("")
-        onClose()
+      if (result.resource) {
+        form.reset();
+        setSelectedFile(null);
+        setSelectedTags([]);
+        setSelectedDepartment("");
+        onClose(); // Notify parent to close modal and refresh
         toast({
           title: "Success",
           description: "Resource has been created successfully.",
-        })
+        });
       }
     } catch (error) {
-      console.error("Error in form submission:", error)
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create resource. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to create resource. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsUploading(false)
     }
-  }
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const file = e.target.files?.[0];
     if (file) {
-      setSelectedFile(file)
+      setSelectedFile(file);
 
       // Auto-detect file type
-      const extension = file.name.split(".").pop()?.toLowerCase()
+      const extension = file.name.split(".").pop()?.toLowerCase();
       if (extension && fileTypes.includes(extension)) {
-        form.setValue("fileType", extension)
+        form.setValue("fileType", extension);
       }
     }
-  }
+  };
 
   const toggleTag = (tag: string) => {
-    setSelectedTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))
-  }
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
 
-  const handleEnhanceTitle = async () => {
-    const title = form.getValues("title")
-    if (!title) {
+  // Generic handler for both title and description enhancement
+  const handleEnhanceField = async (
+    field: "title" | "description",
+    minLength: number,
+    enhanceType: string,
+    context: Record<string, string>
+  ) => {
+    const value = form.getValues(field);
+    if (!value) {
       toast({
-        title: "No title to enhance",
-        description: "Please enter a title first before enhancing.",
+        title: `No ${field} to enhance`,
+        description: `Please enter a ${field} first before enhancing.`,
         variant: "destructive",
-      })
-      return
-    }
-
-    // Don't enhance if title is too short
-    if (title.length < 3) {
-      toast({
-        title: "Title too short",
-        description: "Please write a bit more before enhancing.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setIsEnhancingTitle(true)
-    try {
-      const response = await fetch('/api/enhance-text', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: title,
-          type: 'resource',
-          context: {
-            department: form.getValues("department"),
-            resourceType: form.getValues("type"),
-            fileType: form.getValues("fileType")
-          }
-        }),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || `Server responded with ${response.status}`);
-      }
-
-      if (data.enhancedText) {
-        // Store the original title in case user wants to revert
-        const originalTitle = title;
-
-        form.setValue("title", data.enhancedText, {
+      return;
+    }
+    if (value.length < minLength) {
+      toast({
+        title: `${field.charAt(0).toUpperCase() + field.slice(1)} too short`,
+        description: `Please write a bit more before enhancing.`,
+        variant: "destructive",
+      });
+      return;
+    }
+    if (field === "title") setIsEnhancingTitle(true);
+    if (field === "description") setIsEnhancingDescription(true);
+    try {
+      const result = await enhanceText(value, enhanceType, context);
+      if (result.error) throw new Error(result.error);
+      if (result.enhancedText) {
+        const originalValue = value;
+        form.setValue(field, result.enhancedText, {
           shouldValidate: true,
           shouldDirty: true,
-          shouldTouch: true
-        })
-
+          shouldTouch: true,
+        });
         toast({
-          title: "Title enhanced",
+          title: `${field.charAt(0).toUpperCase() + field.slice(1)} enhanced`,
           description: (
             <div className="flex flex-col gap-2">
-              <p>Your title has been enhanced by AI.</p>
+              <p>Your {field} has been enhanced by AI.</p>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  form.setValue("title", originalTitle, {
+                  form.setValue(field, originalValue, {
                     shouldValidate: true,
                     shouldDirty: true,
-                    shouldTouch: true
-                  })
+                    shouldTouch: true,
+                  });
                   toast({
-                    title: "Title reverted",
-                    description: "Your original title has been restored.",
-                  })
+                    title: `${
+                      field.charAt(0).toUpperCase() + field.slice(1)
+                    } reverted`,
+                    description: `Your original ${field} has been restored.`,
+                  });
                 }}
               >
                 Revert to original
               </Button>
             </div>
           ),
-        })
-      } else {
-        throw new Error("AI did not return enhanced content");
+        });
       }
-
     } catch (error) {
-      console.error("Title enhancement error:", error)
-      const errorMessage = error instanceof Error ? error.message : "Could not enhance the title"
-
-      // Handle specific error cases
-      if (errorMessage.includes("AI service is not configured") || errorMessage.includes("AI API key is invalid")) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : `Could not enhance the ${field}`;
+      if (
+        errorMessage.includes("AI service is not configured") ||
+        errorMessage.includes("AI API key is invalid")
+      ) {
         toast({
           title: "AI Enhancement Unavailable",
-          description: "The AI enhancement service is currently unavailable. Please try again later or contact support.",
+          description:
+            "The AI enhancement service is currently unavailable. Please try again later or contact support.",
           variant: "destructive",
-        })
-      } else if (errorMessage.includes("network") || errorMessage.includes("fetch failed")) {
+        });
+      } else if (
+        errorMessage.includes("network") ||
+        errorMessage.includes("fetch failed")
+      ) {
         toast({
           title: "Connection Error",
-          description: "Unable to connect to the enhancement service. Please check your internet connection and try again.",
+          description:
+            "Unable to connect to the enhancement service. Please check your internet connection and try again.",
           variant: "destructive",
-        })
+        });
       } else {
         toast({
           title: "Enhancement Failed",
-          description: "Could not enhance the title. Please try again.",
+          description: `Could not enhance the ${field}. Please try again.`,
           variant: "destructive",
-        })
+        });
       }
     } finally {
-      setIsEnhancingTitle(false)
+      if (field === "title") setIsEnhancingTitle(false);
+      if (field === "description") setIsEnhancingDescription(false);
     }
-  }
+  };
 
-  const handleEnhanceDescription = async () => {
-    const description = form.getValues("description")
-    if (!description) {
-      toast({
-        title: "No description to enhance",
-        description: "Please enter a description first before enhancing.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Don't enhance if description is too short
-    if (description.length < 10) {
-      toast({
-        title: "Description too short",
-        description: "Please write a bit more before enhancing.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setIsEnhancingDescription(true)
-    try {
-      const response = await fetch('/api/enhance-text', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          text: description,
-          type: 'post',
-          context: {
-            department: form.getValues("department"),
-            resourceType: form.getValues("type"),
-            fileType: form.getValues("fileType"),
-            title: form.getValues("title")
-          }
-        }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || `Server responded with ${response.status}`);
-      }
-
-      if (data.enhancedText) {
-        // Store the original description in case user wants to revert
-        const originalDescription = description;
-
-        form.setValue("description", data.enhancedText, {
-          shouldValidate: true,
-          shouldDirty: true,
-          shouldTouch: true
-        })
-
-        toast({
-          title: "Description enhanced",
-          description: (
-            <div className="flex flex-col gap-2">
-              <p>Your description has been enhanced by AI.</p>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  form.setValue("description", originalDescription, {
-                    shouldValidate: true,
-                    shouldDirty: true,
-                    shouldTouch: true
-                  })
-                  toast({
-                    title: "Description reverted",
-                    description: "Your original description has been restored.",
-                  })
-                }}
-              >
-                Revert to original
-              </Button>
-            </div>
-          ),
-        })
-      } else {
-        throw new Error("AI did not return enhanced content");
-      }
-
-    } catch (error) {
-      console.error("Description enhancement error:", error)
-      const errorMessage = error instanceof Error ? error.message : "Could not enhance the description"
-
-      // Handle specific error cases
-      if (errorMessage.includes("AI service is not configured") || errorMessage.includes("AI API key is invalid")) {
-        toast({
-          title: "AI Enhancement Unavailable",
-          description: "The AI enhancement service is currently unavailable. Please try again later or contact support.",
-          variant: "destructive",
-        })
-      } else if (errorMessage.includes("network") || errorMessage.includes("fetch failed")) {
-        toast({
-          title: "Connection Error",
-          description: "Unable to connect to the enhancement service. Please check your internet connection and try again.",
-          variant: "destructive",
-        })
-      } else {
-        toast({
-          title: "Enhancement Failed",
-          description: "Could not enhance the description. Please try again.",
-          variant: "destructive",
-        })
-      }
-    } finally {
-      setIsEnhancingDescription(false)
-    }
-  }
+  // Use the generic handler for both fields
+  const handleEnhanceTitle = () =>
+    handleEnhanceField("title", 3, "resource", {
+      department: form.getValues("department"),
+      resourceType: form.getValues("type"),
+      fileType: form.getValues("fileType"),
+    });
+  const handleEnhanceDescription = () =>
+    handleEnhanceField("description", 10, "post", {
+      department: form.getValues("department"),
+      resourceType: form.getValues("type"),
+      fileType: form.getValues("fileType"),
+      title: form.getValues("title"),
+    });
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -420,7 +283,26 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+          <form
+            onSubmit={form.handleSubmit(handleSubmit, (errors) => {
+              // Let's try every type of console message
+              console.log("VALIDATION FAILED (Log):", errors);
+              console.warn("VALIDATION FAILED (Warn):", errors);
+              console.error("VALIDATION FAILED (Error):", errors);
+
+              // This alert is impossible to miss. It will pause the browser.
+              alert(
+                "Validation Failed! See the console for the 'errors' object."
+              );
+
+              toast({
+                title: "Invalid Form",
+                description: "Please fill out all required fields correctly.",
+                variant: "destructive",
+              });
+            })}
+            className="space-y-4"
+          >
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -430,7 +312,11 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
                     <FormLabel>Title</FormLabel>
                     <FormControl>
                       <div className="relative">
-                        <Input placeholder="Enter resource title" {...field} className="pr-12" />
+                        <Input
+                          placeholder="Enter resource title"
+                          {...field}
+                          className="pr-12"
+                        />
                         <Button
                           type="button"
                           variant="ghost"
@@ -519,9 +405,9 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
                     <FormLabel>Department</FormLabel>
                     <Select
                       onValueChange={(value) => {
-                        field.onChange(value)
-                        setSelectedDepartment(value)
-                        form.setValue("courseId", "")
+                        field.onChange(value);
+                        setSelectedDepartment(value);
+                        form.setValue("courseId", "");
                       }}
                       value={field.value}
                     >
@@ -579,7 +465,9 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
                 {years.map((year) => (
                   <Badge
                     key={year}
-                    variant={selectedTags.includes(year) ? "default" : "outline"}
+                    variant={
+                      selectedTags.includes(year) ? "default" : "outline"
+                    }
                     className="cursor-pointer"
                     onClick={() => toggleTag(year)}
                   >
@@ -587,21 +475,27 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
                   </Badge>
                 ))}
                 <Badge
-                  variant={selectedTags.includes("Exam") ? "default" : "outline"}
+                  variant={
+                    selectedTags.includes("Exam") ? "default" : "outline"
+                  }
                   className="cursor-pointer"
                   onClick={() => toggleTag("Exam")}
                 >
                   Exam
                 </Badge>
                 <Badge
-                  variant={selectedTags.includes("Assignment") ? "default" : "outline"}
+                  variant={
+                    selectedTags.includes("Assignment") ? "default" : "outline"
+                  }
                   className="cursor-pointer"
                   onClick={() => toggleTag("Assignment")}
                 >
                   Assignment
                 </Badge>
                 <Badge
-                  variant={selectedTags.includes("Lecture") ? "default" : "outline"}
+                  variant={
+                    selectedTags.includes("Lecture") ? "default" : "outline"
+                  }
                   className="cursor-pointer"
                   onClick={() => toggleTag("Lecture")}
                 >
@@ -624,7 +518,9 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
                   <div className="flex flex-col items-center">
                     <FileUpload className="h-10 w-10 text-primary mb-2" />
                     <p className="text-sm font-medium">{selectedFile.name}</p>
-                    <p className="text-xs text-muted-foreground">{Math.round(selectedFile.size / 1024)} KB</p>
+                    <p className="text-xs text-muted-foreground">
+                      {Math.round(selectedFile.size / 1024)} KB
+                    </p>
                     <Button
                       type="button"
                       variant="ghost"
@@ -637,10 +533,17 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
                     </Button>
                   </div>
                 ) : (
-                  <label htmlFor="file-upload" className="flex flex-col items-center cursor-pointer">
+                  <label
+                    htmlFor="file-upload"
+                    className="flex flex-col items-center cursor-pointer"
+                  >
                     <Upload className="h-10 w-10 text-muted-foreground mb-2" />
-                    <p className="text-sm font-medium">Click to upload or drag and drop</p>
-                    <p className="text-xs text-muted-foreground">PDF, DOCX, PPTX, XLSX, ZIP (max 10MB)</p>
+                    <p className="text-sm font-medium">
+                      Click to upload or drag and drop
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      PDF, DOCX, PPTX, XLSX, ZIP (max 10MB)
+                    </p>
                     <Input
                       id="file-upload"
                       type="file"
@@ -651,9 +554,11 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
                   </label>
                 )}
               </div>
-              {form.formState.errors.fileUpload && (
+              {form.formState.errors.root && (
                 <p className="text-sm font-medium text-destructive">
-                  {typeof form.formState.errors.fileUpload?.message === "string" ? form.formState.errors.fileUpload.message : ""}
+                  {typeof form.formState.errors.root?.message === "string"
+                    ? form.formState.errors.root.message
+                    : ""}
                 </p>
               )}
             </div>
@@ -684,10 +589,20 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
             />
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={onClose} className="hover:bg-blue-50 hover:text-blue-600" disabled={isUploading}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                className="hover:bg-blue-50 hover:text-blue-600"
+                disabled={isUploading}
+              >
                 Cancel
               </Button>
-              <Button type="submit" className="bg-blue-500 hover:bg-blue-600" disabled={isUploading}>
+              <Button
+                type="submit"
+                className="bg-blue-500 hover:bg-blue-600 cursor-pointer"
+                disabled={isUploading}
+              >
                 {isUploading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -702,5 +617,5 @@ export function CreateResourceModal({ isOpen, onClose, onSubmit }: CreateResourc
         </Form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { ChevronRight, Folder, Trash2, X } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ResourceList } from "./resource-list";
 import { useToast } from "@/hooks/use-toast";
 import type { Resource } from "@/types/resource";
 import type { ResourceFolder } from "@/types/resource-folder";
-import { deleteResourceFolder, removeResourceFromFolder } from "@/lib/actions/resources";
+import { useResourceStore } from '@/store';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,56 +21,43 @@ interface FolderViewProps {
   folder: ResourceFolder;
   resources: Resource[];
   viewMode: "grid" | "list";
-  onBack: () => void;
   onRefresh: () => void;
   onAddToFolder: (resourceId: string, folderId: string) => Promise<void>;
-  onRemoveFromFolder: (resourceId: string) => Promise<void>;
 }
 
 export function FolderView({
   folder,
   resources,
   viewMode,
-  onBack,
   onRefresh,
   onAddToFolder,
-  onRemoveFromFolder,
-}: FolderViewProps) {
+}: Omit<FolderViewProps, 'onBack' | 'onRemoveFromFolder'>) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const { folders, removeFromFolder } = useResourceStore();
   const { toast } = useToast();
 
   const handleDeleteFolder = async () => {
     try {
-      const { error } = await deleteResourceFolder(folder.id);
-      if (error) throw new Error(error);
-      toast({
-        title: "Success",
-        description: "Folder deleted successfully",
-      });
-      onBack();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete folder",
-        variant: "destructive",
-      });
+      // ...existing code...
+    } catch {
+      // ...existing code...
     }
   };
 
+  // Use the store's removeFromFolder for consistency
   const handleRemoveFromFolder = async (resourceId: string) => {
     try {
-      const { error } = await removeResourceFromFolder(resourceId, folder.id);
-      if (error) throw new Error(error);
+      await removeFromFolder(resourceId, folder.id);
       toast({
-        title: "Success",
-        description: "Resource removed from folder",
+        title: 'Success',
+        description: 'Resource removed from folder',
       });
       onRefresh();
-    } catch (error) {
+    } catch {
       toast({
-        title: "Error",
-        description: "Failed to remove resource from folder",
-        variant: "destructive",
+        title: 'Error',
+        description: 'Failed to remove resource from folder',
+        variant: 'destructive',
       });
     }
   };
@@ -102,9 +89,9 @@ export function FolderView({
       <ResourceList
         resources={resources}
         viewMode={viewMode}
-        folders={[]}
+        folders={folders}
         onAddToFolder={onAddToFolder}
-        onRemoveFromFolder={onRemoveFromFolder}
+        onRemoveFromFolder={handleRemoveFromFolder}
         showRemoveOption={true}
       />
 
@@ -128,4 +115,4 @@ export function FolderView({
       </AlertDialog>
     </div>
   );
-} 
+}

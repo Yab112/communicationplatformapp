@@ -22,6 +22,7 @@ import { PreviewDetails } from "./Preview/PreviewDetails";
 import { PreviewFooter } from "./Preview/PreviewFooter";
 import type { ResourceCardProps } from "@/types/resource";
 import type { ResourceFolder } from "@/types/resource-folder";
+import { useResourceStore } from "@/store/resource-store";
 
 export interface ExtendedResourceCardProps extends ResourceCardProps {
   folders: ResourceFolder[];
@@ -37,9 +38,12 @@ export function ResourceCard({
   onRemoveFromFolder,
   showRemoveOption = false,
 }: ExtendedResourceCardProps) {
+  const store = useResourceStore();
+  const addToFolder = onAddToFolder ?? store.addToFolder;
+  const { handleDownloadResource } = store;
+
   // State management
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -57,54 +61,6 @@ export function ResourceCard({
   const styling =
     fileTypeConfig[fileType as keyof typeof fileTypeConfig] ||
     fileTypeConfig.default;
-
-  // Event handlers
-  const handleDownload = async () => {
-    if (!resource.url) {
-      toast({
-        title: "Error",
-        description: "No file URL available for download",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsDownloading(true);
-    try {
-      const downloadUrl = resource.url.startsWith("http")
-        ? resource.url
-        : `${window.location.origin}${resource.url}`;
-      const response = await fetch(downloadUrl);
-      if (!response.ok)
-        throw new Error(`Failed to download file: ${response.statusText}`);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      const fileExtension = resource.fileType.toLowerCase();
-      const sanitizedTitle = resource.title
-        .replace(/[^a-z0-9]/gi, "_")
-        .toLowerCase();
-      link.download = `${sanitizedTitle}.${fileExtension}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      toast({
-        title: "Success",
-        description: "File downloaded successfully",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to download file.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDownloading(false);
-    }
-  };
 
   const toggleFullScreen = () => {
     if (!isFullScreen) {
@@ -130,26 +86,20 @@ export function ResourceCard({
   // Folder assignment handler for UI
   const handleAddToFolder = async (folderId: string) => {
     try {
-      console.log("ResourceCard: Adding resource to folder:", { 
-        resourceId: resource.id, 
-        folderId,
-        resourceTitle: resource.title 
-      });
-      
       setOptimisticFolderId(folderId);
       setLoadingFolder(true);
       setShowFolderMenu(false);
-      
-      await onAddToFolder(resource.id, folderId);
-      
+      await addToFolder(resource.id, folderId);
       setLoadingFolder(false);
     } catch (error) {
-      console.error("ResourceCard: Failed to add resource to folder:", error);
       setLoadingFolder(false);
       setOptimisticFolderId(null);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to add resource to folder",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to add resource to folder",
         variant: "destructive",
       });
     }
@@ -273,8 +223,8 @@ export function ResourceCard({
               resource={resource}
               styling={styling}
               onPreview={() => setIsPreviewOpen(true)}
-              onDownload={handleDownload}
-              isDownloading={isDownloading}
+              onDownload={() => handleDownloadResource(resource)}
+              isDownloading={false}
               user={user}
               folders={folders}
               showFolderMenu={showFolderMenu}
@@ -376,7 +326,7 @@ export function ResourceCard({
                       setIsInitialLoading(true);
                     }}
                     styling={styling}
-                    onDownload={handleDownload}
+                    onDownload={() => handleDownloadResource(resource)}
                   />
                 </div>
               </div>
@@ -398,8 +348,8 @@ export function ResourceCard({
 
           <PreviewFooter
             onClose={() => setIsPreviewOpen(false)}
-            onDownload={handleDownload}
-            isDownloading={isDownloading}
+            onDownload={() => handleDownloadResource(resource)}
+            isDownloading={false}
             styling={styling}
           />
         </DialogContent>

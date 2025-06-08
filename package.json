@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+     "start-socket": "ts-node-dev --respawn --transpile-only -P tsconfig.server.json server.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -90,6 +91,7 @@
     "null-loader": "^4.0.1",
     "prisma": "^6.7.0",
     "ts-node": "^10.9.2",
+    "ts-node-dev": "^2.0.0",
     "typescript": "^5"
   }
 }

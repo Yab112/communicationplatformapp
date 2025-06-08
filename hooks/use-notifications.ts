@@ -27,29 +27,7 @@ export function useNotifications() {
   const { socket } = useSocket();
   const isMounted = useRef(true);
 
-  const prevSocketRef = useRef<typeof socket | null>(null);
 
-  useEffect(() => {
-    // This effect deliberately runs after every single render
-    if (prevSocketRef.current && prevSocketRef.current === socket) {
-      console.log(
-        "%c✅ Socket reference is STABLE.",
-        "color: green; font-weight: bold;"
-      );
-    } else {
-      console.error(
-        "%c❌ Socket reference has CHANGED.",
-        "color: red; font-weight: bold;"
-      );
-      console.log("PREVIOUS socket instance:", prevSocketRef.current);
-      console.log("CURRENT socket instance:", socket);
-    }
-
-    // Update the ref with the current socket for the next render's comparison
-    prevSocketRef.current = socket;
-  });
-
-  // Fetch notifications
   const fetchNotifications = useCallback(async () => {
     if (!isMounted.current) return;
 

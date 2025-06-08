@@ -4,6 +4,10 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/get-session";
 import { Prisma } from "@prisma/client";
 import { getSocketServer } from "../socket-server";
+import { resourceSchema } from "../validator/resource";
+import { emitSocketEvent } from "../socket-emitter";
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
 
 // Get all folders for the current user
 export async function getResourceFolders() {
@@ -82,7 +86,10 @@ export async function deleteResourceFolder(folderId: string) {
 }
 
 // Add a resource to a folder
-export async function addResourceToFolder(resourceId: string, folderId: string) {
+export async function addResourceToFolder(
+  resourceId: string,
+  folderId: string
+) {
   const user = await getCurrentUser();
   if (!user) return { error: "Unauthorized" };
 
@@ -96,11 +103,11 @@ export async function addResourceToFolder(resourceId: string, folderId: string) 
       throw new Error("Resource ID and Folder ID cannot be the same");
     }
 
-    console.log("Server: Adding resource to folder:", { 
-      resourceId, 
-      folderId, 
+    console.log("Server: Adding resource to folder:", {
+      resourceId,
+      folderId,
       userId: user.id,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
     // Single transaction to handle everything
@@ -112,26 +119,26 @@ export async function addResourceToFolder(resourceId: string, folderId: string) 
           select: {
             id: true,
             title: true,
-            authorId: true
-          }
+            authorId: true,
+          },
         }),
         tx.resourceFolder.findFirst({
           where: { id: folderId },
           select: {
             id: true,
             name: true,
-            authorId: true
-          }
-        })
+            authorId: true,
+          },
+        }),
       ]);
 
-      console.log("Server: Found resource and folder:", { 
-        resourceExists: !!resource, 
+      console.log("Server: Found resource and folder:", {
+        resourceExists: !!resource,
         folderExists: !!folder,
         resourceId: resource?.id,
         resourceTitle: resource?.title,
         folderId: folder?.id,
-        folderName: folder?.name
+        folderName: folder?.name,
       });
 
       if (!resource) {
@@ -145,48 +152,47 @@ export async function addResourceToFolder(resourceId: string, folderId: string) 
       // Check if the relation already exists
       const existingRelation = await tx.resourceFolderResource.findFirst({
         where: {
-          AND: [
-            { resourceId },
-            { folderId }
-          ]
-        }
+          AND: [{ resourceId }, { folderId }],
+        },
       });
 
-      console.log("Server: Existing relation check:", { 
+      console.log("Server: Existing relation check:", {
         exists: !!existingRelation,
         resourceId,
-        folderId
+        folderId,
       });
 
       if (existingRelation) {
-        throw new Error(`Resource "${resource.title}" is already in folder "${folder.name}"`);
+        throw new Error(
+          `Resource "${resource.title}" is already in folder "${folder.name}"`
+        );
       }
 
       // Create the relation
       const relation = await tx.resourceFolderResource.create({
         data: {
           resourceId,
-          folderId
-        }
+          folderId,
+        },
       });
 
       console.log("Server: Created relation:", {
         relation,
         resourceId,
-        folderId
+        folderId,
       });
 
       // Update folder count
       const updatedFolder = await tx.resourceFolder.update({
         where: { id: folderId },
         data: {
-          resourceCount: { increment: 1 }
-        }
+          resourceCount: { increment: 1 },
+        },
       });
 
       console.log("Server: Updated folder:", {
         folderId: updatedFolder.id,
-        newCount: updatedFolder.resourceCount
+        newCount: updatedFolder.resourceCount,
       });
     });
 
@@ -196,14 +202,17 @@ export async function addResourceToFolder(resourceId: string, folderId: string) 
       error: error.message,
       resourceId,
       folderId,
-      userId: user.id
+      userId: user.id,
     });
     return { error: error.message || "Failed to add resource to folder" };
   }
 }
 
 // Remove a resource from a folder
-export async function removeResourceFromFolder(resourceId: string, folderId: string) {
+export async function removeResourceFromFolder(
+  resourceId: string,
+  folderId: string
+) {
   const user = await getCurrentUser();
   if (!user) return { error: "Unauthorized" };
 
@@ -327,7 +336,8 @@ export async function getResources(filters?: {
       department: resource.department || "",
       courseId: resource.courseId || "",
       fileType: resource.fileType || "",
-      uploadDate: resource.uploadDate?.toISOString() || resource.createdAt.toISOString(),
+      uploadDate:
+        resource.uploadDate?.toISOString() || resource.createdAt.toISOString(),
       tags: resource.tags || [],
       subject: resource.subject || "",
       uploadedBy: {
@@ -359,135 +369,112 @@ export async function getCourses() {
   }
 }
 
-// Create a new resource
 export async function createResource(formData: FormData) {
   try {
     const user = await getCurrentUser();
     if (!user) {
-      console.error("No authenticated user found");
-      return { resource: null, error: "Unauthorized" };
+      return { error: "Unauthorized" };
     }
 
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string;
-    const type = formData.get("type") as string;
-    const department = formData.get("department") as string;
-    const fileType = formData.get("fileType") as string;
-    const courseName = formData.get("courseId") as string;
-    const tags = JSON.parse(formData.get("tags") as string) as string[];
-    const url = formData.get("url") as string;
-    const fileSize = parseInt(formData.get("fileSize") as string, 10);
+    // 1. Convert FormData to a plain object for validation
+    const formValues = Object.fromEntries(formData.entries());
+    console.log("Form values received for resource creation:", formValues);
 
-    if (!title || !description || !type || !department || !fileType || !url) {
-      console.error("Missing required fields:", {
-        title,
-        description,
-        type,
-        department,
-        fileType,
-        url,
-      });
-      return { resource: null, error: "All required fields must be filled" };
-    }
-
-    let courseId = null;
-    if (courseName) {
-      const existingCourse = await db.course.findFirst({
-        where: { name: courseName },
-      });
-
-      if (existingCourse) {
-        courseId = existingCourse.id;
-      } else {
-        const newCourse = await db.course.create({
-          data: {
-            name: courseName,
-            description: `${courseName} course in ${department} department`,
-          },
-        });
-        courseId = newCourse.id;
-      }
-    }
-
-    const resource = await db.resource.create({
-      data: {
-        title,
-        description,
-        type,
-        department,
-        fileType,
-        courseId,
-        tags,
-        url,
-        fileSize,
-        authorId: user.id,
-      },
-      include: {
-        author: {
-          select: { id: true, name: true, image: true },
-        },
-      },
-    });
-
-    const usersToNotify = await db.user.findMany({
-      where: {
-        id: { not: user.id },
-        notificationSettings: { resourceNotifications: true },
-      },
-      select: { id: true },
-    });
-
-    const notificationData = usersToNotify.map((u) => ({
-      userId: u.id,
-      type: "resource",
-      content: `${user.name} (${user.role}) uploaded a new resource: ${title}`,
-      relatedId: resource.id,
-      isRead: false,
-    }));
-
-    await db.$transaction(
-      notificationData.map((data) => db.notification.create({ data }))
-    );
-
-    const io = getSocketServer();
-    usersToNotify.forEach((u) => {
-      io.to(`user:${u.id}`).emit("notification", {
-        id: resource.id,
-        type: "resource",
-        content: `${user.name} (${user.role}) uploaded a new resource: ${title}`,
-        relatedId: resource.id,
-        createdAt: new Date().toISOString(),
-        isRead: false,
-        userId: u.id,
-      });
-    });
-
-    const transformedResource = {
-      id: resource.id,
-      title: resource.title,
-      description: resource.description,
-      type: resource.type,
-      url: resource.url || "",
-      fileSize: resource.fileSize?.toString() || "",
-      department: resource.department || "",
-      courseId: resource.courseId || "",
-      fileType: resource.fileType || "",
-      uploadDate: resource.createdAt.toISOString(),
-      tags: resource.tags || [],
-      subject: resource.subject || "",
-      uploadedBy: {
-        id: resource.author.id,
-        name: resource.author.name,
-        avatar: resource.author.image || "",
-      },
-      dueDate: null,
-      folderIds: [], // New resource starts with no folders
+    const objectToValidate = {
+      title: formValues.title,
+      description: formValues.description,
+      type: formValues.type,
+      department: formValues.department,
+      fileType: formValues.fileType,
+      courseId: formValues.courseId,
+      url: formValues.url,
+      // Perform the type conversions here
+      tags: formValues.tags ? JSON.parse(formValues.tags as string) : [],
+      fileSize: Number(formValues.fileSize),
     };
 
-    return { resource: transformedResource, error: null };
+    // 2. Validate the data using our schema
+    const validatedData = resourceSchema.parse(objectToValidate);
+
+
+    // 3. Handle Course logic
+    let courseId: string | null = null;
+    if (validatedData.courseId) {
+      const existingCourse = await db.course.findFirst({
+        where: { name: validatedData.courseId },
+      });
+      courseId = existingCourse
+        ? existingCourse.id
+        : (await db.course.create({ data: { name: validatedData.courseId } }))
+            .id;
+    }
+
+    // 4. Create the resource in the database
+    const resource = await db.resource.create({
+      data: {
+        title: validatedData.title,
+        description: validatedData.description,
+        type: validatedData.type,
+        department: validatedData.department,
+        fileType: validatedData.fileType,
+        url: validatedData.url,
+        fileSize: validatedData.fileSize,
+        tags: validatedData.tags,
+        authorId: user.id,
+        courseId: courseId,
+        uploadDate: new Date(),
+      },
+      include: {
+        author: { select: { id: true, name: true, image: true, role: true } },
+      },
+    });
+
+    // 5. Create and Emit Notifications
+    const usersToNotify = await db.user.findMany({
+      where: { id: { not: user.id } },
+    });
+    const notificationContent = `${resource.author.name} uploaded a new resource: ${resource.title}`;
+
+    const notificationsToCreate = usersToNotify.map((u) => ({
+      userId: u.id,
+      type: "resource",
+      content: notificationContent,
+      relatedId: resource.id,
+    }));
+
+    await db.notification.createMany({ data: notificationsToCreate });
+    // 6. Use the Socket Emitter to send real-time updates
+    try {
+      usersToNotify.forEach((u) => {
+        emitSocketEvent({
+          event: "notification",
+          room: `user:${u.id}`,
+          payload: {
+            content: notificationContent,
+            type: "resource",
+            relatedId: resource.id,
+          },
+        });
+      });
+    } catch (socketError) {
+      console.error(
+        "Socket emit failed, but resource was created:",
+        socketError
+      );
+    }
+
+    // 7. Revalidate cache
+    revalidatePath("/resources");
+
+    return { resource, error: null };
   } catch (error) {
-    console.error("Error creating resource:", error);
-    return { resource: null, error: "Failed to create resource" };
+    if (error instanceof z.ZodError) {
+      // ✅ Log the detailed issues to your server console
+      console.error("ZOD VALIDATION ERROR:", error.issues);
+      return { error: "Invalid form data provided. Check server logs for details." };
+    }
+    console.error("UNKNOWN ERROR:", error);
+    return { error: "An unknown error occurred on the server." };
   }
 }
 
