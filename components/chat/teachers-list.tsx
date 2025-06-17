@@ -1,112 +1,135 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback } from "react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useState, useEffect, useCallback } from "react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 // import { ScrollArea } from "@/components/ui/scroll-area"
-import { Input } from "@/components/ui/input"
-import { Search, MessageSquare, User as UserIcon } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { useToast } from "@/hooks/use-toast"
-import { ProfileModal, type ProfileType } from "@/components/profile/profile-modal"
-import { createChatRoom } from "@/lib/actions/chat"
-import { getTeachers } from "@/lib/actions/users"
-import type { User } from "@/types/user"
+import { Input } from "@/components/ui/input";
+import { Search, MessageSquare, User as UserIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import {
+  ProfileModal,
+  type ProfileType,
+} from "@/components/profile/profile-modal";
+import { createChatRoom } from "@/lib/actions/chat";
+import { getTeachers } from "@/lib/actions/users";
+import type { User } from "@/types/user";
+import { useUser } from "@/context/user-context";
+
 // import type { ChatRoom } from "@/types/chat"
 
 interface TeachersListProps {
-  onSelect: (roomId: string) => void
+  onSelect: (roomId: string) => void;
 }
 
 export function TeachersList({ onSelect }: TeachersListProps) {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [teachers, setTeachers] = useState<User[]>([])
-  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null)
-  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false)
-  const { toast } = useToast()
+  const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [teachers, setTeachers] = useState<User[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
+    null
+  );
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const { toast } = useToast();
+  const { user } = useUser();
 
   const fetchTeachers = useCallback(async () => {
     try {
-      setLoading(true)
-      const result = await getTeachers()
+      setLoading(true);
+      const result = await getTeachers();
       if ("users" in result && Array.isArray(result.users)) {
-        setTeachers(result.users)
+        setTeachers(result.users);
       } else if ("error" in result) {
         toast({
           title: "Error",
           description: result.error,
           variant: "destructive",
-        })
-        setTeachers([])
+        });
+        setTeachers([]);
       } else {
-        console.error("Unexpected response format from getTeachers:", result)
-        setTeachers([])
+        console.error("Unexpected response format from getTeachers:", result);
+        setTeachers([]);
       }
     } catch (error) {
-      console.error("Error fetching teachers:", error)
+      console.error("Error fetching teachers:", error);
       toast({
         title: "Error",
         description: "Failed to fetch teachers",
         variant: "destructive",
-      })
-      setTeachers([])
+      });
+      setTeachers([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [toast])
+  }, [toast]);
 
   useEffect(() => {
-    fetchTeachers()
-  }, [fetchTeachers])
+    fetchTeachers();
+  }, [fetchTeachers]);
 
-  const filteredTeachers = teachers.filter(teacher => 
+  const filteredTeachers = teachers.filter((teacher) =>
     teacher.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  );
 
   const handleCreateChatRoom = async (teacherId: string) => {
     try {
-      setLoading(true)
-      const memberIds = ["current-user-id", teacherId]
-      const teacher = teachers.find(t => t.id === teacherId)
-      const roomName = teacher?.name || "Direct Message"
-      
-      const result = await createChatRoom(roomName, memberIds)
+      setLoading(true);
+      if (!user?.id) {
+        toast({
+          title: "Error",
+          description: "You must be logged in to start a chat.",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+      const memberIds = [user.id, teacherId];
+      const teacher = teachers.find((t) => t.id === teacherId);
+      const roomName = teacher?.name || "Direct Message";
+      console.log("Creating chat room with members-----------on the frontend----------:", memberIds);
+
+      const result = await createChatRoom(roomName, memberIds);
 
       if ("error" in result) {
         toast({
           title: "Error creating chat",
           description: result.error,
           variant: "destructive",
-        })
+        });
       } else if (result.chatRoom) {
         toast({
           title: "Chat created",
-          description: `Chat with ${teacher?.name || 'teacher'} created successfully.`, 
-        })
-        onSelect(result.chatRoom.id)
+          description: `Chat with ${
+            teacher?.name || "teacher"
+          } created successfully.`,
+        });
+        onSelect(result.chatRoom.id);
       }
     } catch (error) {
+      console.error("Error creating chat room:", error);
       toast({
         title: "Error",
-        description: "Failed to create chat room",
+        description: `Failed to create chat room ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleOpenProfileModal = (teacherId: string) => {
-    setSelectedProfileId(teacherId)
-    setIsProfileModalOpen(true)
-  }
+    setSelectedProfileId(teacherId);
+    setIsProfileModalOpen(true);
+  };
 
   const handleCloseProfileModal = () => {
-    setSelectedProfileId(null)
-    setIsProfileModalOpen(false)
-  }
+    setSelectedProfileId(null);
+    setIsProfileModalOpen(false);
+  };
 
-  const selectedTeacher = teachers.find(t => t.id === selectedProfileId)
+  const selectedTeacher = teachers.find((t) => t.id === selectedProfileId);
 
   return (
     <div className="flex h-full flex-col">
@@ -142,22 +165,36 @@ export function TeachersList({ onSelect }: TeachersListProps) {
               >
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10">
-                    <AvatarImage src={teacher.image || undefined} alt={teacher.name} />
+                    <AvatarImage
+                      src={teacher.image || undefined}
+                      alt={teacher.name}
+                    />
                     <AvatarFallback>{teacher.name[0]}</AvatarFallback>
                   </Avatar>
                   <div>
                     <p className="font-medium">{teacher.name}</p>
                     {teacher.department && (
-                      <p className="text-sm text-muted-foreground">{teacher.department}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {teacher.department}
+                      </p>
                     )}
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="icon" onClick={() => handleOpenProfileModal(teacher.id)}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleOpenProfileModal(teacher.id)}
+                  >
                     <UserIcon className="h-4 w-4" />
                     <span className="sr-only">View Profile</span>
                   </Button>
-                  <Button variant="ghost" size="icon" onClick={() => handleCreateChatRoom(teacher.id)} disabled={loading}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleCreateChatRoom(teacher.id)}
+                    disabled={loading}
+                  >
                     <MessageSquare className="h-4 w-4" />
                     <span className="sr-only">Start Chat</span>
                   </Button>
@@ -169,9 +206,9 @@ export function TeachersList({ onSelect }: TeachersListProps) {
       </div>
 
       {isProfileModalOpen && selectedTeacher && (
-        <ProfileModal 
-          isOpen={isProfileModalOpen} 
-          onClose={handleCloseProfileModal} 
+        <ProfileModal
+          isOpen={isProfileModalOpen}
+          onClose={handleCloseProfileModal}
           profile={{
             id: selectedTeacher.id,
             name: selectedTeacher.name,
@@ -182,10 +219,10 @@ export function TeachersList({ onSelect }: TeachersListProps) {
             status: selectedTeacher.status,
             createdAt: new Date(),
             updatedAt: new Date(),
-            department: selectedTeacher.department || null
+            department: selectedTeacher.department || null,
           }}
         />
       )}
     </div>
-  )
+  );
 }

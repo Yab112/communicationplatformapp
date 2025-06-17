@@ -207,6 +207,7 @@ export async function sendMessage(data: MessageFormValues) {
 
 export async function createChatRoom(name: string, memberIds: string[]) {
   try {
+    console.log("Creating chat room with members--------------------------HH--------------------:", memberIds)
     const user = await getCurrentUser()
     if (!user) {
       return { error: "Unauthorized" }
@@ -231,7 +232,8 @@ export async function createChatRoom(name: string, memberIds: string[]) {
 
     revalidatePath("/chat")
     return { success: true, chatRoom }
-  } catch  {
+  } catch(error)  {
+    console.error("Error creating chat room:", error)
     return { error: "Failed to create chat room" }
   }
 }

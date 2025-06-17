@@ -62,7 +62,7 @@ export async function getTeachers() {
       },
     })
 
-    console.log("Found teachers:", teachers)
+    // console.log("Found teachers:", teachers)
 
     if (!teachers || teachers.length === 0) {
       console.log("No teachers found in database")
@@ -76,7 +76,7 @@ export async function getTeachers() {
       status: teacher.status as UserStatus
     }))
 
-    console.log("Transformed teachers:", transformedTeachers)
+    // console.log("Transformed teachers:", transformedTeachers)
     return { users: transformedTeachers }
   } catch (error) {
     console.error("Error in getTeachers:", error)
