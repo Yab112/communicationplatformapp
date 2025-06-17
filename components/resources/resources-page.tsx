@@ -336,12 +336,12 @@ export function ResourcesPage() {
         />
       ) : (
         <ResourceList
-          resources={resourcesToDisplay} // resources state is all resources, filtered locally
+          resources={resourcesToDisplay}
           viewMode={viewMode}
           folders={folders}
           onAddToFolder={handleAddToFolder}
-          onRemoveFromFolder={handleRemoveFromFolder} // Pass remove handler for main view if needed (e.g., remove from ANY folder)
-          showRemoveOption={false} // Hide remove from folder option in main view list
+          onRemoveFromFolder={handleRemoveFromFolder} 
+          showRemoveOption={false}
         />
       )}
 

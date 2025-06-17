@@ -100,7 +100,7 @@ export async function addResourceToFolder(
     }
 
     if (resourceId === folderId) {
-      throw new Error("Resource ID and Folder ID cannot be the same");
+      throw new Error("Resource ID and Folder ID cannot be the same for adding to folder in the database.");
     }
 
     console.log("Server: Adding resource to folder:", {

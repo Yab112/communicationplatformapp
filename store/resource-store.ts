@@ -12,7 +12,6 @@ import { ResourceFolder } from "@/types/resource-folder";
 import { User } from "@/types/user";
 import { showToast } from "./toast-util";
 import type { ResourceFormValues } from "@/lib/validator/resource";
-import { se } from "date-fns/locale";
 
 interface ResourceStore {
   isLoading: boolean;
@@ -192,7 +191,7 @@ export const useResourceStore = create<ResourceStore>((set, get) => ({
     if (resourceId === folderId) {
       showToast({
         title: "Invalid Operation",
-        description: "Resource ID and Folder ID cannot be the same.",
+        description: "Resource ID and Folder ID cannot be the same in the store .",
         variant: "destructive",
       });
       return;
@@ -339,47 +338,59 @@ export const useResourceStore = create<ResourceStore>((set, get) => ({
   },
   
   handleDownloadResource: async (resource) => {
-    if (!resource.url) {
-      showToast({
-        title: "Error",
-        description: "No file URL available for download",
-        variant: "destructive",
-      });
-      return;
+  // 1. Validate the resource URL
+  if (!resource.url) {
+    showToast({
+      title: "Error",
+      description: "No file URL available for download",
+      variant: "destructive",
+    });
+    return;
+  }
+  try {
+    // 2. Fetch the file data 
+    const downloadUrl = resource.url.startsWith("http")
+      ? resource.url
+      : `${window.location.origin}${resource.url}`;
+    const response = await fetch(downloadUrl);
+    if (!response.ok) {
+      console.log(`Failed to download file: ${response.statusText}`);
+      throw new Error(`Failed to download file: ${response.statusText}`);
     }
-    try {
-      const downloadUrl = resource.url.startsWith("http")
-        ? resource.url
-        : `${window.location.origin}${resource.url}`;
-      const response = await fetch(downloadUrl);
-      if (!response.ok)
-        throw new Error(`Failed to download file: ${response.statusText}`);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      const fileExtension = resource.fileType.toLowerCase();
-      const sanitizedTitle = resource.title
-        .replace(/[^a-z0-9]/gi, "_")
-        .toLowerCase();
-      link.download = `${sanitizedTitle}.${fileExtension}`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-      showToast({
-        title: "Success",
-        description: "File downloaded successfully",
-      });
-    } catch (error) {
-      showToast({
-        title: "Error",
-        description:
-          error instanceof Error ? error.message : "Failed to download file.",
-        variant: "destructive",
-      });
-    }
-  },
+    const blob = await response.blob();
+
+    // 3. Create a temporary link to trigger the download
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+
+    // 4. Sanitize the filename and set the download attribute
+    const fileExtension = resource.fileType.toLowerCase();
+    const sanitizedTitle = resource.title
+      .replace(/[^a-z0-9]/gi, "_") // Replaces non-alphanumeric chars with underscores
+      .toLowerCase();
+    link.download = `${sanitizedTitle}.${fileExtension}`;
+
+    // 5. Trigger download and clean up
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+
+    showToast({
+      title: "Success",
+      description: "File downloaded successfully",
+    });
+  } catch (error) {
+    // 6. Handle any errors during the process
+    showToast({
+      title: "Error",
+      description:
+        error instanceof Error ? error.message : "Failed to download file.",
+      variant: "destructive",
+    });
+  }
+},
 
   enhanceText: async (text: string, type: string, context: Record<string, any>) => {
     try {

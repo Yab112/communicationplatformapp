@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useState, useEffect } from "react";
-import { Search, X, Filter, CalendarIcon } from "lucide-react";
+import { Search, X, Filter} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -15,9 +15,6 @@ import { format } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Check, ChevronsUpDown } from "lucide-react";
 
 interface ResourceFiltersProps {
   filters: {
@@ -43,8 +40,6 @@ export function ResourceFilters({ filters, onFilterChange, onClearFilters }: Res
   const [availableCourses, setAvailableCourses] = useState<string[]>([]);
   const [departmentSearch, setDepartmentSearch] = useState("");
   const [courseSearch, setCourseSearch] = useState("");
-  const [isDepartmentPopoverOpen, setIsDepartmentPopoverOpen] = useState(false);
-  const [isCoursePopoverOpen, setIsCoursePopoverOpen] = useState(false);
 
   // Sync selectedDepartment with filters.department on mount or filter change
   useEffect(() => {

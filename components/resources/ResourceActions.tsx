@@ -59,7 +59,7 @@ export function ResourceActions({
         folderId,
         resourceTitle: resource.title,
         folderName: selectedFolder.name,
-        currentFolderIds: resource.folderIds
+        currentFolderIds: resource.id
       });
 
       // Check if resource is already in this folder

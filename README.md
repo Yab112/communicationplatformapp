@@ -1,122 +1,165 @@
-# Campus Helpdesk Chatbot
+# Communication Platform
 
-A Next.js-based campus helpdesk chatbot using Google's Gemini API for natural language understanding and intent detection.
+A comprehensive communication and resource management platform for educational institutions, featuring real-time chat, course management, and AI-powered assistance.
 
-## Features
+## 🌟 Features
 
-- Intent detection using Gemini AI
-- Handles multiple types of campus-related queries:
-  - Course information
-  - Schedules
-  - Grades
-  - Campus facilities
-  - Events
-  - General inquiries
-- TypeScript support
-- Easy to extend and customize
+### Core Features
+- **AI-Powered Campus Assistant** - Smart chatbot with LangChain integration for intelligent responses
+- **Retrieval-Augmented Generation (RAG)** - Enhanced responses using indexed knowledge base
+- **Real-time Chat** - Private and group messaging with read receipts
+- **Resource Management** - Upload, organize, and share educational resources with previews
+- **User Authentication** - Secure login with role-based access control
+- **Department & Club Pages** - Dedicated spaces for academic and extracurricular activities
+- **Document Library** - Centralized repository for all educational materials
 
-## Setup
+### AI Chatbot Features
+- **LangChain Integration** - Powers intelligent conversation flows
+- **Google Gemini** - Advanced language model for natural interactions
+- **Knowledge Retrieval** - Context-aware responses using RAG
+- **Conversation History** - Maintains context across multiple messages
+- **Markdown Support** - Rich text formatting in responses
 
-1. Install dependencies:
-```bash
+## 🛠️ Tech Stack
+
+### Frontend
+- **Framework**: Next.js 15 with App Router
+- **Language**: TypeScript
+- **UI Components**: shadcn/ui, Radix UI
+- **Styling**: Tailwind CSS with CSS Variables
+- **State Management**: Zustand
+- **Real-time**: Socket.IO
+- **Form Handling**: React Hook Form + Zod
+- **Icons**: Lucide React
+- **Animations**: Framer Motion
+
+### Backend
+- **Runtime**: Node.js
+- **Framework**: Express.js
+- **AI/ML**: 
+  - LangChain for AI workflows
+  - Google Gemini for natural language processing
+  - Vector embeddings for semantic search
+- **Database**: postgress with neon
+- **Authentication**: JWT + NextAuth.js
+- **Vector Store**: MemoryVectorStore for efficient similarity search
+- **API Documentation**: Swagger/OpenAPI
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+
+- MongoDB
+- Google API Key (for Gemini AI)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone [https://github.com/Yab112/communicationplatformapp.gitcommunication-platform.git]
+   cd communication-platform
+Install dependencies
+bash
+# Install frontend dependencies
+cd frontend
 npm install
-# or
-yarn install
-```
 
-2. Create a `.env` file in the root directory with the following variables:
-```
-GOOGLE_API_KEY=your_google_api_key_here
-```
+# Install backend dependencies
+cd ../backend
+npm install
+Set up environment variables
+Create .env files in both frontend and backend directories
+Required variables:
+# Frontend
+NEXT_PUBLIC_API_URL=http://localhost:3000/api
 
-3. Get a Google API key:
-   - Visit the [Google AI Studio](https://makersuite.google.com/app/apikey)
-   - Create a new API key
-   - Copy the key to your `.env` file
-
-## Usage
-
-### API Endpoint
-
-The chatbot is accessible via a POST request to `/api/chat`:
-
-```typescript
-const response = await fetch('/api/chat', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    message: 'What are the library hours today?',
-    context: {
-      userId: 'user123',
-      sessionId: 'session456',
-    },
-  }),
-})
-
-const data = await response.json()
-```
-
-### Response Format
-
-```typescript
-{
-  response: string;  // The chatbot's response
-  intent: {
-    type: string;   // Detected intent type
-    confidence: number;  // Confidence score
-    entities?: Record<string, string>;  // Extracted entities
-  }
-}
-```
-
-## Intent Types
-
-The chatbot can detect the following intents:
-
-- `course_info`: Questions about courses, professors, or academic programs
-- `schedule`: Questions about class schedules, academic calendar, or deadlines
-- `grades`: Questions about grades, GPA, or academic performance
-- `facilities`: Questions about campus facilities, buildings, or resources
-- `events`: Questions about campus events, activities, or organizations
-- `general`: General inquiries or greetings
-- `unknown`: When the intent cannot be determined
-
-## Customization
-
-You can customize the chatbot's behavior by:
-
-1. Modifying intent types in `types/chat.ts`
-2. Adjusting intent detection prompts in `lib/intent-detection.ts`
-3. Updating intent-specific responses in `lib/intent-handler.ts`
-
-## Error Handling
-
-The chatbot includes built-in error handling for:
-- Invalid requests
-- API failures
-- Intent detection errors
-- Response generation errors
-
-## Development
-
-Run the development server:
-
-```bash
+# Backend
+neon=your_neon_connection_string
+GOOGLE_API_KEY=your_google_api_key
+JWT_SECRET=your_jwt_secret
+Start the development servers
+bash
+# In frontend directory
 npm run dev
-# or
-yarn dev
-```
+npm run start-socket 
 
-## Production
+Access the application
+Frontend: http://localhost:3000
+API: http://localhost:3000/api
+🤖 AI Chatbot Configuration
+The platform includes an AI-powered chatbot with the following features:
 
-Build and start the production server:
+LangChain Integration
+Manages conversation flows
+Handles context management
+Processes user intents
+Vector Embeddings
+Uses Google's text-embedding-004 model
+Implements semantic search
+Enables knowledge retrieval
+Knowledge Base
+Stores indexed documents in 
+data/indexed-knowledge.json
+Supports dynamic updates
+Enables RAG for accurate responses
 
-```bash
-npm run build
-npm start
-# or
-yarn build
-yarn start
-```
+🐳 Docker Setup
+Build and start containers
+bash
+docker-compose up --build
+Access services
+Frontend: http://localhost:3000
+Backend API: http://localhost:3000/api
+📂 Project Structure
+communication-platform/
+├── frontend/               # Next.js frontend
+│   ├── app/                # App router pages
+│   │   ├── api/            # API routes
+│   │   │   └── chat/       # AI Chatbot endpoints
+│   │   ├── (authenticated) # Protected routes
+│   │   │   ├── chat/       # Real-time chat
+│   │   │   ├── courses/    # Course management
+│   │   │   ├── resources/  # Resource management
+│   │   │   └── ...         # Other features
+│   ├── components/         # Reusable UI components
+│   │   └── ChatBot/        # AI Chatbot components
+│   ├── lib/                # Utility functions
+│   │   └── rag.ts          # RAG implementation
+│   └── store/              # State management (Zustand)
+│
+├── backend/                # Express.js backend
+│   ├── src/
+│   │   ├── controllers/    # Request handlers
+│   │   ├── models/         # Database models
+│   │   ├── routes/         # API routes
+│   │   └── services/       # Business logic
+│   └── prisma/             # Database migrations
+│
+└── docker-compose.yml      # Docker configuration
+🔧 Available Scripts
+Frontend
+npm run dev - Start development server
+npm run build - Build for production
+npm start - Start production server
+npm run lint - Run ESLint
+Backend
+npm run dev - Start development server with hot-reload
+npm run build - Compile TypeScript
+npm start - Start production server
+npm run lint - Run ESLint
+🤝 Contributing
+Fork the repository
+Create a new branch (git checkout -b feature/your-feature)
+Commit your changes (git commit -am 'Add some feature')
+Push to the branch (git push origin feature/your-feature)
+Create a new Pull Request
+📄 License
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+🙏 Acknowledgments
+Next.js Documentation
+shadcn/ui - Beautifully designed components
+LangChain - AI application framework
+Google Gemini - Advanced language model
+Tailwind CSS - Utility-first CSS framework
+
