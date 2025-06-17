@@ -13,7 +13,7 @@ export async function GET(
       return new NextResponse("Unauthorized", { status: 401 })
     }
 
-    const userId = params.userId
+    const userId = await params.userId
     if (!userId) {
       return new NextResponse("User ID is required", { status: 400 })
     }
