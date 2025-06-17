@@ -38,7 +38,10 @@ export function ResourceCard({
   onRemoveFromFolder,
   showRemoveOption = false,
 }: ExtendedResourceCardProps) {
-  const handleDownloadResource = useResourceStore((state) => state.handleDownloadResource);
+  const handleDownloadResource = useResourceStore(
+    (state) => state.handleDownloadResource
+  );
+  const viewerRef = useRef<HTMLDivElement>(null);
 
   // State management
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -59,21 +62,27 @@ export function ResourceCard({
   const styling =
     fileTypeConfig[fileType as keyof typeof fileTypeConfig] ||
     fileTypeConfig.default;
-
   const toggleFullScreen = () => {
+    // Target the viewer pane for entering fullscreen
+    const elementToFullscreen = viewerRef.current;
+    if (!elementToFullscreen) return;
+
     if (!isFullScreen) {
-      dialogRef.current?.requestFullscreen().catch((err) => {
+      elementToFullscreen.requestFullscreen().catch((err) => {
         console.error("Failed to enter fullscreen:", err);
         toast({
           title: "Error",
-          description: "Failed to enter full-screen mode",
+          description: "Could not enter full-screen mode.",
           variant: "destructive",
         });
       });
     } else {
-      document
-        .exitFullscreen()
-        .catch((err) => console.error("Failed to exit fullscreen:", err));
+      // Exit is always called on the document
+      if (document.fullscreenElement) {
+        document
+          .exitFullscreen()
+          .catch((err) => console.error("Failed to exit fullscreen:", err));
+      }
     }
     setIsFullScreen(!isFullScreen);
   };
@@ -82,7 +91,7 @@ export function ResourceCard({
   const handleZoomOut = () => setZoomLevel((prev) => Math.max(prev - 0.2, 0.5));
 
   // Folder assignment handler for UI
-  const handleAddToFolder = async (resourceId: string,folderId: string) => {
+  const handleAddToFolder = async (resourceId: string, folderId: string) => {
     try {
       setOptimisticFolderId(folderId);
       setLoadingFolder(true);
@@ -288,9 +297,9 @@ export function ResourceCard({
 
           <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
             <div
+              ref={viewerRef}
               className={cn(
                 "flex-[4_4_0%] min-w-0 h-full flex flex-col relative",
-                styling.previewBg,
                 "bg-opacity-80 dark:bg-black dark:bg-opacity-90 backdrop-blur-sm"
               )}
             >
@@ -307,7 +316,6 @@ export function ResourceCard({
               <div
                 className={cn(
                   "flex-1 flex items-center justify-center overflow-hidden p-6 relative",
-                  styling.previewBg,
                   "bg-opacity-80 dark:bg-black dark:bg-opacity-90 backdrop-blur-sm"
                 )}
               >
@@ -328,19 +336,19 @@ export function ResourceCard({
                 </div>
               </div>
             </div>
-
-            <div
-              className={cn(
-                "w-full md:w-[800px] h-full overflow-y-auto border-t md:border-t-0 md:border-l flex flex-col shadow-inner",
-                styling.cardBg
-              )}
-            >
-              <PreviewDetails
-                resource={resource}
-                FileIcon={FileIcon}
-                styling={styling}
-              />
-            </div>
+            {!isFullScreen && (
+              <div
+                className={cn(
+                  "w-full md:w-[800px] h-full overflow-y-auto border-t md:border-t-0 md:border-l flex flex-col shadow-inner",
+                )}
+              >
+                <PreviewDetails
+                  resource={resource}
+                  FileIcon={FileIcon}
+                  styling={styling}
+                />
+              </div>
+            )}
           </div>
 
           <PreviewFooter

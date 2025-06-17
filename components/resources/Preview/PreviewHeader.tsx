@@ -12,8 +12,8 @@ export function PreviewHeader({ resource, styling, onClose }: PreviewHeaderProps
   return (
     <DialogHeader
       className={cn(
-        "sticky top-0 z-20 border-b p-4 flex items-center justify-between backdrop-blur-sm",
-        styling.previewBg
+        "sticky top-0 z-20 border-b p-4 flex items-center justify-between backdrop-blur-sm bg-transparent",
+
       )}
     >
       <div className="flex items-center gap-3">

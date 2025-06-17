@@ -45,6 +45,11 @@ export function ResourceActions({
   showRemoveOption = false,
 }: ResourceActionsProps) {
   const [isOpen, setIsOpen] = useState(false);
+  
+  const handlePreviewClick = () => {
+    setIsOpen(false);
+    onPreview();     
+  };
 
   const handleFolderSelect = async (folderId: string) => {
     try {
@@ -88,7 +93,7 @@ export function ResourceActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuItem onClick={onPreview}>
+        <DropdownMenuItem onClick={handlePreviewClick}>
           <Eye className="mr-2 h-4 w-4" />
           Preview
         </DropdownMenuItem>
