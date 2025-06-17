@@ -1,165 +1,225 @@
-# Communication Platform
+🧠 Communication Platform
+A comprehensive communication and resource management platform tailored for educational institutions. It features real-time messaging, course and resource management, and AI-powered campus assistance.
 
-A comprehensive communication and resource management platform for educational institutions, featuring real-time chat, course management, and AI-powered assistance.
+🚀 Features
+🧩 Core Features
+AI-Powered Campus Assistant – Intelligent chatbot powered by LangChain and Gemini
 
-## 🌟 Features
+Retrieval-Augmented Generation (RAG) – Context-aware answers using indexed documents
 
-### Core Features
-- **AI-Powered Campus Assistant** - Smart chatbot with LangChain integration for intelligent responses
-- **Retrieval-Augmented Generation (RAG)** - Enhanced responses using indexed knowledge base
-- **Real-time Chat** - Private and group messaging with read receipts
-- **Resource Management** - Upload, organize, and share educational resources with previews
-- **User Authentication** - Secure login with role-based access control
-- **Department & Club Pages** - Dedicated spaces for academic and extracurricular activities
-- **Document Library** - Centralized repository for all educational materials
+Real-time Chat – Private and group messaging with live updates and read receipts
 
-### AI Chatbot Features
-- **LangChain Integration** - Powers intelligent conversation flows
-- **Google Gemini** - Advanced language model for natural interactions
-- **Knowledge Retrieval** - Context-aware responses using RAG
-- **Conversation History** - Maintains context across multiple messages
-- **Markdown Support** - Rich text formatting in responses
+Resource Management – Upload, preview, and share educational files
 
-## 🛠️ Tech Stack
+User Authentication – Role-based access (Student, Teacher, Admin) with secure login
 
-### Frontend
-- **Framework**: Next.js 15 with App Router
-- **Language**: TypeScript
-- **UI Components**: shadcn/ui, Radix UI
-- **Styling**: Tailwind CSS with CSS Variables
-- **State Management**: Zustand
-- **Real-time**: Socket.IO
-- **Form Handling**: React Hook Form + Zod
-- **Icons**: Lucide React
-- **Animations**: Framer Motion
+Department & Club Pages – Spaces for academic and extracurricular coordination
 
-### Backend
-- **Runtime**: Node.js
-- **Framework**: Express.js
-- **AI/ML**: 
-  - LangChain for AI workflows
-  - Google Gemini for natural language processing
-  - Vector embeddings for semantic search
-- **Database**: postgress with neon
-- **Authentication**: JWT + NextAuth.js
-- **Vector Store**: MemoryVectorStore for efficient similarity search
-- **API Documentation**: Swagger/OpenAPI
+Document Library – Centralized repository for shared content
 
-## 🚀 Getting Started
+🤖 AI Chatbot Features
+LangChain Integration – Manages conversation flow and context
 
-### Prerequisites
-- Node.js 18+
-- MongoDB
-- Google API Key (for Gemini AI)
+Google Gemini – High-quality LLM for accurate responses
 
-### Installation
+RAG System – Retrieves contextually relevant data from knowledge base
 
-1. **Clone the repository**
-   ```bash
-   git clone [https://github.com/Yab112/communicationplatformapp.gitcommunication-platform.git]
-   cd communication-platform
-Install dependencies
+Conversation History – Maintains multi-turn chat context
+
+Markdown Support – Supports rich text replies in chat
+
+⚙️ Tech Stack
+Frontend
+Framework: Next.js 15 (App Router)
+
+Language: TypeScript
+
+UI: shadcn/ui, Radix UI, Tailwind CSS (with CSS Variables)
+
+State Management: Zustand
+
+Forms & Validation: React Hook Form + Zod
+
+Real-time: Socket.IO
+
+Animations: Framer Motion
+
+Icons: Lucide React
+
+Backend
+Runtime: Node.js
+
+Framework: Express.js
+
+AI Integration:
+
+LangChain – Conversational logic
+
+Google Gemini – Language model
+
+Vector Embeddings – Semantic search
+
+Database: PostgreSQL (Neon)
+
+Authentication: JWT + NextAuth.js
+
+Vector Store: MemoryVectorStore
+
+Documentation: Swagger/OpenAPI
+
+🛠️ Getting Started
+🔗 Prerequisites
+Node.js 18+
+
+MongoDB (for session or metadata)
+
+PostgreSQL (Neon recommended)
+
+Google API Key (for Gemini)
+
+📦 Installation
+Clone the Repository
+
 bash
-# Install frontend dependencies
+Copy
+Edit
+git clone https://github.com/Yab112/communicationplatformapp.git
+cd communicationplatformapp
+Install Dependencies
+
+bash
+Copy
+Edit
+# Frontend
 cd frontend
 npm install
 
-# Install backend dependencies
+# Backend
 cd ../backend
 npm install
-Set up environment variables
-Create .env files in both frontend and backend directories
-Required variables:
-# Frontend
+Environment Variables
+
+Create .env files in both frontend/ and backend/:
+
+env
+Copy
+Edit
+# Frontend/.env
 NEXT_PUBLIC_API_URL=http://localhost:3000/api
 
-# Backend
-neon=your_neon_connection_string
+# Backend/.env
+NEON_DATABASE_URL=your_neon_connection_string
 GOOGLE_API_KEY=your_google_api_key
 JWT_SECRET=your_jwt_secret
-Start the development servers
+Start Development Servers
+
 bash
-# In frontend directory
+Copy
+Edit
+# Frontend
+cd frontend
 npm run dev
-npm run start-socket 
+npm run start-socket
 
-Access the application
+# Backend
+cd ../backend
+npm run dev
+Access the App
+
 Frontend: http://localhost:3000
-API: http://localhost:3000/api
-🤖 AI Chatbot Configuration
-The platform includes an AI-powered chatbot with the following features:
 
-LangChain Integration
-Manages conversation flows
-Handles context management
-Processes user intents
-Vector Embeddings
-Uses Google's text-embedding-004 model
-Implements semantic search
-Enables knowledge retrieval
-Knowledge Base
-Stores indexed documents in 
-data/indexed-knowledge.json
-Supports dynamic updates
-Enables RAG for accurate responses
+Backend API: http://localhost:3000/api
+
+🧠 AI Chatbot Overview
+The AI Assistant is powered by LangChain and Gemini with support for RAG:
+
+LangChain: Manages multi-turn conversation logic
+
+Embeddings: Uses text-embedding-004 for semantic search
+
+Indexed Data: Stored in data/indexed-knowledge.json
+
+RAG: Retrieves context from indexed documents
 
 🐳 Docker Setup
-Build and start containers
+To run everything with Docker:
+
 bash
+Copy
+Edit
 docker-compose up --build
-Access services
+Access
 Frontend: http://localhost:3000
-Backend API: http://localhost:3000/api
-📂 Project Structure
-communication-platform/
-├── frontend/               # Next.js frontend
-│   ├── app/                # App router pages
-│   │   ├── api/            # API routes
-│   │   │   └── chat/       # AI Chatbot endpoints
+
+API: http://localhost:3000/api
+
+📁 Project Structure
+bash
+Copy
+Edit
+communicationplatformapp/
+├── frontend/               # Next.js 15 frontend
+│   ├── app/                # App Router structure
+│   │   ├── api/            # AI & other routes
 │   │   ├── (authenticated) # Protected routes
-│   │   │   ├── chat/       # Real-time chat
-│   │   │   ├── courses/    # Course management
-│   │   │   ├── resources/  # Resource management
-│   │   │   └── ...         # Other features
+│   │   │   ├── chat/       # Chat system
+│   │   │   ├── courses/    # Course pages
+│   │   │   ├── resources/  # Resources section
 │   ├── components/         # Reusable UI components
-│   │   └── ChatBot/        # AI Chatbot components
-│   ├── lib/                # Utility functions
-│   │   └── rag.ts          # RAG implementation
-│   └── store/              # State management (Zustand)
-│
-├── backend/                # Express.js backend
+│   ├── lib/                # Utils (includes rag.ts)
+│   └── store/              # Zustand store
+
+├── backend/                # Express.js API
 │   ├── src/
 │   │   ├── controllers/    # Request handlers
-│   │   ├── models/         # Database models
+│   │   ├── models/         # Prisma schema & models
 │   │   ├── routes/         # API routes
 │   │   └── services/       # Business logic
-│   └── prisma/             # Database migrations
-│
-└── docker-compose.yml      # Docker configuration
-🔧 Available Scripts
+│   └── prisma/             # Prisma migration setup
+
+└── docker-compose.yml      # Docker orchestration
+🧪 Scripts
 Frontend
-npm run dev - Start development server
-npm run build - Build for production
-npm start - Start production server
-npm run lint - Run ESLint
+bash
+Copy
+Edit
+npm run dev         # Start dev server
+npm run build       # Build for production
+npm start           # Start production server
+npm run lint        # Lint the codebase
 Backend
-npm run dev - Start development server with hot-reload
-npm run build - Compile TypeScript
-npm start - Start production server
-npm run lint - Run ESLint
+bash
+Copy
+Edit
+npm run dev         # Start with hot-reload
+npm run build       # Compile TypeScript
+npm start           # Run production server
+npm run lint        # Lint backend code
 🤝 Contributing
 Fork the repository
-Create a new branch (git checkout -b feature/your-feature)
-Commit your changes (git commit -am 'Add some feature')
-Push to the branch (git push origin feature/your-feature)
-Create a new Pull Request
+
+Create your branch: git checkout -b feature/your-feature
+
+Commit your changes: git commit -am 'Add feature'
+
+Push: git push origin feature/your-feature
+
+Open a Pull Request
+
 📄 License
-This project is licensed under the MIT License - see the LICENSE file for details.
+Licensed under the MIT License.
 
 🙏 Acknowledgments
-Next.js Documentation
-shadcn/ui - Beautifully designed components
-LangChain - AI application framework
-Google Gemini - Advanced language model
-Tailwind CSS - Utility-first CSS framework
+Next.js
 
+shadcn/ui
+
+Tailwind CSS
+
+LangChain
+
+Google Gemini
+
+Radix UI
+
+Neon – Serverless PostgreSQL
