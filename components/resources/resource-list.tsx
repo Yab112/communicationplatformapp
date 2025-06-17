@@ -27,7 +27,18 @@ export function ResourceList({
 }: ResourceListProps) {
   const store = useResourceStore();
   const folders = propFolders ?? store.folders;
-  const addToFolder = onAddToFolder ?? store.addToFolder;
+  
+  // Use the onAddToFolder prop if provided, otherwise use the store's addToFolder
+  const addToFolder = async (resourceId: string, folderId: string) => {
+    console.log('Adding to folder:', { resourceId, folderId });
+    if (resourceId === folderId) {
+      throw new Error('Resource ID and Folder ID cannot be the same');
+    }
+    return onAddToFolder 
+      ? onAddToFolder(resourceId, folderId)
+      : store.addToFolder(resourceId, folderId);
+  };
+
   const removeFromFolder =
     onRemoveFromFolder ??
     ((id: string) =>

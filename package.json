@@ -2,12 +2,15 @@
   "name": "app",
   "version": "0.1.0",
   "private": true,
+  "description": "A Next.js application with various features including authentication, socket.io, and more.",
+  "author": "Yabibal Eshetie eshetieyabibal@gmail.com",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-     "start-socket": "ts-node-dev --respawn --transpile-only -P tsconfig.server.json server.ts"
+    "start-socket": "ts-node-dev --respawn --transpile-only -P tsconfig.server.json server.ts",
+    "generate-knowledge": "node --loader ts-node/esm lib/generate-knowledge.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
@@ -17,6 +20,8 @@
     "@google/genai": "^1.0.1",
     "@google/generative-ai": "^0.24.1",
     "@hookform/resolvers": "^5.0.1",
+    "@langchain/community": "^0.3.46",
+    "@langchain/google-genai": "^0.2.12",
     "@prisma/client": "^6.7.0",
     "@radix-ui/react-alert-dialog": "^1.1.6",
     "@radix-ui/react-avatar": "^1.1.7",
@@ -51,6 +56,7 @@
     "dompurify": "^3.2.6",
     "framer-motion": "^12.9.4",
     "jsonwebtoken": "^9.0.2",
+    "langchain": "^0.3.28",
     "leaflet": "^1.9.4",
     "lodash": "^4.17.21",
     "lucide-react": "^0.479.0",
@@ -80,9 +86,10 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@tailwindcss/typography": "^0.5.16",
     "@types/bcrypt": "^5.0.2",
     "@types/leaflet": "^1.9.16",
-    "@types/node": "^20",
+    "@types/node": "^20.19.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-leaflet": "^3.0.0",
