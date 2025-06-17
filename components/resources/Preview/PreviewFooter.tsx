@@ -12,8 +12,7 @@ export function PreviewFooter({
   return (
     <div
       className={cn(
-        "sticky bottom-0 z-10 border-t p-4 flex justify-end gap-4 flex-wrap backdrop-blur-sm",
-        styling.previewBg
+        "sticky bottom-0 z-10 border-t p-4 flex justify-end gap-4 flex-wrap backdrop-blur-sm bg-transparent",
       )}
     >
       <Button

@@ -21,10 +21,10 @@ export function PreviewDetails({
           <h3
             className={cn(
               "text-lg font-semibold flex items-center gap-2 sticky top-0 py-2.5 px-2 border-b backdrop-blur-sm bg-opacity-95",
-              styling.previewBg
+              // styling.previewBg
             )}
           >
-            <span className={cn("h-5 w-5", styling.iconColor)}>
+            <span className={cn("h-5 w-5 z-50", styling.iconColor)}>
               <FileIcon />
             </span>
             Upload Information
@@ -39,7 +39,7 @@ export function PreviewDetails({
                   }
                   alt={resource.uploadedBy.name}
                   className={cn(
-                    "h-12 w-12 rounded-full ring-2 ring-offset-2",
+                    "h-12 w-12 rounded-full ring-2 ring-offset-2  -z-30 ",
                     styling.borderColor
                   )}
                 />
@@ -69,15 +69,13 @@ export function PreviewDetails({
           <h3
             className={cn(
               "text-lg font-semibold sticky top-0 py-2.5 px-2 border-b backdrop-blur-sm bg-opacity-95",
-              styling.previewBg
             )}
           >
             File Information
           </h3>
           <div
             className={cn(
-              "rounded-lg p-4 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4",
-              styling.bgColor
+              "rounded-lg p-4 shadow-sm grid grid-cols-1 sm:grid-cols-2 gap-4 bg-transparent",
             )}
           >
             <div className="space-y-1">
@@ -124,8 +122,7 @@ export function PreviewDetails({
         <div className="space-y-3">
           <h3
             className={cn(
-              "text-lg font-semibold sticky top-0 py-2.5 px-2 border-b backdrop-blur-sm bg-opacity-95",
-              styling.previewBg
+              "text-lg font-semibold sticky top-0 py-2.5 px-2 border-b backdrop-blur-sm bg-opacity-95 bg-tra",
             )}
           >
             Department & Course
@@ -135,7 +132,7 @@ export function PreviewDetails({
           >
             {resource.department ? (
               <div className="space-y-1">
-                <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                <span className="text-sm text-gray-600 dark:text-gray-400 font-medium mr-2">
                   Department
                 </span>
                 <Badge
@@ -179,8 +176,7 @@ export function PreviewDetails({
           <div className="space-y-3">
             <h3
               className={cn(
-                "text-lg font-semibold sticky top-0 py-2.5 px-2 border-b backdrop-blur-sm bg-opacity-95",
-                styling.previewBg
+                "text-lg font-semibold sticky top-0 py-2.5 px-2 border-b backdrop-blur-sm bg-opacity-95 bg-transparent"
               )}
             >
               Tags
@@ -209,8 +205,7 @@ export function PreviewDetails({
         <div className="space-y-3">
           <h3
             className={cn(
-              "text-lg font-semibold sticky top-0 py-2.5 px-2 border-b backdrop-blur-sm bg-opacity-95",
-              styling.previewBg
+              "text-lg font-semibold sticky top-0 py-2.5 px-2 border-b backdrop-blur-sm bg-opacity-95 bg-transparent"
             )}
           >
             Description

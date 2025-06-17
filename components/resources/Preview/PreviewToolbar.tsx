@@ -18,8 +18,7 @@ export function PreviewToolbar({
   return (
     <div
       className={cn(
-        "sticky top-0 z-10 border-b p-2 flex items-center gap-2 justify-center md:justify-end backdrop-blur-sm",
-        styling.previewBg
+        "sticky top-0 z-10 border-b p-2 flex items-center gap-2 justify-center md:justify-end backdrop-blur-sm bg-transparent",
       )}
     >
       <div

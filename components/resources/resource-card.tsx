@@ -300,7 +300,6 @@ export function ResourceCard({
               ref={viewerRef}
               className={cn(
                 "flex-[4_4_0%] min-w-0 h-full flex flex-col relative",
-                styling.previewBg,
                 "bg-opacity-80 dark:bg-black dark:bg-opacity-90 backdrop-blur-sm"
               )}
             >
@@ -317,7 +316,6 @@ export function ResourceCard({
               <div
                 className={cn(
                   "flex-1 flex items-center justify-center overflow-hidden p-6 relative",
-                  styling.previewBg,
                   "bg-opacity-80 dark:bg-black dark:bg-opacity-90 backdrop-blur-sm"
                 )}
               >
@@ -342,7 +340,6 @@ export function ResourceCard({
               <div
                 className={cn(
                   "w-full md:w-[800px] h-full overflow-y-auto border-t md:border-t-0 md:border-l flex flex-col shadow-inner",
-                  styling.cardBg
                 )}
               >
                 <PreviewDetails
