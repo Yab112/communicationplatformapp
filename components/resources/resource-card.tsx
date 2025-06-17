@@ -38,9 +38,9 @@ export function ResourceCard({
   onRemoveFromFolder,
   showRemoveOption = false,
 }: ExtendedResourceCardProps) {
-  const store = useResourceStore();
-  const addToFolder = onAddToFolder ?? store.addToFolder;
-  const { handleDownloadResource } = store;
+  const { handleDownloadResource } = useResourceStore((state) => ({
+    handleDownloadResource: state.handleDownloadResource,
+  }));
 
   // State management
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -89,7 +89,7 @@ export function ResourceCard({
       setOptimisticFolderId(folderId);
       setLoadingFolder(true);
       setShowFolderMenu(false);
-      await addToFolder(resource.id, folderId);
+      await onAddToFolder(resource.id, folderId);
       setLoadingFolder(false);
     } catch (error) {
       setLoadingFolder(false);
@@ -106,8 +106,9 @@ export function ResourceCard({
   };
 
   useEffect(() => {
-    if (isPreviewOpen && dialogRef.current) {
-      const focusableElements = dialogRef.current.querySelectorAll(
+    const dialog = dialogRef.current;
+    if (isPreviewOpen && dialog) {
+      const focusableElements = dialog.querySelectorAll(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
       );
       const firstElement = focusableElements[0] as HTMLElement;
@@ -127,10 +128,10 @@ export function ResourceCard({
         }
       };
 
-      dialogRef.current.focus();
-      dialogRef.current.addEventListener("keydown", handleKeyDown);
+      dialog.focus();
+      dialog.addEventListener("keydown", handleKeyDown);
       return () => {
-        dialogRef.current?.removeEventListener("keydown", handleKeyDown);
+        dialog.removeEventListener("keydown", handleKeyDown);
       };
     }
   }, [isPreviewOpen]);
@@ -173,16 +174,14 @@ export function ResourceCard({
       setIsInitialLoading(false);
       setError(null);
       setZoomLevel(1);
-      setIsFullScreen(false); // Also reset fullscreen state
-      // Any other preview-specific states should be reset here
+      setIsFullScreen(false);
     }
   }, [isPreviewOpen]);
 
   // Clean up resources when component unmounts - this is for the card itself
   useEffect(() => {
     return () => {
-      // Any cleanup specific to the card component unmounting can go here
-      // Dialog state reset is handled by the effect above watching isPreviewOpen
+      // Cleanup function
     };
   }, []);
 

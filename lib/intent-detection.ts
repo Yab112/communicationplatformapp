@@ -1,36 +1,10 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { type Intent } from '@/types/chat'
+import { INTENT_DETECTION_PROMPT } from '@/constants/prompts'
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!)
 
-const INTENT_PROMPT = `You are a campus helpdesk assistant. Analyze the user message and detect the intent.
-Return a JSON object with the following structure:
-{
-  "type": "intent_type",
-  "confidence": confidence_score,
-  "entities": { extracted_entities }
-}
 
-Intent types:
-- course_info: Questions about courses, professors, or academic programs
-- schedule: Questions about class schedules, academic calendar, or deadlines
-- grades: Questions about grades, GPA, or academic performance
-- facilities: Questions about campus facilities, buildings, or resources
-- events: Questions about campus events, activities, or organizations
-- general: General inquiries or greetings
-- unknown: When the intent cannot be determined
-
-Example:
-User: "What's the schedule for CS101?"
-{
-  "type": "schedule",
-  "confidence": 0.95,
-  "entities": {
-    "course": "CS101"
-  }
-}
-
-Analyze this message:`
 
 export async function detectIntent(message: string): Promise<Intent> {
   try {
@@ -40,7 +14,7 @@ export async function detectIntent(message: string): Promise<Intent> {
     }
 
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
-    const prompt = `${INTENT_PROMPT}\n${message}`
+    const prompt = `${INTENT_DETECTION_PROMPT}\n${message}`
     
     console.log('Sending intent detection request...')
     const result = await model.generateContent(prompt)

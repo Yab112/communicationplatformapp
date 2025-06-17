@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
     "lib": [
       "dom",
       "dom.iterable",
@@ -17,6 +16,8 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    "target": "es2020",
+    "allowSyntheticDefaultImports": true,
     "plugins": [
       {
         "name": "next"
@@ -36,7 +37,7 @@
     "components/themeProvider/theme-provider.tsx",
     "next-env.d.ts",
     "build/types/**/*.ts"
-, "store/authStore.ts"  ],
+, "store/authStore.ts", "lib/generate-knowledge.ts", "lib/rag.ts"  ],
   "exclude": [
     "node_modules"
   ]

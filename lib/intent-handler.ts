@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { type Intent } from '@/types/chat'
+import {BASE_SYSTEM_PROMPT,INTENT_HANDLER_PROMPTS} from '@/constants/prompts'
 
 // First, let's add a check for the API key
 if (!process.env.GOOGLE_API_KEY) {
@@ -8,81 +9,8 @@ if (!process.env.GOOGLE_API_KEY) {
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!)
 
-// Base context for the chatbot
-const BASE_CONTEXT = `You are a helpful campus helpdesk assistant. Your responses should be:
-- Friendly and professional
-- Concise but informative
-- Focused on addressing the specific query
-- Include relevant details when available`
 
-// Intent-specific prompts
-const INTENT_PROMPTS: Record<string, string> = {
-  course_info: `You are helping with course-related inquiries. Provide information about:
-- Course descriptions and requirements
-- Professor information
-- Prerequisites and academic programs`,
-  
-  schedule: `You are helping with schedule-related inquiries. Provide information about:
-- Class timings and locations
-- Academic calendar dates
-- Important deadlines`,
-  
-  grades: `You are helping with grade-related inquiries. Provide information about:
-- Grading policies
-- GPA calculation
-- Academic performance resources`,
-  
-  facilities: `You are helping with campus facilities inquiries. Provide information about:
-- Building locations and hours
-- Available resources and services
-- Access and usage guidelines`,
-  
-  events: `You are helping with campus events inquiries. When responding to vague event queries:
-1. Ask for clarification about:
-   - Type of event (academic, social, sports, arts & culture)
-   - Specific department or location preferences
-   - Time frame if not specified
-2. Mention that users can check the university event calendar directly
-3. Keep responses friendly and helpful
-4. If specific event details are known, include:
-   - Event name, date, time, and location
-   - Brief description
-   - Registration information if required
-   - Contact details for more information`,
-  
-  lost_id: `You are helping with lost ID card inquiries. When responding:
 
-Hi there! I'm sorry to hear you lost your ID, but don't worry, we can get that sorted out for you! Here's what you should do:
-
-1. Check Common Locations:
-   - Where you last used it (e.g., dining hall, library)
-   - Your classrooms
-   - Your bag or pockets
-
-2. Report it Lost:
-   - Visit the Campus Card Services Office immediately
-   - This prevents anyone else from using your ID
-   - Location: [Insert Location of Campus Card Services Here]
-
-3. Obtain a Replacement:
-   - Bring a government-issued photo ID
-   - Pay the replacement fee ([Insert Fee Amount Here])
-   - Processing usually takes [Insert Time Frame]
-
-4. Important Notes:
-   - Your old ID will be deactivated once reported lost
-   - If you find it later, it won't work anymore
-   - A valid student ID is required for campus access
-
-If you have any questions about this process, feel free to ask!`,
-  
-  general: `You are helping with general campus inquiries. Format responses with:
-1. Clear hierarchical structure
-2. Use main points and sub-points
-3. Include specific details when available
-4. Keep a friendly and helpful tone
-5. Add relevant contact information`
-}
 
 export async function handleIntent(intent: Intent, message: string): Promise<string> {
   try {
@@ -95,8 +23,8 @@ export async function handleIntent(intent: Intent, message: string): Promise<str
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
     
     // Construct the prompt based on intent
-    const intentPrompt = INTENT_PROMPTS[intent.type] || INTENT_PROMPTS.general
-    const prompt = `${BASE_CONTEXT}
+    const intentPrompt = INTENT_HANDLER_PROMPTS[intent.type] || INTENT_HANDLER_PROMPTS.general
+    const prompt = `${BASE_SYSTEM_PROMPT}
 ${intentPrompt}
 
 User query: ${message}

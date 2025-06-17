@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/get-session";
 import { postSchema, type PostFormValues } from "@/lib/validator/post";
-import { getSocketServer } from "../socket-server";
+import { emitSocketEvent } from "../socket-emitter";
 
 export async function getPosts() {
   try {
@@ -150,6 +150,7 @@ export async function createPost(data: PostFormValues) {
     });
 
     // Create notifications
+    // Create notifications in the database
     const notificationData = usersToNotify.map((u) => ({
       userId: u.id,
       type: "post",
@@ -157,30 +158,27 @@ export async function createPost(data: PostFormValues) {
         user.name
       } (Admin) created a new post: ${validatedData.content.slice(0, 50)}...`,
       relatedId: post.id,
-      isRead: false,
     }));
+    await db.notification.createMany({ data: notificationData });
 
-    const savedNotifications = await db.$transaction(
-      notificationData.map((data) => db.notification.create({ data }))
-    );
-
-    // Emit notifications via Socket.IO
+    // ✅ REFACTORED: Use the stable emitSocketEvent pattern
     try {
-      const io = getSocketServer();
-      savedNotifications.forEach((notification, index) => {
-        io.to(`user:${usersToNotify[index].id}`).emit("notification", {
-          id: notification.id,
-          type: notification.type,
-          content: notification.content,
-          relatedId: notification.relatedId,
-          createdAt: notification.createdAt.toISOString(),
-          isRead: notification.isRead,
-          userId: notification.userId,
+      usersToNotify.forEach((userToNotify) => {
+        emitSocketEvent({
+          event: "notification",
+          room: `user:${userToNotify.id}`,
+          payload: {
+            content: `${user.name} (Admin) created a new post...`,
+            type: "post",
+            relatedId: post.id,
+          },
         });
       });
     } catch (socketError) {
-      console.error("Socket.IO error:", socketError);
-      // Continue even if Socket.IO fails; notifications are still in DB
+      console.error(
+        "Socket emit failed, but post and notifications were created:",
+        socketError
+      );
     }
     // Revalidate feeds page
     revalidatePath("/feeds");

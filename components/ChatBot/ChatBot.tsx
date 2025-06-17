@@ -1,175 +1,314 @@
-"use client"
+"use client";
 
-import { useState, useRef, useEffect } from 'react'
-import { MessageSquare, X, Send, Loader2 } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { WelcomeMessage } from './WelcomeMessage'
-import type { ChatMessage } from '@/types/chat'
+import { useState, useRef, useEffect } from "react";
+import { Send, Loader2, X, ChevronDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import type { ChatMessage } from "@/types/chat";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
+import Image from "next/image";
 
+// --- UPDATED: Using your local bot.png image path ---
+const BOT_AVATAR_URL = "./bot.png";
+
+// Helper component to render Markdown from the AI
+function MarkdownRenderer({ content }: { content: string }) {
+  const isBrowser = typeof window !== "undefined";
+  const sanitizedHtml = isBrowser
+    ? DOMPurify.sanitize(marked.parse(content) as string)
+    : marked.parse(content);
+  return (
+    <div
+      className="prose prose-sm dark:prose-invert prose-p:my-0 prose-ul:my-1 prose-li:my-0"
+      dangerouslySetInnerHTML={{ __html: sanitizedHtml as string }}
+    />
+  );
+}
+
+// --- Main ChatBot Component ---
 export function ChatBot() {
-  const [isOpen, setIsOpen] = useState(false)
-  const [message, setMessage] = useState('')
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [hasShownWelcome, setHasShownWelcome] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [isOpen, setIsOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: "assistant",
+      content: "Hi there! How can I help you today?",
+      timestamp: new Date().toISOString(),
+    },
+  ]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showWelcomeBubble, setShowWelcomeBubble] = useState(false);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
+  const scrollViewportRef = useRef<HTMLDivElement>(null);
 
+  // --- UPDATED: Welcome bubble is now persistent until opened ---
   useEffect(() => {
-    scrollToBottom()
-  }, [messages])
+    // Show the bubble after 2 seconds. It will now stay visible.
+    const timer = setTimeout(() => {
+      if (!isOpen) {
+        // Only show if the chat is not already open
+        setShowWelcomeBubble(true);
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // When the chat is opened, hide the welcome bubble.
+  useEffect(() => {
+    if (isOpen) {
+      setShowWelcomeBubble(false);
+    }
+  }, [isOpen]);
+
+  // Improved scrolling logic
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        const viewport = scrollViewportRef.current;
+        if (viewport) {
+          viewport.scrollTop = viewport.scrollHeight;
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [messages, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!message.trim() || isLoading) return
+    e.preventDefault();
+    if (!message.trim() || isLoading) return;
 
     const userMessage: ChatMessage = {
-      role: 'user',
+      role: "user",
       content: message.trim(),
       timestamp: new Date().toISOString(),
-    }
+    };
 
-    setMessages(prev => [...prev, userMessage])
-    setMessage('')
-    setIsLoading(true)
-    setHasShownWelcome(true)
+    const newMessages = [...messages, userMessage];
+    setMessages(newMessages);
+    setMessage("");
+    setIsLoading(true);
 
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: userMessage.content,
-          context: {
-            previousMessages: messages,
-          },
+          context: { previousMessages: newMessages },
         }),
-      })
+      });
 
-      if (!response.ok) {
-        throw new Error('Network response was not ok')
-      }
-
-      const data = await response.json()
-
+      if (!response.ok) throw new Error("Network response was not ok");
+      const data = await response.json();
       const assistantMessage: ChatMessage = {
-        role: 'assistant',
+        role: "assistant",
         content: data.response,
         timestamp: new Date().toISOString(),
-      }
-
-      setMessages(prev => [...prev, assistantMessage])
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
-      console.error('Chat error:', error)
+      console.error("Chat error:", error);
       const errorMessage: ChatMessage = {
-        role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
+        role: "assistant",
+        content:
+          "Sorry, I seem to be having some trouble. Please try again later.",
         timestamp: new Date().toISOString(),
-      }
-      setMessages(prev => [...prev, errorMessage])
+      };
+      setMessages((prev) => [...prev, errorMessage]);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
-    <div className="fixed bottom-28 right-6 z-[100]">
+    <div className="fixed bottom-6 right-6 z-[1000] flex flex-col items-end">
+      {/* Chat Window */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ duration: 0.2 }}
-            className="mb-2"
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="w-[340px] h-[500px] flex flex-col bg-[var(--color-card)] shadow-2xl rounded-2xl border border-[var(--color-border)] overflow-hidden mb-4"
           >
-            <Card className="w-[260px] sm:w-[300px] shadow-xl border-[var(--color-border)]">
-              <div className="p-2 border-b flex items-center justify-between bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary)]/80 text-white">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="h-3.5 w-3.5" />
-                  <h2 className="text-sm font-semibold">Assistant</h2>
+            {/* Header */}
+            <div className="p-4 border-b border-[var(--color-border)] bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary)]/90 text-white flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Image
+                    src="/bot.png" // ✅ use leading slash
+                    alt="Open Chat"
+                    width={56}
+                    height={56}
+                    className="w-14 h-14 rounded-full"
+                    priority={false}
+                  />
+                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-[var(--color-primary)]" />
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 hover:bg-white/20 transition-colors"
-                  onClick={() => setIsOpen(false)}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
+                <div>
+                  <h2 className="text-md font-bold">Support Assistant</h2>
+                  <p className="text-xs text-white/80">Online</p>
+                </div>
               </div>
-              <ScrollArea className="h-[280px] bg-[var(--color-card)]/50">
-                <div className="flex flex-col space-y-2.5 p-3">
-                  {!hasShownWelcome && <WelcomeMessage />}
-                  {messages.map((msg, index) => (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-white hover:bg-white/20"
+                onClick={() => setIsOpen(false)}
+              >
+                <ChevronDown className="h-5 w-5" />
+              </Button>
+            </div>
+
+            {/* Messages Area */}
+            <ScrollArea className="flex-1" viewportRef={scrollViewportRef}>
+              <div className="p-4 space-y-4">
+                {messages.map((msg, index) => (
+                  <div
+                    key={index}
+                    className={`flex gap-3 items-start ${
+                      msg.role === "user" ? "justify-end" : "justify-start"
+                    }`}
+                  >
+                    {msg.role === "assistant" && (
+                      <Image
+                        src="/bot.png" // ✅ use leading slash
+                        alt="Open Chat"
+                        width={56}
+                        height={56}
+                        className="w-14 h-14 rounded-full"
+                        priority={false}
+                      />
+                    )}
                     <div
-                      key={index}
-                      className={`flex ${
-                        msg.role === 'user' ? 'justify-end' : 'justify-start'
+                      className={`rounded-2xl px-4 py-2.5 max-w-[85%] text-sm leading-relaxed shadow-sm ${
+                        msg.role === "user"
+                          ? "bg-[var(--color-primary)] text-white rounded-br-none"
+                          : "bg-[var(--color-card-deep)] text-[var(--color-fg)] border border-[var(--color-border)] rounded-bl-none"
                       }`}
                     >
-                      <div
-                        className={`rounded-xl px-3 py-1.5 max-w-[85%] shadow-sm ${
-                          msg.role === 'user'
-                            ? 'bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary)]/90 text-white ml-4'
-                            : 'bg-[var(--color-card)] border border-[var(--color-border)] text-[var(--color-fg)] mr-4'
-                        }`}
-                      >
-                        <p className="text-xs whitespace-pre-wrap leading-relaxed">
-                          {msg.content}
-                        </p>
+                      {msg.role === "assistant" ? (
+                        <MarkdownRenderer content={msg.content} />
+                      ) : (
+                        <p>{msg.content}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {isLoading && (
+                  <div className="flex gap-3 items-end justify-start">
+                    <Image
+                      src="/bot.png" // ✅ use leading slash
+                      alt="Open Chat"
+                      width={56}
+                      height={56}
+                      className="w-14 h-14 rounded-full"
+                      priority={false}
+                    />
+                    <div className="rounded-2xl px-4 py-2.5 bg-[var(--color-card-deep)] border border-[var(--color-border)]">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <span className="h-1.5 w-1.5 bg-[var(--color-fg)] rounded-full animate-bounce [animation-delay:-0.3s]" />
+                        <span className="h-1.5 w-1.5 bg-[var(--color-fg)] rounded-full animate-bounce [animation-delay:-0.15s]" />
+                        <span className="h-1.5 w-1.5 bg-[var(--color-fg)] rounded-full animate-bounce" />
                       </div>
                     </div>
-                  ))}
-                  {isLoading && (
-                    <div className="flex justify-start">
-                      <div className="rounded-xl px-3 py-1.5 bg-[var(--color-muted)]/60 backdrop-blur-sm mr-4">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      </div>
-                    </div>
+                  </div>
+                )}
+                {/* Always scroll to this ref */}
+                <div ref={scrollViewportRef} />
+              </div>
+            </ScrollArea>
+
+            {/* Input Form */}
+            <form
+              onSubmit={handleSubmit}
+              className="p-3 border-t border-[var(--color-border)] bg-[var(--color-card)] flex-shrink-0"
+            >
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder="Type your message..."
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey)
+                      handleSubmit(e as any);
+                  }}
+                  className="flex-1 h-10 bg-[var(--color-card-deep)] border-[var(--color-border)] focus-visible:ring-1 focus-visible:ring-offset-0 focus-visible:ring-[var(--color-primary)]"
+                />
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={!message.trim() || isLoading}
+                  className="h-10 w-10 bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 flex-shrink-0"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Send className="h-5 w-5" />
                   )}
-                  <div ref={messagesEndRef} />
-                </div>
-              </ScrollArea>
-              <form onSubmit={handleSubmit} className="p-2 border-t bg-[var(--color-card)]">
-                <div className="flex gap-1.5">
-                  <Input
-                    placeholder="Message..."
-                    value={message}
-                    onChange={e => setMessage(e.target.value)}
-                    className="flex-1 text-sm h-8 bg-[var(--color-card)]/80 focus-visible:ring-[var(--color-primary)]/50"
-                  />
-                  <Button
-                    type="submit"
-                    size="icon"
-                    disabled={!message.trim() || isLoading}
-                    className="h-8 w-8 bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 transition-colors"
-                  >
-                    <Send className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              </form>
-            </Card>
+                </Button>
+              </div>
+            </form>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <Button
-        size="icon"
-        className="h-10 w-10 rounded-full shadow-xl bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary)]/90 hover:from-[var(--color-primary)]/90 hover:to-[var(--color-primary)] transition-all hover:scale-105"
-        onClick={() => setIsOpen(prev => !prev)}
-      >
-        <MessageSquare className="h-4.5 w-4.5" />
-      </Button>
+      {/* Launcher Area */}
+      <div className="flex flex-col items-end mt-4">
+        <AnimatePresence>
+          {!isOpen && showWelcomeBubble && (
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.9 }}
+              transition={{ duration: 0.3, delay: 0.2 }}
+              className="mb-3 mr-2 bg-blue-300 py-2 px-4 rounded-xl shadow-lg flex items-center justify-center cursor-pointer hover:bg-blue-400/90 transition-all duration-200 animate-bounce"
+            >
+              <p className="text-sm text-[var(--color-white)] bg-blue-500/90 px-2 py-1 rounded-md">
+                Hi! Have a question? I can help.
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <motion.button
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setIsOpen((prev) => !prev)}
+          className="w-16 h-16 rounded-full bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-primary)]/80 flex items-center justify-center shadow-2xl"
+        >
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={isOpen ? "x" : "chat"}
+              initial={{ opacity: 0, rotate: -45, scale: 0.8 }}
+              animate={{ opacity: 1, rotate: 0, scale: 1 }}
+              exit={{ opacity: 0, rotate: 45, scale: 0.8 }}
+              transition={{ duration: 0.15 }}
+            >
+              {isOpen ? (
+                <X className="h-8 w-8 text-white" />
+              ) : (
+                // --- RE-IMPLEMENTED: Ping animation for visibility ---
+                <div className="relative flex items-center justify-center">
+                  <Image
+                    src="/bot.png"
+                    alt="Open Chat"
+                    width={56}
+                    height={56}
+                    className="w-14 h-14 rounded-full"
+                    priority={false}
+                  />
+                  <span className="absolute inset-0.5 rounded-full border-2 border-white/50 opacity-75 animate-ping" />
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </motion.button>
+      </div>
     </div>
-  )
-} 
+  );
+}
