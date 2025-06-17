@@ -38,9 +38,7 @@ export function ResourceCard({
   onRemoveFromFolder,
   showRemoveOption = false,
 }: ExtendedResourceCardProps) {
-  const { handleDownloadResource } = useResourceStore((state) => ({
-    handleDownloadResource: state.handleDownloadResource,
-  }));
+  const handleDownloadResource = useResourceStore((state) => state.handleDownloadResource);
 
   // State management
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -84,12 +82,12 @@ export function ResourceCard({
   const handleZoomOut = () => setZoomLevel((prev) => Math.max(prev - 0.2, 0.5));
 
   // Folder assignment handler for UI
-  const handleAddToFolder = async (folderId: string) => {
+  const handleAddToFolder = async (resourceId: string,folderId: string) => {
     try {
       setOptimisticFolderId(folderId);
       setLoadingFolder(true);
       setShowFolderMenu(false);
-      await onAddToFolder(resource.id, folderId);
+      await onAddToFolder(resourceId, folderId);
       setLoadingFolder(false);
     } catch (error) {
       setLoadingFolder(false);

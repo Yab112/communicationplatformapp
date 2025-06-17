@@ -32,7 +32,7 @@ export function ResourceList({
   const addToFolder = async (resourceId: string, folderId: string) => {
     console.log('Adding to folder:', { resourceId, folderId });
     if (resourceId === folderId) {
-      throw new Error('Resource ID and Folder ID cannot be the same');
+      throw new Error('Resource ID and Folder ID cannot be the same for adding to folder.');
     }
     return onAddToFolder 
       ? onAddToFolder(resourceId, folderId)

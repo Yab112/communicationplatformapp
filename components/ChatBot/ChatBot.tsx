@@ -5,7 +5,6 @@ import { Send, Loader2, X, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import type { ChatMessage } from "@/types/chat";
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
