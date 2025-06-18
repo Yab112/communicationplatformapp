@@ -15,10 +15,10 @@ import { format } from "date-fns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useResourceStore } from "@/store/resource-store";
 
 interface ResourceFiltersProps {
   filters: {
-    search: string;
     subject: string;
     year: string;
     fileType: string;
@@ -30,7 +30,7 @@ interface ResourceFiltersProps {
     courseId: string;
     teacherName: string;
   };
-  onFilterChange: (filters: ResourceFiltersProps["filters"]) => void;
+  onFilterChange: (filters: Omit<ResourceFiltersProps["filters"], 'search'>) => void;
   onClearFilters: () => void;
 }
 
@@ -40,6 +40,7 @@ export function ResourceFilters({ filters, onFilterChange, onClearFilters }: Res
   const [availableCourses, setAvailableCourses] = useState<string[]>([]);
   const [departmentSearch, setDepartmentSearch] = useState("");
   const [courseSearch, setCourseSearch] = useState("");
+  const { searchQuery, setSearchQuery } = useResourceStore();
 
   // Sync selectedDepartment with filters.department on mount or filter change
   useEffect(() => {
@@ -71,7 +72,7 @@ export function ResourceFilters({ filters, onFilterChange, onClearFilters }: Res
   );
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    onFilterChange({ ...filters, search: e.target.value });
+    setSearchQuery(e.target.value);
   };
 
   const handleTeacherNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,7 +115,8 @@ export function ResourceFilters({ filters, onFilterChange, onClearFilters }: Res
     (filters.dateRange.from || filters.dateRange.to ? 1 : 0) +
     (filters.department ? 1 : 0) +
     (filters.courseId ? 1 : 0) +
-    (filters.teacherName ? 1 : 0);
+    (filters.teacherName ? 1 : 0) +
+    (searchQuery ? 1 : 0);
 
   return (
     <div className="space-y-4">
@@ -125,15 +127,15 @@ export function ResourceFilters({ filters, onFilterChange, onClearFilters }: Res
             type="search"
             placeholder="Search resources..."
             className="pl-8"
-            value={filters.search}
+            value={searchQuery}
             onChange={handleSearchChange}
           />
-          {filters.search && (
+          {searchQuery && (
             <Button
               variant="ghost"
               size="sm"
               className="absolute right-0 top-0 h-9 w-9 p-0"
-              onClick={() => onFilterChange({ ...filters, search: "" })}
+              onClick={() => setSearchQuery("")}
             >
               <X className="h-4 w-4" />
               <span className="sr-only">Clear search</span>

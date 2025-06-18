@@ -65,7 +65,7 @@ export const useResourceStore = create<ResourceStore>((set, get) => ({
     try {
       const { resources: fetchedResources, error } = await getResources({
         ...(selectedFolder ? { folderId: selectedFolder.id } : {}),
-        ...(!selectedFolder && searchQuery ? { search: searchQuery } : {}),
+        ...(searchQuery ? { search: searchQuery } : {}),
       });
       if (error) throw new Error(error);
 

@@ -43,13 +43,14 @@ export function ResourcesPage() {
     addToFolder,
     removeFromFolder,
     setSelectedFolder,
-    setSearchQuery,
+    searchQuery,
+    setSearchQuery
   } = useResourceStore();
+  
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isFolderModalOpen, setIsFolderModalOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [filters, setFilters] = useState({
-    search: "",
     subject: "",
     year: "",
     fileType: "",
@@ -61,6 +62,7 @@ export function ResourcesPage() {
       to: undefined as Date | undefined,
     },
   });
+  
   const [showFoldersDropdown, setShowFoldersDropdown] = useState(false);
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "a-z">("newest");
   const { user } = useUser();
@@ -77,20 +79,24 @@ export function ResourcesPage() {
     fetchResources({ showFullLoading: true });
   }, [selectedFolder, fetchResources]);
 
-  // Keep search query in sync with store
-  useEffect(() => {
-    setSearchQuery(filters.search);
-  }, [filters.search, setSearchQuery]);
-
   // Filter and sort resources for display
   const filteredResources = useMemo(() => {
-    let currentResources = resources;
+    let currentResources = resources.filter(resource => {
+      // Search in title and description
+      const searchLower = searchQuery?.toLowerCase() || '';
+      if (searchLower) {
+        const titleMatch = resource.title.toLowerCase().includes(searchLower);
+        const descMatch = resource.description?.toLowerCase().includes(searchLower) || false;
+        if (!titleMatch && !descMatch) {
+          return false;
+        }
+      }
+      return true;
+    });
     currentResources = currentResources.filter((resource) => {
       if (
         filters.teacherName &&
-        !resource.uploadedBy.name
-          .toLowerCase()
-          .includes(filters.teacherName.toLowerCase())
+        !resource.uploadedBy?.name?.toLowerCase().includes(filters.teacherName.toLowerCase())
       )
         return false;
       if (
@@ -134,7 +140,7 @@ export function ResourcesPage() {
         );
       return a.title.localeCompare(b.title);
     });
-  }, [resources, filters, selectedFolder, sortBy]);
+  }, [resources, filters, selectedFolder, sortBy, searchQuery]);
 
   const resourcesToDisplay = filteredResources;
 
@@ -155,6 +161,11 @@ export function ResourcesPage() {
     setSelectedFolder(null);
     router.push("/resources");
   };
+  
+  // Clear search when folder changes
+  useEffect(() => {
+    setSearchQuery("");
+  }, [selectedFolder, setSearchQuery]);
 
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -231,6 +242,16 @@ export function ResourcesPage() {
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
+          
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsFolderModalOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Create Folder
+            </Button>
+          {(user?.role === "admin" || user?.role === "teacher" )&& (
           <Button
             variant="outline"
             size="sm"
@@ -239,6 +260,7 @@ export function ResourcesPage() {
             <Plus className="h-4 w-4 mr-2" />
             Upload Resource
           </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -301,25 +323,25 @@ export function ResourcesPage() {
 
       {/* Resource Filters - Show only in main view */}
       {!selectedFolder && (
-        <ResourceFilters
-          filters={filters}
-          onFilterChange={setFilters}
-          onClearFilters={() => {
-            setFilters({
-              search: "",
-              subject: "",
-              year: "",
-              fileType: "",
-              department: "",
-              courseId: "",
-              teacherName: "",
-              dateRange: {
-                from: undefined,
-                to: undefined,
-              },
-            });
-          }}
-        />
+          <ResourceFilters
+            filters={filters}
+            onFilterChange={setFilters}
+            onClearFilters={() => {
+              setFilters({
+                subject: "",
+                year: "",
+                fileType: "",
+                department: "",
+                courseId: "",
+                teacherName: "",
+                dateRange: {
+                  from: undefined,
+                  to: undefined,
+                },
+              });
+              setSearchQuery("");
+            }}
+          />
       )}
 
       {/* Resource List or Folder View */}
@@ -348,10 +370,12 @@ export function ResourcesPage() {
       {/* Empty state for main resource list */}
       {!isLoading &&
         !selectedFolder &&
-        filteredResources.length === 0 &&
-        filters.search && (
+        filteredResources.length === 0 && (
           <div className="p-4 text-center text-muted-foreground">
-            No resources found matching your search criteria.
+            {searchQuery 
+              ? "No resources found matching your search criteria."
+              : "No resources found with the current filters."
+            }
           </div>
         )}
 
