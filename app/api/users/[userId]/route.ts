@@ -17,7 +17,7 @@ export async function GET(
     if (!userId) {
       return new NextResponse("User ID is required", { status: 400 })
     }
-    const user = await db.user.findUnique({
+    const user = await db.user.findUnique({ 
       where: { id: userId },
       select: {
         id: true,

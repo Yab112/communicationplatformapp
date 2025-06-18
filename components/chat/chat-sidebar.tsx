@@ -122,6 +122,24 @@ export function ChatSidebar({ activeRoomId, onRoomChange, onClose }: ChatSidebar
     }
   }, [rooms, onRoomChange, fetchRooms, toast])
 
+  const handleRoomChange = useCallback((room: ChatRoom) => {
+    setActiveRoom(room)
+    // Set unreadCount to 0 for the opened room in local state
+    setRooms(prevRooms => prevRooms.map(r =>
+      r.id === room.id
+        ? {
+            ...r,
+            unreadCount: 0,
+            // If the room has messages, update lastMessage from the activeRoom's messages
+            lastMessage: room.lastMessage && room.lastMessage.content ? room.lastMessage : r.lastMessage
+          }
+        : r
+    ))
+    if (isMobile) {
+      setSidebarOpen(false)
+    }
+  }, [isMobile])
+
   const getFilteredRooms = useCallback(() => {
     if (isLoading) return []
     
@@ -306,7 +324,7 @@ function ChatRoomItem({ room, isActive, onClick, type }: ChatRoomItemProps) {
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
           <p className="font-medium truncate">{room.name}</p>
-          {lastMessage && (
+          {lastMessage && lastMessage.content && (
             <span className="text-xs text-muted-foreground">
               {formatDistanceToNow(new Date(lastMessage.timestamp), { addSuffix: true })}
             </span>
@@ -314,7 +332,7 @@ function ChatRoomItem({ room, isActive, onClick, type }: ChatRoomItemProps) {
         </div>
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground truncate">
-            {lastMessage ? lastMessage.content : "No messages yet"}
+            {lastMessage && lastMessage.content ? lastMessage.content : "No messages yet"}
           </p>
           {unreadCount > 0 && (
             <Badge variant="default" className="ml-2">
